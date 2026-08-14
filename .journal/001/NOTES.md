@@ -20,3 +20,6 @@ Removed the feat/meta-networking-init worktree and branch, leaving only master a
 
 ## 2026-08-14 19:42 — Switch init clone to SSH
 Changed init.sh to clone git@github.com:GilmanLab/networking.git instead of the HTTPS URL, so the remote no longer depends on the machine-local url.insteadOf rewrite. Committed directly to master as 9f061a4 and pushed. The existing networking/ clone already points at the SSH remote, so no re-clone was needed.
+
+## 2026-08-14 20:04 — Initialize networking repository toolchain
+Initialized GilmanLab/networking directly on master because the repository had no base commit. Added mise with pinned Python 3.14.7, uv 0.12.3, and moon 2.4.6 plus a four-platform mise.lock; a Moon workspace with a docs project; a uv-locked Material for MkDocs site; and a SHA-pinned GitHub Pages workflow. Local `moon run docs:build --summary minimal` completed successfully with MkDocs strict mode. Pushed commits 81affcf and 1bee0c7, set master as the default branch, enabled Pages with Actions, and verified workflow run 31835827669 built and deployed successfully. GitHub reports the inherited Pages URL as http://docs.gilman.io/networking/, and gilmanlab.github.io redirects there, but docs.gilman.io currently has no resolvable DNS record; the deployment exists but the public endpoint is not reachable until DNS is restored.
