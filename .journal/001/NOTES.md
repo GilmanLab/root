@@ -14,3 +14,6 @@ Created the public GilmanLab/networking repository. Added a small idempotent roo
 
 ## 2026-08-14 19:06 — Meta repository bootstrap merged
 Committed the init script and networking ignore rule as 81756b0, fast-forwarded master directly at the user's request, and pushed master to origin without opening a PR.
+
+## 2026-08-14 19:38 — Branch cleanup and master clone
+Removed the feat/meta-networking-init worktree and branch, leaving only master and the journal worktree. Ran ./init.sh in the master checkout, which cloned the empty GilmanLab/networking repository into networking/ and confirmed the path stays ignored. Note: the clone's remote resolved to git@github.com despite the HTTPS URL in the script, so a global Git url.insteadOf rewrite is in effect on this machine.
