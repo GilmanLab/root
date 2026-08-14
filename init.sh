@@ -14,4 +14,4 @@ if [[ -e "$target" ]]; then
   exit 1
 fi
 
-git clone https://github.com/GilmanLab/networking.git "$target"
+git clone git@github.com:GilmanLab/networking.git "$target"
