@@ -17,3 +17,6 @@ Committed the init script and networking ignore rule as 81756b0, fast-forwarded 
 
 ## 2026-08-14 19:38 — Branch cleanup and master clone
 Removed the feat/meta-networking-init worktree and branch, leaving only master and the journal worktree. Ran ./init.sh in the master checkout, which cloned the empty GilmanLab/networking repository into networking/ and confirmed the path stays ignored. Note: the clone's remote resolved to git@github.com despite the HTTPS URL in the script, so a global Git url.insteadOf rewrite is in effect on this machine.
+
+## 2026-08-14 19:42 — Switch init clone to SSH
+Changed init.sh to clone git@github.com:GilmanLab/networking.git instead of the HTTPS URL, so the remote no longer depends on the machine-local url.insteadOf rewrite. Committed directly to master as 9f061a4 and pushed. The existing networking/ clone already points at the SSH remote, so no re-clone was needed.
