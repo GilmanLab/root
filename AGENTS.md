@@ -24,3 +24,11 @@ For work inside a sub-repository:
 4. Run validation, commit, and push from that sub-repository worktree. Integrate through a GitHub pull request with squash merge unless the user explicitly requests a direct default-branch commit.
 5. Do not use `wt merge`, `wt step push`, or local `git merge` as the default integration path. Remove the implementation worktree with `wt remove` after integration.
 6. Never stage cloned sub-repository contents in this meta repository and never convert them to Git submodules.
+
+## Documentation workflow
+
+For documentation work in this meta repository or any cloned sub-repository,
+read and follow `.agents/skills/gilmanlab-documentation/SKILL.md` from the meta
+repository root. Its document classification, ownership rules, lifecycle, and
+decision and design templates are required. Keep this skill canonical in the
+meta repository; do not copy it into each sub-repository.
