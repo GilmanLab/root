@@ -102,10 +102,10 @@ RouterOS identity, chassis labels) is a pending implementation task.
 - **[OPEN]** Verification pass: prove `pikvm01` can reach and control each
   host, including `kvm01` channel switching (likely via its LAN/RS232 control
   path).
-- **[OPEN]** Dependency inversion risk: `pikvm01` (gw01 Port 3) and `kvm01`
-  (gw01 Port 4) get their network connectivity *from* `gw01` — the device they
-  must rescue. If `gw01` is down, the KVM path may be unreachable unless
-  `pikvm01`'s Wi-Fi (or cellular) fallback is configured. Needs an answer.
+- **[DECIDED]** Break-glass path: `pikvm01` has a local monitor/keyboard/mouse
+  attached for non-network access. The `pikvm01`/`kvm01` network dependency on
+  `gw01` is accepted — if `gw01` is down, recovery is physical presence at the
+  local console.
 - **[OPEN]** Role of MS-02 vPro/AMT vs. the KVM chain (power control, BIOS
   access); recovery paths for the switches (no KVM inputs).
 
@@ -127,11 +127,14 @@ RouterOS identity, chassis labels) is a pending implementation task.
 - Each node's non-OS NVMe is its local Incus storage pool.
 - In-cluster data reliability comes from k8s-layer replication
   (Longhorn-style PVC replication across node boundaries).
-- `nas01`'s job: run storage-centric services — e.g., Garage as the lab's
-  "cloud" object storage. `nas01` is accepted as more critical than
-  `lab01`–`lab03` (something must host critical services; the compute nodes
-  stay expendable). Because `nas01` is in the same Incus cluster, cold-moving
-  critical services to a compute node remains a recovery option.
+- `nas01`'s job: run storage-centric services. `nas01` is accepted as more
+  critical than `lab01`–`lab03` (something must host critical services; the
+  compute nodes stay expendable).
+- Bulk capacity plan: 5x ~3TB WD Red drives from Josh's old Synology NAS will
+  move into `nas01`'s five bays; the old RAID gets wiped at that point.
+  Timing: when we're ready, not yet scheduled. [PROVISIONAL]
+- Object storage (Garage) and the critical-data durability/backup story:
+  **deferred** — deliberately undesigned for now.
 
 **[DECIDED]** Investment priority: a repeatable cluster *template* (the "EKS
 experience") — specify a Talos cluster's makeup once (machine config, CNI,
@@ -173,62 +176,42 @@ copy/paste created and destroyed.
   to not work correctly") and matching `security.secureboot` off.
 - Nested virt not needed: Talos VMs are plain KVM guests.
 
-**[OPEN]** within this decision:
-
-- Cluster template contents and tooling: what exactly constitutes a cluster
-  (Talos version pinning, CNI choice, GitOps bootstrap, default storage class,
-  LB integration) and what drives creation (Terraform/OpenTofu? scripts?).
-- IPAM for ephemeral clusters: node IPs and LoadBalancer pools must be
-  allocatable *without* hand-editing `gw01` per cluster, or the EKS-like
-  friction goal fails. Likely shape: reserved workload supernet + BGP
-  advertisement from clusters to `gw01`; undecided.
-- Talos VM attachment: Incus bridge onto lab VLANs vs. OVN overlay.
-- Garage data durability: `nas01` has 2x 1TB NVMe (and empty 3.5" bays?);
-  what does Garage store onto, is it replicated anywhere, and what is the
-  off-node/off-site backup story for critical data?
-- Which NVMe is the IncusOS install target vs. the storage pool on each node
-  (assumed: small drive = OS, large drive = pool — confirm; IncusOS wants
-  ≥50GiB for the system).
-- One-off VM inventory: which workloads are expected to bypass k8s.
-- Cluster-creation machinery fork: CAPN (cluster-api native; adds a
-  management-cluster chicken/egg) vs. OpenTofu with Incus + Talos providers
-  (no CAPI, boring). Both real; undecided.
-- Install-media delivery per node: MS-02s can take seeded ISOs via AMT
-  virtual media; `nas01` has no AMT — PiKVM mass-storage emulation through
-  the TESmart USB hub is unverified, may need direct USB for install day.
-- Does the N5 Pro (`nas01`) satisfy IncusOS's TPM 2.0 + Secure Boot
-  requirements? Verify before committing it to the cluster.
-- Custody of IncusOS secrets: ZFS recovery keys + seed client certs must
-  live outside the lab (Bitwarden?); undecided.
+**[OPEN]** within this decision — tracked in the Tracker below (T08–T15).
 
 Candidate for ADR-0002 (compute platform layering) once the open points above
 have settled enough to record.
 
-## Known inconsistencies / holes (running list)
+## Tracker
 
-Resolved:
+Single source of truth for parallel items. Josh tackles a few at a time; the
+agent maintaining this doc keeps statuses current. Statuses: `open`,
+`in-progress`, `deferred`, `resolved`.
 
-1. ~~UM760 role~~ — resolved: deliberately uncommissioned shelf spare.
-2. ~~NAS 5GbE port~~ — resolved: connected to `sw-mgmt01` port 8; recorded as
-   `PHY-019` in the cabling map (PR #8).
-3. ~~Four-node quorum~~ — resolved by research: `cluster.max_voters` defaults
-   to 3; a 4-node cluster runs 3 voters + 1 stand-by automatically.
+| ID | Item | Status | Next action / note |
+| --- | --- | --- | --- |
+| T01 | OOB verification pass: pikvm01 reaches/controls all 5 hosts incl. kvm01 channel switching | open | Hands-on test session |
+| T02 | Console cabling reference in docs site (KVM chain is undocumented) | open | Fold into next docs PR |
+| T03 | AMT role vs. KVM chain; switch recovery paths (no KVM inputs) | open | Decide during OOB design |
+| T04 | UPS: connect mgmt card; define monitoring + shutdown ordering | open | Hardware task, then design |
+| T05 | Full-load power draw vs. 700W UPS ceiling | open | Measure once compute runs real load |
+| T06 | Apply canonical names to device identities + chassis labels | open | Network gear likely session 001 |
+| T07 | `gw01` Port 1 unconnected — reserved purpose? | open | Josh to answer, low stakes |
+| T08 | Cluster template contents (Talos version, CNI, bootstrap, storage class, LB) | open | Design after T14 spike |
+| T09 | Cluster-creation machinery: CAPN vs. OpenTofu (Incus+Talos providers) | open | Spike both? Lean OpenTofu |
+| T10 | IPAM for ephemeral clusters (workload supernet + BGP to `gw01`?) | open | Coordinate with session 001 addressing |
+| T11 | Talos VM attachment: bridged VLANs now; OVN needs external DB (revisit when IncusOS hosts OVN central) | resolved-for-now | Bridged VLANs |
+| T12 | Disk roles per node: confirm small NVMe = IncusOS, large = pool | open | Confirm at install time |
+| T13 | `nas01` TPM 2.0 + Secure Boot capability for IncusOS | open | Verify in BIOS before cluster commit |
+| T14 | IncusOS seeding/bootstrap deep-dive | in-progress | Research running; Josh wants depth here |
+| T15 | Secrets custody: ZFS recovery keys + seed client certs outside the lab (Bitwarden?) | open | Decide alongside T14 |
+| T16 | Garage / object storage design + critical-data backup story | deferred | Josh deferred entirely |
+| T17 | One-off VM inventory (what bypasses k8s) | deferred | Emerges with usage |
+| T18 | Upstream-of-`rtr01` documentation (WAN/modem) | deferred | Low priority per Josh |
+| T19 | Move 5x 3TB WD Red from old Synology into `nas01` bays, wipe old RAID | open | When storage design is ready |
 
-Open:
-
-3. OOB/recovery: wiring done but untested; console cabling undocumented;
-   `pikvm01`/`kvm01` network dependency on `gw01` unresolved; AMT role and
-   switch recovery paths undefined. See OOB / recovery section.
-4. Upstream of the home router (WAN handoff, modem/ONT) — undocumented,
-   deliberately deprioritized for now.
-5. UPS management card exists but is not hooked up (TODO). Monitoring and
-   shutdown coordination undefined. Idle load fine; full-load draw vs. 700W
-   ceiling untested.
-6. VP6630 Port 1 unconnected — reserved for anything?
-7. ~~Canonical device naming~~ — resolved: registry merged in PR #8. Remaining:
-   apply names to device identities and chassis labels.
-8. Compute platform sub-questions — see Compute platform [OPEN] list (cluster
-   template, IPAM/BGP, Talos VM attachment, Garage durability, disk roles).
+Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
+(PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
+(3 voters + 1 stand-by) · `pikvm01` break-glass = local console at the rack.
 
 ## Decisions log (pointers)
 

@@ -54,3 +54,17 @@ for nas01 (no AMT), secrets custody for recovery keys/seed certs, CAPN vs
 OpenTofu machinery.
 Next: Josh to answer Garage shape/backup, pikvm01 Wi-Fi fallback intent,
 N5 Pro bays plan; then consider ADR-0002 draft.
+
+## 2026-08-14 22:04 — Tracker established; Josh's answers recorded
+Josh asked the agent to own item tracking (too many parallel threads).
+VISION.md holes list restructured into a Tracker table (T01–T19) with
+statuses open/in-progress/deferred/resolved.
+Answers: Garage + critical-data backup story deferred entirely (T16).
+pikvm01 break-glass = local monitor/kb/mouse at the rack; gw01 network
+dependency accepted (resolved). nas01 bulk capacity: 5x ~3TB WD Red from old
+Synology going into the five bays, old RAID to be wiped when ready (T19).
+Seeding/bootstrap (T14) is Josh's chosen next deep-dive: spawned
+IncusSeedResearch (seed schemas, image production/CI, cert story, cluster
+bootstrap sequencing, network pre-seeding, AMT delivery, Operations Center
+maturity, reseeding). Results to fold into VISION.md and likely a bootstrap
+design draft.
