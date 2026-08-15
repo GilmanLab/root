@@ -1,0 +1,56 @@
+site_name: GilmanLab
+site_description: Centralized architecture, decision, design, reference, and operations documentation for GilmanLab
+site_url: https://docs.gilman.io/root/
+repo_name: GilmanLab/root
+repo_url: https://github.com/GilmanLab/root
+edit_uri: edit/master/docs/docs/
+docs_dir: docs
+site_dir: build
+strict: true
+
+theme:
+  name: material
+  language: en
+  features:
+    - content.action.edit
+    - navigation.instant
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Decisions:
+      - "ADR-0001: Use VyOS for Layer 3 and Dedicated Switches for Layer 2": decisions/0001-use-vyos-for-layer-3-and-switches-for-layer-2.md
+  - Designs:
+      - Drafts:
+          - Lab v2 core network: designs/drafts/lab-v2-core-network.md
+  - Reference:
+      - Networking:
+          - Hardware: reference/networking/hardware.md
+          - Physical connections: reference/networking/physical-connections.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
