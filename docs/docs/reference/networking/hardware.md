@@ -5,19 +5,21 @@ description: Core network devices and their assigned roles.
 
 # Hardware
 
+Device names are canonical per the [naming registry](../naming.md).
+
 ## Core devices
 
-| Component | Platform | Role |
+| Device | Platform | Role |
 | --- | --- | --- |
-| Lab gateway | Minisforum VP6630 running VyOS | Routes lab networks, enforces firewall policy, and performs source NAT |
-| Core switch | MikroTik `CRS309-1G-8S+IN` | Carries lab VLANs and connects lab devices at Layer 2 |
-| Management/OOB switch | TRENDnet `TEG-3102WS` | Connects both non-SFP NICs from each MS-02 for management/OOB traffic |
+| `gw01` | Protectli VP6630 running VyOS | Routes lab networks, enforces firewall policy, and performs source NAT |
+| `sw-core01` | MikroTik `CRS309-1G-8S+IN` | Carries lab VLANs and connects lab devices at Layer 2 |
+| `sw-mgmt01` | TRENDnet `TEG-3102WS` | Connects both non-SFP NICs from each MS-02 for management/OOB traffic |
 
 ## External dependency
 
-| Component | Platform | Role |
+| Device | Platform | Role |
 | --- | --- | --- |
-| Home router | MikroTik `CRS309-1G-8S+IN` (second unit of the core-switch model) | Routes the home network, provides internet access, and terminates the upstream side of the routed lab transit |
+| `rtr01` | MikroTik `CRS309-1G-8S+IN` | Routes the home network, provides internet access, and terminates the upstream side of the routed lab transit |
 
 Models and physical specifications live in the
 [hardware inventory](../hardware-inventory.md). The
