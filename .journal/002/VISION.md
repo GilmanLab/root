@@ -173,6 +173,49 @@ image to disk, or Rufio driving AMT boot/media) before it can be relied on.
 Secure Boot key enrollment wiping Microsoft CA keys may also break netbooting
 HookOS on already-enrolled nodes.
 
+### Seeding & install mechanics (researched 2026-08-14, primary sources)
+
+Full brief: `IncusSeedResearch` (session 002 notes). Load-bearing facts:
+
+- **Seed = uncompressed tar** in the image's `seed-data` partition. Sections
+  (YAML/JSON, strict schemas — unknown fields fail): `install` (incl. disk
+  `target` selection by bus/id/size/sort, `force_install`), `applications`,
+  `incus` (full Incus `InitPreseed`: trust certs, pools, networks, profiles,
+  cluster join fields), `network` (full static config: interfaces bound by
+  MAC via `strict_hwaddr`, bonds, VLANs, addresses, routes, roles
+  `management|cluster|instances|storage`), `update`, `kernel`, `security`
+  (**`encryption_recovery_keys` can be pre-set** → T15), `provider`,
+  `services`, `certificates/*.crt`.
+- **Headless/CI image production is official**: `flasher-tool --image <iso|img>
+  --seed <tar>` injects non-interactively. Reproducibility = pin image
+  checksum + flasher version + deterministic tar. GitOps-compatible: seed
+  templates in git, CI renders per-node images (only *public* client cert in
+  seed; private key stays out).
+- **Recommended shape: 4 images from one template set** — common sections +
+  per-node `network.yaml` (hostname, static addrs, MAC-bound interfaces).
+  Bootstrap node `apply_defaults: true`; joiners `apply_defaults: false`
+  (required — join refuses members with existing networks/pools).
+- **Cluster formation**: post-boot `incus remote add` each node →
+  `incus cluster enable` on node 1 → `incus cluster join` per joiner (issues
+  its own token; local ZFS answers are `local/incus`). Fully-preseeded join is
+  technically possible but not the blessed path (embeds short-lived tokens in
+  images).
+- **Network pre-seeding works**: node boots reachable on seeded static config
+  with zero console interaction. AMT-shared NIC caveat (issue #705): leave
+  roles off the AMT-shared interface; keep management/cluster on the primary.
+- **Delivery**: ISO is *non-hybrid* — virtual-CD (AMT) only; USB needs the
+  IMG written raw. MS-02s: AMT virtual CD with `force_reboot: false` (installer
+  waits for media removal). `nas01`: USB stick, one-time manual — acceptable.
+- **Reprovisioning without media**: `incus admin os system factory-reset`
+  API wipes apps/config/data pool, resets TPM state, writes *new seeds*, and
+  reboots — a built-in rebuild-from-seed loop on an installed node. Full
+  image reinstall = boot seeded media with `force_install: true` (AMT-remote
+  on MS-02s).
+- **Operations Center** (v0.8.1, pre-1.0): can do token-based pre-seeded
+  images, auto-registration, central cluster formation — assessed as too much
+  machinery for a one-time 4-node bootstrap; adopt deliberately later if
+  fleet-control-plane is the goal.
+
 **[DECIDED]** Storage philosophy: no hyperconverged storage.
 
 - Each node's non-OS NVMe is its local Incus storage pool.
@@ -251,15 +294,15 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T09 | ~~Cluster-creation machinery~~ | resolved | CAPI it is (Josh: CAPI is the EKS mechanism, GitOps-driven); CAPN not-CI-tested risk stands — spike before trusting |
 | T10 | IPAM for ephemeral clusters (workload supernet + BGP to `gw01`?) | open | Coordinate with session 001 addressing |
 | T11 | Talos VM attachment: bridged VLANs now; OVN needs external DB (revisit when IncusOS hosts OVN central) | resolved-for-now | Bridged VLANs |
-| T12 | Disk roles per node: confirm small NVMe = IncusOS, large = pool | open | Confirm at install time |
+| T12 | Disk roles per node: seed `install.target` (bus/id/min/max_size/sort_order) selects install disk deterministically — encode small-NVMe target in seed | open | Encode in seed templates |
 | T13 | `nas01` TPM 2.0 + Secure Boot capability for IncusOS | open | Verify in BIOS before cluster commit |
-| T14 | IncusOS seeding/bootstrap deep-dive | in-progress | Research running; Josh wants depth here |
-| T15 | Secrets custody: ZFS recovery keys + seed client certs outside the lab (Bitwarden?) | open | Decide alongside T14 |
+| T14 | ~~IncusOS seeding/bootstrap deep-dive~~ | resolved | Research done; facts in Seeding & install mechanics. Next deliverable: bootstrap design draft |
+| T15 | Secrets custody: ZFS recovery keys + seed client certs outside the lab (Bitwarden?) | open | Recovery keys are seedable (`security.encryption_recovery_keys`) — generate, seed, custody in Bitwarden |
 | T16 | Garage / object storage design + critical-data backup story | deferred | Josh deferred entirely |
 | T17 | One-off VM inventory (what bypasses k8s) | deferred | Emerges with usage |
 | T18 | Upstream-of-`rtr01` documentation (WAN/modem) | deferred | Low priority per Josh |
 | T19 | Move 5x 3TB WD Red from old Synology into `nas01` bays, wipe old RAID | open | When storage design is ready |
-| T20 | Tinkerbell → IncusOS delivery: verify a netboot/image-to-disk or AMT-media path exists (no documented PXE install) | open | Spike; step 4 of bootstrap depends on it |
+| T20 | Tinkerbell → IncusOS delivery: no PXE path; factory-reset API + AMT-media reinstall now cover the reprovision loop without Tinkerbell — does Tinkerbell still earn a critical-service seat? | open | Josh to re-justify or drop; spike only if kept |
 | T21 | Management-cluster stretch onto lab01–03 (escape single-`nas01` failure domain) | deferred | Josh explicitly not thinking that far ahead |
 | T22 | GitOps engine + where Git itself lives (GitHub vs. in-lab) — the source of truth needs a home with a failure story | open | Josh has ideas; capture next |
 | T23 | Tinkerbell network requirements (DHCP/PXE VLAN, IP scope) — collides with undecided DHCP ownership | open | Coordinate with session 001 |

@@ -83,3 +83,22 @@ stretch (deferred), T22 GitOps engine + Git home, T23 Tinkerbell DHCP/PXE
 network needs (session 001 coordination), T24 Vault bootstrap/DR.
 Accepted risk noted: mgmt cluster = single nas01 failure domain until
 stretched.
+
+## 2026-08-14 22:25 — Seed research folded in (T14 resolved)
+IncusSeedResearch brief (45KB, full text at history://IncusSeedResearch)
+distilled into VISION.md "Seeding & install mechanics". Headlines: seed =
+tar in seed-data partition, strict YAML schemas (install/applications/
+incus-InitPreseed/network/update/kernel/security/provider/services/certs);
+official headless injection via flasher-tool --image --seed (CI-able, pin
+checksums); 4 images from one template set with per-node network.yaml
+(MAC-bound, static addrs; bootstrap apply_defaults:true, joiners false);
+post-boot cluster enable/join is the blessed path; AMT virtual CD for
+MS-02s (force_reboot:false), USB IMG for nas01; encryption recovery keys
+seedable (T15 shape: generate → seed → Bitwarden); factory-reset API =
+rebuild-from-seed loop without media. OC v0.8.1 assessed too heavy for
+one-time 4-node bootstrap.
+T14 resolved. T12 sharpened (install.target in seed). T20 reframed: with
+factory-reset + AMT reinstall, Tinkerbell may not earn its critical seat —
+Josh to re-justify or drop.
+Next: Josh reacts to bootstrap sketch; then draft designs/drafts bootstrap
+design + likely ADR-0002.
