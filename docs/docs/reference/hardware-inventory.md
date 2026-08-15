@@ -8,7 +8,8 @@ description: Physical inventory of lab equipment with models, quantities, and sp
 This document is the physical inventory of lab equipment. It records models,
 quantities, product references, and concrete specifications.
 
-Role assignments for core network devices live in the
+Canonical device names live in the [naming registry](naming.md). Role
+assignments for core network devices live in the
 [networking hardware reference](networking/hardware.md). Installed cabling
 lives in the [physical connection map](networking/physical-connections.md).
 IP addressing, VLANs, and other network configuration belong to the network

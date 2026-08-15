@@ -37,6 +37,7 @@ nav:
       - Drafts:
           - Lab v2 core network: designs/drafts/lab-v2-core-network.md
   - Reference:
+      - Device naming: reference/naming.md
       - Hardware inventory: reference/hardware-inventory.md
       - Networking:
           - Hardware: reference/networking/hardware.md

@@ -23,6 +23,8 @@ and runbook lives here.
 
 ## Reference
 
+- [Device naming](reference/naming.md) is the canonical registry of device
+  names and the rules for assigning them.
 - [Hardware inventory](reference/hardware-inventory.md) records every physical
   device in the lab with its model and specifications.
 - [Networking hardware](reference/networking/hardware.md) identifies the core
