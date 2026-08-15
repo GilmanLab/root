@@ -127,3 +127,17 @@ VISION.md: new "Product vs. instance" section with agent implication (image
 build/distribution belongs product-side; lab consumes). T25 → in-progress,
 product-side. T26 opened: product/instance boundary + interim-manual vs
 block-on-product bootstrap ruling.
+
+## 2026-08-15 12:53 — OCI-backed distribution vision captured
+Josh's distribution vision recorded in VISION.md under Core principles:
+configs in git → CI publishes reproducible/tagged OCI artifacts → consumers
+fetch. Legs: (1) IncusOS seed configs in git, seeded images to GHCR, burn
+tool product-side; runtime Incus config via OpenTofu Incus provider; (2)
+Talos builder TBD + CAPI integration research (T27; flagged: CAPN injects
+config at create → generic images may suffice; Sidero image-factory is
+self-hostable); (3) bootc-style or Fedora CoreOS one-off VM images (T29,
+deferred). T28 opened: secrets in published seeded images — proposed
+burn-time SEED_DATA overlay or secret-free seeds. T22 sharpened: GHCR
+implies GitHub as git home; internet = cold-start dependency to accept.
+Still awaiting: T20 Tinkerbell ruling, T26 boundary ruling, step-3 deploy
+mechanism dump.
