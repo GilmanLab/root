@@ -1,0 +1,12 @@
+projects:
+  sources:
+    docs: 'docs'
+
+defaultProject: 'docs'
+
+vcs:
+  defaultBranch: 'master'
+  provider: 'github'
+
+pipeline:
+  installDependencies: false

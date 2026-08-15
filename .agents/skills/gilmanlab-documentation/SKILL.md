@@ -26,16 +26,18 @@ all-purpose documentation format:
 - Use [arc42](https://docs.arc42.org/) concepts selectively when describing
   architecture. Do not require a complete arc42 document.
 
-Documentation is code: keep it beside the system it describes, review it with
-implementation changes, and maintain one canonical source for each fact.
+Documentation is code: review it with implementation changes and maintain one
+canonical source for each fact.
 
 ## Locate the content root
 
-`<docs-root>` means the content directory configured by the repository's site
-generator. If the repository has no site generator, use `<repo>/docs/`.
+`<docs-root>` is the meta repository's `docs/docs/` content directory, built by
+the MkDocs project at `<meta-repo>/docs/`. All GilmanLab documentation lives
+there, regardless of which repository owns the implementation.
 
-Inspect the existing configuration before creating directories. Never create a
-second documentation tree beside an established content root.
+Never create a documentation tree inside a sub-repository. If one exists, treat
+it as a migration candidate into the central site, not as a second content
+root.
 
 ## Standard structure
 
@@ -68,7 +70,8 @@ merging their content.
 
 ## Authoring workflow
 
-1. Identify the owning repository and its configured `<docs-root>`.
+1. Search the central `<docs-root>` for an existing canonical document before
+   writing; extend or link instead of duplicating.
 2. Classify the reader's need using the table above.
 3. For a decision or design, copy the corresponding template from
    `references/` beside this skill.
@@ -77,9 +80,10 @@ merging their content.
 5. Link canonical configuration, issues, experiments, and related documents.
    Do not copy exact values that already have a better source of truth.
 6. When implementation changes behavior, update affected architecture,
-   reference, and runbook documents in the same change.
-7. Build the documentation site and check links using the repository's normal
-   task before merging.
+   reference, and runbook documents as a companion change in the meta
+   repository.
+7. Build the documentation site with `moon run docs:build` and fix strict-mode
+   failures before merging.
 
 ## Architecture contract
 
@@ -180,8 +184,13 @@ concept tutorial or duplicate command reference.
 
 ## Cross-repository ownership
 
-The repository that owns the implementation owns its documentation. For a
-cross-repository design, choose the repository that owns the integration or
-operational outcome, then link to it from the others. The meta repository may
-provide navigation and genuinely cross-cutting architecture; it must not mirror
-sub-repository documentation.
+All documentation lives in the meta repository's central site; implementation
+lives in the owning repositories. Namespace domain-specific reference material
+by domain (for example `reference/networking/`), keep one global decision
+sequence, and let design titles scope themselves.
+
+The implementing repository's changes and their documentation updates ship as
+companion changes: when a sub-repository change alters documented behavior,
+update the central documents in the same unit of work. Keep exact values
+(addresses, VLANs, ports, hardware) in one canonical reference document and
+link to it from every other document.

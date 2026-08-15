@@ -32,3 +32,12 @@ read and follow `.agents/skills/gilmanlab-documentation/SKILL.md` from the meta
 repository root. Its document classification, ownership rules, lifecycle, and
 decision and design templates are required. Keep this skill canonical in the
 meta repository; do not copy it into each sub-repository.
+
+All GilmanLab documentation is centralized in this repository under `docs/`.
+Sub-repositories must not create their own `docs/` trees; a documentation
+change motivated by sub-repository work is a companion change in this
+repository. When a sub-repository change alters behavior that is documented
+here, update the affected documents in the same unit of work.
+
+Build and verify the site with `moon run docs:build` before merging
+documentation changes.
