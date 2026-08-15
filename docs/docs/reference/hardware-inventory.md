@@ -91,11 +91,16 @@ documentation, not this inventory.
 ### TESmart 8x1 HDMI KVM Switch
 
 - Quantity: `1`
+- Product page: <https://www.tesmart.com/products/hks801-eb23>
 - Hardware details:
+  - Model: `HKS801-EB23-USBK`
   - `8x HDMI` inputs, `1x HDMI` output
   - Controls up to 8 computers from one keyboard, mouse, and monitor
+  - Up to `3840x2160@30Hz` video
+  - `2x USB 2.0` hub ports
+  - EDID emulator on each input
+  - Front-panel, keyboard-hotkey, IR, and RS232 switching control
   - Rack-mountable
-  - Exact TESmart `8x1` model is not specified
 
 ### UPS
 
