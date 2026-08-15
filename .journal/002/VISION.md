@@ -45,6 +45,38 @@ a bare-metal setup. Implications agents should internalize:
    rebuild-from-scratch-able systems. (This is exactly why IncusOS was chosen
    as the bare-metal hypervisor.)
 
+## Product vs. instance (componere & imgoci)
+
+**[DECIDED]** GilmanLab is not a one-off: Josh is building a generalized OSS
+"cloud" product, and the lab is that product applied to his hardware.
+
+- **componere** (`~/code/componere`, meta-repo) — the general OSS bare-metal
+  cloud product. Sub-repos (early; most still template scaffolding):
+  - `incusos-builder` — active development; vendors the upstream `incus-os`
+    mkosi tree as reference. This *is* the image-factory territory (T25).
+  - `incus-vm-oci` — presumed: VM images distributed as OCI artifacts.
+  - `incus-bootc` — presumed: container-image-driven (bootc-style) OS images
+    for Incus.
+  - `imgoci` — presumed: componere-side imgoci integration.
+  (Presumed roles unconfirmed — Josh to correct.)
+- **imgoci** (`~/code/imgoci`, meta-repo) — OS-image releases stored in OCI
+  registries:
+  - `spec` — the imgoci release-format specification (draft; CUE schema +
+    conformance corpus; Community Spec licensed).
+  - `bigoci` — mature Go library for multi-GB file push/pull to OCI
+    registries (chunked, parallel, resumable; benchmarked; ~v0.1.0).
+  - `go-oci-blob` — lower-level OCI blob transfer client.
+  - `go` — canonical Go implementation of the spec (early).
+
+Implication for agents: lab capabilities that overlap this suite (image
+building, image distribution) belong in the *product* repos and get consumed
+by the lab — don't build lab-local one-offs of them. Inverse implication: the
+lab is the product's proving ground, so lab needs drive product priorities.
+
+**[OPEN]** Boundary questions: where does the *instance* config live (this
+meta repo?); what does the lab consume at which product maturity; does
+bootstrap block on componere or use an interim manual flow first? (T26)
+
 ## Device naming
 
 **[DECIDED]** Approved by Josh 2026-08-14; shipped in PR #8. Canonical
@@ -313,7 +345,8 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T22 | GitOps engine + where Git itself lives (GitHub vs. in-lab) — the source of truth needs a home with a failure story | open | Josh has ideas; capture next |
 | T23 | Tinkerbell network requirements (DHCP/PXE VLAN, IP scope) | open | Moot if T20 resolves as "drop" |
 | T24 | Vault bootstrap + DR: unseal strategy, backup, and what depends on Vault during cold start | open | Design with bootstrap flow |
-| T25 | Image factory: bespoke tool, config file → seeded ISO/IMG (Josh's stated intent). Design sketch: thin wrapper over pinned `flasher-tool`; Go + upstream `incus-osd/api/seed` types for schema-valid seeds; deterministic tar; secrets injected at render time (Bitwarden → later Vault), never stored in git; artifacts contain secrets — generate on demand, don't publish; CLI first (bootstrap runs pre-CI), CI job later | open | Spike candidate — prototype then design |
+| T25 | Image factory → lives in the *product*: `componere/incusos-builder` (active dev). Design opinions parked there: thin wrapper over pinned `flasher-tool`; upstream `incus-osd/api/seed` types for schema-valid seeds; deterministic tar; render-time secrets (never in git); seeded artifacts are secret material — generate on demand | in-progress | Product-side work; lab consumes it |
+| T26 | Product/instance boundary: where instance config lives; what the lab consumes at which componere maturity; interim manual bootstrap vs. blocking on the product | open | Josh to rule; agile default = interim manual flow, replace with product as it matures |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue

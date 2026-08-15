@@ -113,3 +113,17 @@ deterministic tar, render-time secrets, CLI-first).
 T20 updated: recommended dropping Tinkerbell (homogeneous fleet + factory-
 reset/AMT cover the loop; OC is the vendor-native MaaS path at scale);
 awaiting Josh's ruling. T23 moot if dropped.
+
+## 2026-08-15 12:43 — Product/instance split revealed (componere & imgoci)
+Josh disclosed ~/code/componere (generalized OSS cloud product; GilmanLab =
+that product on his hardware) and ~/code/imgoci (OS-image releases in OCI
+registries). Surveyed both meta-repos: componere/incusos-builder in active
+dev (vendors upstream incus-os mkosi tree) = the image factory; incus-vm-oci,
+incus-bootc, componere/imgoci still template scaffolds (roles presumed,
+unconfirmed). imgoci/spec = draft release-format spec (CUE + conformance);
+bigoci = mature chunked large-file OCI transfer lib (~v0.1.0); go-oci-blob
+lower-level; imgoci/go = canonical impl, early.
+VISION.md: new "Product vs. instance" section with agent implication (image
+build/distribution belongs product-side; lab consumes). T25 → in-progress,
+product-side. T26 opened: product/instance boundary + interim-manual vs
+block-on-product bootstrap ruling.
