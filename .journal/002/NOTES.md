@@ -102,3 +102,14 @@ factory-reset + AMT reinstall, Tinkerbell may not earn its critical seat —
 Josh to re-justify or drop.
 Next: Josh reacts to bootstrap sketch; then draft designs/drafts bootstrap
 design + likely ADR-0002.
+
+## 2026-08-14 22:36 — Colo frame; image factory intent; Tinkerbell verdict pending
+Josh's design fiction captured in VISION.md purpose: "medium company leaving
+AWS for a colo bare-metal cloud"; new-machine onboarding must have a good
+answer; bare metal is IncusOS-only (homogeneity load-bearing).
+Josh intends a bespoke image factory (config → seeded ISO) — T25 opened with
+design sketch (thin wrapper on flasher-tool, Go + upstream seed API types,
+deterministic tar, render-time secrets, CLI-first).
+T20 updated: recommended dropping Tinkerbell (homogeneous fleet + factory-
+reset/AMT cover the loop; OC is the vendor-native MaaS path at scale);
+awaiting Josh's ruling. T23 moot if dropped.

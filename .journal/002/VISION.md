@@ -28,6 +28,12 @@ a bare-metal setup. Implications agents should internalize:
   deliberately volatile.
 - Bleeding-edge choices are a feature, not a risk to argue against — flag
   maturity risks, don't veto them.
+- Design fiction to apply when judging choices: *a medium-sized company
+  leaving AWS to stand up a bare-metal cloud in a colo.* Decisions should
+  look sensible in that world, scaled down. Corollary: "we bought another
+  machine — how does it get online quickly?" is a workflow that must have a
+  good answer, and everything on bare metal is IncusOS (homogeneity is
+  load-bearing).
 
 ## Core principles
 
@@ -302,11 +308,12 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T17 | One-off VM inventory (what bypasses k8s) | deferred | Emerges with usage |
 | T18 | Upstream-of-`rtr01` documentation (WAN/modem) | deferred | Low priority per Josh |
 | T19 | Move 5x 3TB WD Red from old Synology into `nas01` bays, wipe old RAID | open | When storage design is ready |
-| T20 | Tinkerbell → IncusOS delivery: no PXE path; factory-reset API + AMT-media reinstall now cover the reprovision loop without Tinkerbell — does Tinkerbell still earn a critical-service seat? | open | Josh to re-justify or drop; spike only if kept |
+| T20 | Tinkerbell's seat: MaaS instinct, but fleet is homogeneous IncusOS (load-bearing) and factory-reset + AMT/USB seeded media cover onboarding/reprovision; OC is the vendor-native MaaS trajectory | open | Recommendation: drop from critical services; awaiting Josh's ruling |
 | T21 | Management-cluster stretch onto lab01–03 (escape single-`nas01` failure domain) | deferred | Josh explicitly not thinking that far ahead |
 | T22 | GitOps engine + where Git itself lives (GitHub vs. in-lab) — the source of truth needs a home with a failure story | open | Josh has ideas; capture next |
-| T23 | Tinkerbell network requirements (DHCP/PXE VLAN, IP scope) — collides with undecided DHCP ownership | open | Coordinate with session 001 |
+| T23 | Tinkerbell network requirements (DHCP/PXE VLAN, IP scope) | open | Moot if T20 resolves as "drop" |
 | T24 | Vault bootstrap + DR: unseal strategy, backup, and what depends on Vault during cold start | open | Design with bootstrap flow |
+| T25 | Image factory: bespoke tool, config file → seeded ISO/IMG (Josh's stated intent). Design sketch: thin wrapper over pinned `flasher-tool`; Go + upstream `incus-osd/api/seed` types for schema-valid seeds; deterministic tar; secrets injected at render time (Bitwarden → later Vault), never stored in git; artifacts contain secrets — generate on demand, don't publish; CLI first (bootstrap runs pre-CI), CI job later | open | Spike candidate — prototype then design |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
