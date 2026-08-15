@@ -17,7 +17,7 @@ description: Core network devices and their assigned roles.
 
 | Component | Platform | Role |
 | --- | --- | --- |
-| Home router | MikroTik CCR2004 | Routes the home network, provides internet access, and terminates the upstream side of the routed lab transit |
+| Home router | MikroTik `CRS309-1G-8S+IN` (second unit of the core-switch model) | Routes the home network, provides internet access, and terminates the upstream side of the routed lab transit |
 
 Models and physical specifications live in the
 [hardware inventory](../hardware-inventory.md). The

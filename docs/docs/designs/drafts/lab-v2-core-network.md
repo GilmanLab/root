@@ -16,8 +16,9 @@ related-decisions:
 The core network uses a Minisforum VP6630 running VyOS for Layer 3 routing,
 firewall policy, and NAT. A MikroTik CRS309-1G-8S+IN handles core Layer 2
 switching and VLAN transport. A TRENDnet TEG-3102WS connects both non-SFP NICs
-from each MS-02 to the VP6630 for management/OOB traffic. A MikroTik CCR2004
-connects the lab to the home network and the internet.
+from each MS-02 to the VP6630 for management/OOB traffic. A second MikroTik
+CRS309-1G-8S+IN acts as the home router and connects the lab to the home
+network and the internet.
 
 This design defines device responsibilities, logical topology, configuration
 requirements, failure boundaries, and verification criteria. Address
@@ -27,7 +28,7 @@ ownership are outside this document.
 ## Goals
 
 - Keep routing and traffic policy on VyOS.
-- Keep core VLAN transport and physical switching on the CRS309-1G-8S+IN.
+- Keep core VLAN transport and physical switching on the core CRS309-1G-8S+IN.
 - Carry MS-02 management/OOB traffic through the TEG-3102WS.
 - Route home-to-lab traffic without source NAT.
 - Apply source NAT to lab-to-internet traffic on VyOS.
@@ -51,17 +52,17 @@ ownership are outside this document.
 
 ```mermaid
 flowchart LR
-    HOME[Home network] --> CCR[CCR2004]
-    CCR -->|Routed transit| VYOS[VP6630 running VyOS]
-    VYOS -->|802.1Q trunk| CRS[CRS309-1G-8S+IN]
+    HOME[Home network] --> RTR[Home router CRS309-1G-8S+IN]
+    RTR -->|Routed transit| VYOS[VP6630 running VyOS]
+    VYOS -->|802.1Q trunk| CRS[Core CRS309-1G-8S+IN]
     CRS --> SEGMENTS[Lab network segments]
     VYOS -->|Management/OOB uplink| TEG[TEG-3102WS]
     TEG -->|Two non-SFP NICs per node| MS02[MS-02 nodes]
 ```
 
-The CCR2004 routes traffic between the home network and the VyOS transit
+The home router routes traffic between the home network and the VyOS transit
 interface. VyOS routes lab prefixes, applies firewall policy, and performs
-source NAT for internet egress. The CRS309-1G-8S+IN carries lab VLANs between
+source NAT for internet egress. The core CRS309-1G-8S+IN carries lab VLANs between
 VyOS and connected lab devices. The TEG-3102WS connects directly to the VP6630
 and carries management/OOB traffic for both non-SFP NICs on each MS-02.
 The [physical connection map](../../reference/networking/physical-connections.md) is the
@@ -71,9 +72,9 @@ authoritative port-to-port cabling record.
 
 | Device | Responsibilities |
 | --- | --- |
-| MikroTik CCR2004 | Home-network routing, internet access, and the upstream side of the routed lab transit |
+| MikroTik CRS309-1G-8S+IN (home router) | Home-network routing, internet access, and the upstream side of the routed lab transit |
 | Minisforum VP6630 running VyOS | Lab gateways, route selection, firewall policy, source NAT, the downstream side of the routed transit, and the management/OOB gateway |
-| MikroTik CRS309-1G-8S+IN | Core VLAN transport, access ports, trunks, and physical link aggregation |
+| MikroTik CRS309-1G-8S+IN (core switch) | Core VLAN transport, access ports, trunks, and physical link aggregation |
 | TRENDnet TEG-3102WS | Layer 2 management/OOB connectivity for both non-SFP NICs on each MS-02 and a direct uplink to the VP6630 |
 
 [ADR-0001](../../decisions/0001-use-vyos-for-layer-3-and-switches-for-layer-2.md)
@@ -83,10 +84,10 @@ defines the Layer 2 and Layer 3 boundary.
 
 The routing design has these invariants:
 
-- The CCR2004 has routes for lab prefixes through the VyOS transit address.
-- VyOS uses the CCR2004 transit address as its default route.
+- The home router has routes for lab prefixes through the VyOS transit address.
+- VyOS uses the home router's transit address as its default route.
 - VyOS owns the gateway address for every routed lab segment.
-- The CRS309-1G-8S+IN and TEG-3102WS do not route between lab segments.
+- The core CRS309-1G-8S+IN and TEG-3102WS do not route between lab segments.
 - Home-to-lab traffic retains its original source address.
 - VyOS applies source NAT to lab-to-internet traffic.
 - Firewall rules distinguish new connections from established reply traffic.
@@ -137,12 +138,12 @@ not reside in device configuration committed to the repository.
 
 | Failure | Effect |
 | --- | --- |
-| CCR2004 failure | The lab loses home-network and internet connectivity. Internal lab switching and routing remain available. |
+| Home router failure | The lab loses home-network and internet connectivity. Internal lab switching and routing remain available. |
 | VP6630 or VyOS failure | Routed lab segments lose their gateways, inter-segment routing, policy enforcement, management/OOB gateway, and internet egress. |
-| CRS309-1G-8S+IN failure | Devices connected through the core switch lose Layer 2 connectivity. |
+| Core switch failure | Devices connected through the core switch lose Layer 2 connectivity. |
 | TEG-3102WS or its VP6630 uplink failure | Both non-SFP NICs on each MS-02 lose management/OOB connectivity. |
 | Routed transit failure | Home-to-lab and lab-to-internet traffic stop. Internal lab traffic remains available within its unaffected Layer 2 and Layer 3 paths. |
-| VyOS-to-CRS309 trunk failure | VLANs carried by the trunk lose their VyOS gateways. |
+| VyOS-to-core-switch trunk failure | VLANs carried by the trunk lose their VyOS gateways. |
 | Invalid configuration | Deployment verification fails and the previous configuration is restored. |
 
 ## Verification
@@ -152,7 +153,7 @@ A deployment is valid when the observed behavior matches these checks:
 - Every connected interface reports the assigned link state and speed.
 - Each VLAN is present only on its assigned access ports and trunks.
 - A client in each routed segment reaches its VyOS gateway.
-- The CCR2004 and VyOS route tables contain the required transit and lab routes.
+- The home router and VyOS route tables contain the required transit and lab routes.
 - Home-to-lab traffic retains its home-network source address.
 - Lab-to-internet traffic uses the VyOS source-NAT address.
 - Each permitted firewall flow succeeds.
