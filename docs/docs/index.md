@@ -23,6 +23,8 @@ and runbook lives here.
 
 ## Reference
 
+- [Hardware inventory](reference/hardware-inventory.md) records every physical
+  device in the lab with its model and specifications.
 - [Networking hardware](reference/networking/hardware.md) identifies the core
   network devices and their roles.
 - [Physical connections](reference/networking/physical-connections.md) records
