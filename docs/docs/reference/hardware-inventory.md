@@ -58,15 +58,10 @@ documentation, not this inventory.
   - `1x10GbE` and `1x5GbE` onboard networking
   - `2xUSB4`, HDMI, and OCuLink available
 
-### MikroTik CCR2004
-
-- Quantity: `1`
-- Hardware details:
-  - Exact `CCR2004` variant is not specified
-
 ### MikroTik CRS309-1G-8S+IN
 
-- Quantity: `1`
+- Quantity: `2`
+- Product link: <https://www.amazon.com/dp/B07NFXN4SS>
 - Hardware details:
   - Model: `CRS309-1G-8S+IN`
   - `8x 10G SFP+` ports
