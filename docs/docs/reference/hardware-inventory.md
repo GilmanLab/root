@@ -76,6 +76,27 @@ documentation, not this inventory.
   - `2x 10G SFP+` slots
   - Web smart managed switch
 
+### PiKVM V4 Plus
+
+- Quantity: `1`
+- Product page: <https://shop.hipi.io/product/pikvm-v4-plus>
+- Hardware details:
+  - KVM-over-IP device built on a Raspberry Pi CM4 (`2GB RAM`)
+  - `1080p60` HDMI video capture
+  - `2x USB 3.0` ports and an internal USB 3.0 storage slot
+  - Ethernet and Wi-Fi connectivity; optional cellular
+  - ATX power control
+  - `5.5x2.1mm` DC barrel power input, `8V` to `24V`
+
+### TESmart 8x1 HDMI KVM Switch
+
+- Quantity: `1`
+- Hardware details:
+  - `8x HDMI` inputs, `1x HDMI` output
+  - Controls up to 8 computers from one keyboard, mouse, and monitor
+  - Rack-mountable
+  - Exact TESmart `8x1` model is not specified
+
 ### UPS
 
 - Quantity: `1`
