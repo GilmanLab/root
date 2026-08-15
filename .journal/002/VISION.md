@@ -206,7 +206,6 @@ three nodes, initially all VMs on `nas01`, hosting the critical services:
 | --- | --- |
 | Zitadel | Identity |
 | HashiCorp Vault | Secrets + PKI |
-| Tinkerbell | Bare-metal provisioning |
 | Cluster API (CAPI) | The "EKS" mechanism — integrates with Incus/Talos to spawn clusters, driven by GitOps |
 
 **[PROVISIONAL]** Likely later: additional management-cluster Talos nodes on
@@ -216,7 +215,7 @@ alive. Not designed yet — deliberately.
 Note (accepted risk, worth stating): until that stretch happens, the
 management cluster's three VMs share one failure domain (`nas01`) — etcd
 quorum and Longhorn-style replication protect against VM-level failure only,
-and everything above (identity, secrets, provisioning, cluster factory) rides
+and everything above (identity, secrets, cluster factory) rides
 on one box.
 
 ### Bootstrap sequence
@@ -227,15 +226,17 @@ on one box.
 2. Spawn the three initial Talos management-cluster nodes as Incus VMs.
 3. Set up/deploy the critical services (exact mechanism TBD; Josh has a
    working idea).
-4. Tinkerbell bootstraps IncusOS onto `lab01`–`lab03`.
+4. `lab01`–`lab03` get IncusOS via AMT-mounted seeded ISOs and join the
+   Incus cluster (`incus cluster join`).
 5. Future clusters are spawned via GitOps-applied CAPI resources.
 
-Known tension to resolve (T20): Tinkerbell is PXE/netboot-native, but IncusOS
-documents no PXE install path — only seeded ISO/IMG media. Step 4 needs a
-verified mechanism (e.g., Tinkerbell workflow streaming a seeded IncusOS
-image to disk, or Rufio driving AMT boot/media) before it can be relied on.
-Secure Boot key enrollment wiping Microsoft CA keys may also break netbooting
-HookOS on already-enrolled nodes.
+Resolved 2026-08-15 (T20): Tinkerbell dropped from the critical services.
+The fleet is homogeneous IncusOS with no netboot path; AMT virtual media +
+the factory-reset API cover onboarding and reprovisioning natively. iPXE
+likewise rejected (no published netboot artifacts; UEFI ISO-chainload
+flakiness; Secure Boot key conflicts) — revisit only if upstream ships a
+supported netboot path. Sneakernet elimination: AMT covers `lab01`–`03`;
+`pikvm01` mass-storage emulation may cover `nas01` (verify in T01).
 
 ### Seeding & install mechanics (researched 2026-08-14, primary sources)
 
@@ -347,7 +348,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 
 | ID | Item | Status | Next action / note |
 | --- | --- | --- | --- |
-| T01 | OOB verification pass: pikvm01 reaches/controls all 5 hosts incl. kvm01 channel switching | open | Hands-on test session |
+| T01 | OOB verification pass: pikvm01 reaches/controls all 5 hosts incl. kvm01 channel switching; also test pikvm01 mass-storage (virtual USB) emulation through kvm01 — it would eliminate USB sneakernet for `nas01` installs | open | Hands-on test session |
 | T02 | Console cabling reference in docs site (KVM chain is undocumented) | open | Fold into next docs PR |
 | T03 | AMT role vs. KVM chain; switch recovery paths (no KVM inputs) | open | Decide during OOB design |
 | T04 | UPS: connect mgmt card; define monitoring + shutdown ordering | open | Hardware task, then design |
@@ -366,10 +367,10 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T17 | One-off VM inventory (what bypasses k8s) | deferred | Emerges with usage |
 | T18 | Upstream-of-`rtr01` documentation (WAN/modem) | deferred | Low priority per Josh |
 | T19 | Move 5x 3TB WD Red from old Synology into `nas01` bays, wipe old RAID | open | When storage design is ready |
-| T20 | Tinkerbell's seat: MaaS instinct, but fleet is homogeneous IncusOS (load-bearing) and factory-reset + AMT/USB seeded media cover onboarding/reprovision; OC is the vendor-native MaaS trajectory | open | Recommendation: drop from critical services; awaiting Josh's ruling |
+| T20 | ~~Tinkerbell's seat~~ | resolved | Dropped (Josh 2026-08-15); critical services are Zitadel, Vault, CAPI. iPXE also rejected — no upstream netboot path; AMT + pikvm01 MSD cover media delivery |
 | T21 | Management-cluster stretch onto lab01–03 (escape single-`nas01` failure domain) | deferred | Josh explicitly not thinking that far ahead |
 | T22 | GitOps engine choice (Flux vs. Argo etc.); Git home effectively GitHub (GHCR publishing implies it) — internet becomes a hard cold-start dependency, accept explicitly | open | Engine + consequence ruling |
-| T23 | Tinkerbell network requirements (DHCP/PXE VLAN, IP scope) | open | Moot if T20 resolves as "drop" |
+| T23 | ~~Tinkerbell network requirements~~ | resolved | Moot — Tinkerbell dropped (T20); no DHCP/PXE VLAN needed |
 | T24 | Vault bootstrap + DR: unseal strategy, backup, and what depends on Vault during cold start | open | Design with bootstrap flow |
 | T25 | Image factory → product-side: `componere/incusos-builder` (active dev). Parked opinions: pinned `flasher-tool` wrapping; upstream `incus-osd/api/seed` types; deterministic tar; CI publishes to GHCR per OCI-distribution vision | in-progress | Product-side work; lab consumes it |
 | T26 | Product/instance boundary: where instance config lives; what the lab consumes at which componere maturity; interim manual bootstrap vs. blocking on the product | open | Josh to rule; agile default = interim manual flow, replace with product as it matures |
@@ -379,7 +380,8 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
-(3 voters + 1 stand-by) · `pikvm01` break-glass = local console at the rack.
+(3 voters + 1 stand-by) · `pikvm01` break-glass = local console at the rack ·
+Tinkerbell + iPXE rejected for provisioning (T20/T23).
 
 ## Decisions log (pointers)
 

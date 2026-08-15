@@ -141,3 +141,15 @@ burn-time SEED_DATA overlay or secret-free seeds. T22 sharpened: GHCR
 implies GitHub as git home; internet = cold-start dependency to accept.
 Still awaiting: T20 Tinkerbell ruling, T26 boundary ruling, step-3 deploy
 mechanism dump.
+
+## 2026-08-15 13:02 — T20 resolved: Tinkerbell dropped; iPXE rejected
+Josh dropped Tinkerbell. Critical services now Zitadel, Vault, CAPI.
+Bootstrap step 4 rewritten: lab01-03 get IncusOS via AMT-mounted seeded
+ISOs + incus cluster join. T23 moot. iPXE follow-up answered and rejected:
+upstream publishes no netboot artifacts (confirmed via Feb-2026 forum thread
+asking exactly this), UEFI ISO-chainload flaky, SB key conflict; revisit
+only if upstream ships netboot. Sneakernet: AMT covers lab01-03; pikvm01
+mass-storage emulation may cover nas01 — MSD-through-kvm01 test added to
+T01. Also earlier: T27 image-factory self-host requirements verified
+(Helm chart, OCI cache registry, ECDSA signing key, cosign-verified Sidero
+source pulls); awaiting Josh's adopt confirmation.
