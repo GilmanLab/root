@@ -19,7 +19,9 @@ description: Core network devices and their assigned roles.
 | --- | --- | --- |
 | Home router | MikroTik CCR2004 | Routes the home network, provides internet access, and terminates the upstream side of the routed lab transit |
 
-The [physical connection map](physical-connections.md) records every installed
+Models and physical specifications live in the
+[hardware inventory](../hardware-inventory.md). The
+[physical connection map](physical-connections.md) records every installed
 cable and its endpoint ports. The
 [Lab v2 core network design](../../designs/drafts/lab-v2-core-network.md) defines
 the logical topology and device boundaries.
