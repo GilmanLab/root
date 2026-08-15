@@ -68,3 +68,18 @@ IncusSeedResearch (seed schemas, image production/CI, cert story, cluster
 bootstrap sequencing, network pre-seeding, AMT delivery, Operations Center
 maturity, reseeding). Results to fold into VISION.md and likely a bootstrap
 design draft.
+
+## 2026-08-14 22:17 — Management cluster, critical services, bootstrap flow
+Josh revised: one specified cluster after all — Talos management cluster,
+3 VMs on nas01, hosting critical services: Zitadel (identity), Vault
+(secrets/PKI), Tinkerbell (provisioning), CAPI (the EKS mechanism, GitOps-
+driven). Likely later stretch onto lab01-03; explicitly not designed yet.
+Core principles recorded: GitOps first; immutability + reproducibility.
+Bootstrap sequence (provisional): IncusOS on nas01 → 3 Talos VMs → critical
+services → Tinkerbell provisions lab01-03 → CAPI spawns future clusters.
+T09 resolved: CAPI. New: T20 Tinkerbell→IncusOS delivery tension (no PXE
+path documented; SB key enrollment may break HookOS netboot), T21 mgmt
+stretch (deferred), T22 GitOps engine + Git home, T23 Tinkerbell DHCP/PXE
+network needs (session 001 coordination), T24 Vault bootstrap/DR.
+Accepted risk noted: mgmt cluster = single nas01 failure domain until
+stretched.

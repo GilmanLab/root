@@ -29,6 +29,16 @@ a bare-metal setup. Implications agents should internalize:
 - Bleeding-edge choices are a feature, not a risk to argue against — flag
   maturity risks, don't veto them.
 
+## Core principles
+
+**[DECIDED]** Present in everything built here; agents must default to these:
+
+1. **GitOps first.** Git is the source of truth. Reach for a Git-driven
+   mechanism before any imperative/manual one.
+2. **Immutability and reproducibility.** Prefer image-based, declarative,
+   rebuild-from-scratch-able systems. (This is exactly why IncusOS was chosen
+   as the bare-metal hypervisor.)
+
 ## Device naming
 
 **[DECIDED]** Approved by Josh 2026-08-14; shipped in PR #8. Canonical
@@ -118,9 +128,50 @@ RouterOS identity, chassis labels) is a pending implementation task.
    immutable, image-based OS managed exclusively through the Incus API; no
    SSH, no package manager.)
 2. **Talos Linux Kubernetes clusters as Incus VMs** — most workloads land in
-   k8s. Clusters are cattle, EKS-style: no fixed cluster list; the platform's
-   job is to make spinning up a working cluster fast and repeatable.
+   k8s. One *management cluster* is specified (below); all other clusters are
+   cattle, EKS-style: no fixed list; the platform's job is to make spinning up
+   a working cluster fast and repeatable.
 3. **A few one-off VMs** directly on Incus for things that don't fit k8s.
+
+### Management cluster and critical services
+
+**[DECIDED]** One specified cluster exists: a Talos management cluster of
+three nodes, initially all VMs on `nas01`, hosting the critical services:
+
+| Service | Role |
+| --- | --- |
+| Zitadel | Identity |
+| HashiCorp Vault | Secrets + PKI |
+| Tinkerbell | Bare-metal provisioning |
+| Cluster API (CAPI) | The "EKS" mechanism — integrates with Incus/Talos to spawn clusters, driven by GitOps |
+
+**[PROVISIONAL]** Likely later: additional management-cluster Talos nodes on
+`lab01`–`lab03` so the cluster isn't wholly dependent on `nas01` staying
+alive. Not designed yet — deliberately.
+
+Note (accepted risk, worth stating): until that stretch happens, the
+management cluster's three VMs share one failure domain (`nas01`) — etcd
+quorum and Longhorn-style replication protect against VM-level failure only,
+and everything above (identity, secrets, provisioning, cluster factory) rides
+on one box.
+
+### Bootstrap sequence
+
+**[PROVISIONAL]** Josh's intended flow:
+
+1. Install IncusOS on `nas01` (delivery options under investigation — T14).
+2. Spawn the three initial Talos management-cluster nodes as Incus VMs.
+3. Set up/deploy the critical services (exact mechanism TBD; Josh has a
+   working idea).
+4. Tinkerbell bootstraps IncusOS onto `lab01`–`lab03`.
+5. Future clusters are spawned via GitOps-applied CAPI resources.
+
+Known tension to resolve (T20): Tinkerbell is PXE/netboot-native, but IncusOS
+documents no PXE install path — only seeded ISO/IMG media. Step 4 needs a
+verified mechanism (e.g., Tinkerbell workflow streaming a seeded IncusOS
+image to disk, or Rufio driving AMT boot/media) before it can be relied on.
+Secure Boot key enrollment wiping Microsoft CA keys may also break netbooting
+HookOS on already-enrolled nodes.
 
 **[DECIDED]** Storage philosophy: no hyperconverged storage.
 
@@ -196,8 +247,8 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T05 | Full-load power draw vs. 700W UPS ceiling | open | Measure once compute runs real load |
 | T06 | Apply canonical names to device identities + chassis labels | open | Network gear likely session 001 |
 | T07 | `gw01` Port 1 unconnected — reserved purpose? | open | Josh to answer, low stakes |
-| T08 | Cluster template contents (Talos version, CNI, bootstrap, storage class, LB) | open | Design after T14 spike |
-| T09 | Cluster-creation machinery: CAPN vs. OpenTofu (Incus+Talos providers) | open | Spike both? Lean OpenTofu |
+| T08 | Cluster template contents (Talos version, CNI, bootstrap, storage class, LB) | open | Design after T14/T20 spikes |
+| T09 | ~~Cluster-creation machinery~~ | resolved | CAPI it is (Josh: CAPI is the EKS mechanism, GitOps-driven); CAPN not-CI-tested risk stands — spike before trusting |
 | T10 | IPAM for ephemeral clusters (workload supernet + BGP to `gw01`?) | open | Coordinate with session 001 addressing |
 | T11 | Talos VM attachment: bridged VLANs now; OVN needs external DB (revisit when IncusOS hosts OVN central) | resolved-for-now | Bridged VLANs |
 | T12 | Disk roles per node: confirm small NVMe = IncusOS, large = pool | open | Confirm at install time |
@@ -208,6 +259,11 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T17 | One-off VM inventory (what bypasses k8s) | deferred | Emerges with usage |
 | T18 | Upstream-of-`rtr01` documentation (WAN/modem) | deferred | Low priority per Josh |
 | T19 | Move 5x 3TB WD Red from old Synology into `nas01` bays, wipe old RAID | open | When storage design is ready |
+| T20 | Tinkerbell → IncusOS delivery: verify a netboot/image-to-disk or AMT-media path exists (no documented PXE install) | open | Spike; step 4 of bootstrap depends on it |
+| T21 | Management-cluster stretch onto lab01–03 (escape single-`nas01` failure domain) | deferred | Josh explicitly not thinking that far ahead |
+| T22 | GitOps engine + where Git itself lives (GitHub vs. in-lab) — the source of truth needs a home with a failure story | open | Josh has ideas; capture next |
+| T23 | Tinkerbell network requirements (DHCP/PXE VLAN, IP scope) — collides with undecided DHCP ownership | open | Coordinate with session 001 |
+| T24 | Vault bootstrap + DR: unseal strategy, backup, and what depends on Vault during cold start | open | Design with bootstrap flow |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
