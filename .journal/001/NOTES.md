@@ -41,3 +41,13 @@ Confirmed the lab switch is a MikroTik CRS309-1G-8S+IN. Added the TRENDnet TEG-3
 
 ## 2026-08-15 00:36 — Add authoritative physical connection map
 Captured the user-verified port dump as `reference/physical-connections.md`: 18 individually identified cables, 36 unique connected endpoints, and the two explicitly unconnected ports. Confirmed the PiKVM and TESmart endpoint Ethernet ports have no printed labels; recorded both as unlabeled rather than inventing names. Assigned stable PHY-001 through PHY-018 document identifiers. Kept IPs, VLANs, bonds, OS interface names, and link settings out of the physical reference. Made the map canonical from the hardware and design pages and added site navigation. MkDocs strict build, structural endpoint validation, rendered browser checks, PR checks, and Pages deployment passed. Squash-merged networking PR #4 as 5a75e64 and removed the implementation worktree.
+
+## 2026-08-14 17:57 — Close
+
+Session 001 is complete. Root PRs #1 and #2 and networking PRs #1 through #4
+were squash-merged. Direct bootstrap commits `81756b0`, `9f061a4`, `81affcf`,
+and `1bee0c7` were also pushed. Local `master` branches for both repositories
+are clean and synchronized with `origin/master`. `SUMMARY.md` contains the
+handoff, decisions, changes, and open threads. Continue by defining the address
+plan, VLAN allocation, interface mapping, network-service ownership, and
+configuration delivery model.
