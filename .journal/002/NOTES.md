@@ -153,3 +153,17 @@ mass-storage emulation may cover nas01 — MSD-through-kvm01 test added to
 T01. Also earlier: T27 image-factory self-host requirements verified
 (Helm chart, OCI cache registry, ECDSA signing key, cosign-verified Sidero
 source pulls); awaiting Josh's adopt confirmation.
+
+## 2026-08-18 14:16 — T26 resolved: product/instance working relationship
+Josh ruled all four sub-decisions: (1) `GilmanLab/fleet` private sub-repo =
+bare-metal-only instance config (IncusOS seeds + Incus/OpenTofu); k8s config
+explicitly excluded — platform cluster + spawned clusters get separate repos
+later (likely reusable-code repo + gitops repo, shape provisional). (2)
+Pinned consumption, pre-release OK; lab is componere's first-class test bed;
+capabilities often develop lab-first then get *promoted* into componere.
+(3) incusos-builder nearly done — wait for it, no interim seed/burn tooling.
+(4) Generic-product identity boundary confirmed ("would a second user want
+this?" test). VISION.md Product-vs-instance section updated with the ruling;
+T26 resolved; T30 opened (create fleet repo when first configs exist).
+Outstanding rulings: T27 (factory adopt), T28 (seed secrets), step-3 deploy
+mechanism dump. Consolidation into lab-v2-bootstrap.md + ADR-0002 nearing.

@@ -94,14 +94,31 @@ generic images + inject a secret overlay at burn time via IncusOS's external
   - `go-oci-blob` — lower-level OCI blob transfer client.
   - `go` — canonical Go implementation of the spec (early).
 
-Implication for agents: lab capabilities that overlap this suite (image
-building, image distribution) belong in the *product* repos and get consumed
-by the lab — don't build lab-local one-offs of them. Inverse implication: the
-lab is the product's proving ground, so lab needs drive product priorities.
+Implication for agents: capabilities that overlap this suite (image building,
+image distribution) belong in the *product* repos and get consumed by the lab
+— don't build lab-local one-offs of them.
 
-**[OPEN]** Boundary questions: where does the *instance* config live (this
-meta repo?); what does the lab consume at which product maturity; does
-bootstrap block on componere or use an interim manual flow first? (T26)
+Working relationship (T26, **[DECIDED]** 2026-08-15):
+
+- **Instance repo layout**: `GilmanLab/fleet` (private sub-repo, cloned via
+  `init.sh`) holds *bare-metal-only* instance config: per-machine IncusOS
+  seed configs and Incus configuration (incl. the OpenTofu Incus roots).
+  Kubernetes-related config explicitly does NOT live there — the platform
+  (management) cluster and spawned clusters get separate repos later,
+  probably one for reusable code + one for GitOps. [PROVISIONAL on the k8s
+  split shape]
+- **Consumption contract**: the lab consumes product artifacts *pinned*
+  (version/digest, pre-release allowed — the lab is componere's first-class
+  test bed). No local forks/patches of product code; lab pain becomes an
+  upstream issue/PR, then re-pin.
+- **Flow is bidirectional**: capabilities are often developed lab-first,
+  then *promoted* into componere once proven. Incubation in the instance is
+  expected; permanence there is not.
+- **Bootstrap does not need interim tooling**: `incusos-builder` is nearly
+  done — the lab waits for it rather than hand-rolling seed/burn scaffolding.
+- **Identity boundary**: product repos stay generic. Test for any change:
+  "would a second componere user want this?" No → instance repo. Product
+  defines config schemas; the instance supplies instances of them.
 
 ## Device naming
 
@@ -373,10 +390,11 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T23 | ~~Tinkerbell network requirements~~ | resolved | Moot — Tinkerbell dropped (T20); no DHCP/PXE VLAN needed |
 | T24 | Vault bootstrap + DR: unseal strategy, backup, and what depends on Vault during cold start | open | Design with bootstrap flow |
 | T25 | Image factory → product-side: `componere/incusos-builder` (active dev). Parked opinions: pinned `flasher-tool` wrapping; upstream `incus-osd/api/seed` types; deterministic tar; CI publishes to GHCR per OCI-distribution vision | in-progress | Product-side work; lab consumes it |
-| T26 | Product/instance boundary: where instance config lives; what the lab consumes at which componere maturity; interim manual bootstrap vs. blocking on the product | open | Josh to rule; agile default = interim manual flow, replace with product as it matures |
+| T26 | ~~Product/instance boundary~~ | resolved | Ruled 2026-08-15: `GilmanLab/fleet` = bare-metal-only instance repo; k8s config in separate later repos (reusable code + gitops); pinned pre-release consumption OK; lab-first-then-promote flow; wait for incusos-builder (no interim tooling); generic-product boundary test. See Product vs. instance section |
 | T27 | Talos image plane: self-host Sidero image-factory (verified 2026-08-15: single Go service, MPL-2.0, official Helm chart; requires OCI cache registry — GHCR fine, ECDSA cache-signing key, cosign-verified pulls of Sidero source images from ghcr.io; provides schematics/ISO/disk/PXE + installer-registry frontend used by Talos upgrades). Runs on mgmt cluster; cold start uses public factory.talos.dev, repoint after. Bespoke builder dropped unless imgoci-mirroring need emerges | open | Josh leaning adopt; confirm to mark decided |
 | T28 | Secrets in published seeded IncusOS images: seed-free-of-secrets vs. burn-time `SEED_DATA` overlay vs. private-registry acceptance | open | Rule before CI publishes anything real |
 | T29 | bootc-style + Fedora CoreOS image lines for one-off VMs (defined in git, CI-published, imgoci-pushed) | deferred | Later product work; captured for context |
+| T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
