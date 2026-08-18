@@ -167,3 +167,13 @@ this?" test). VISION.md Product-vs-instance section updated with the ruling;
 T26 resolved; T30 opened (create fleet repo when first configs exist).
 Outstanding rulings: T27 (factory adopt), T28 (seed secrets), step-3 deploy
 mechanism dump. Consolidation into lab-v2-bootstrap.md + ADR-0002 nearing.
+
+## 2026-08-18 14:19 — T27 resolved: self-hosted image-factory adopted
+Talos image plane decided: self-hosted Sidero image-factory (bespoke builder
+dead). New "Talos image plane" section in VISION.md: platform-service tier
+on mgmt cluster (not critical-three); cold start via public factory.talos.dev
+then repoint; generic images with CAPN-injected identity; cache-signing key
+joins T15 custody; schematics live with cluster template (T08); stable URL
+depends on DNS/ingress (open). T31 opened for the eventual deployment.
+Remaining: T28 (seed secrets model), step-3 deploy mechanism dump; then
+draft lab-v2-bootstrap.md + ADR-0002.

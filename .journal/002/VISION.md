@@ -235,6 +235,30 @@ quorum and Longhorn-style replication protect against VM-level failure only,
 and everything above (identity, secrets, cluster factory) rides
 on one box.
 
+### Talos image plane
+
+**[DECIDED]** (T27, 2026-08-15) Self-hosted **Sidero image-factory** is the
+Talos image plane; no bespoke builder. Verified requirements: single Go
+service (MPL-2.0), official Helm chart, OCI cache registry (GHCR), ECDSA
+cache-signing key, cosign-verified pulls of Sidero source images from
+ghcr.io. Provides schematics (declarative: Talos version + system
+extensions, stored in git), ISO/disk/UKI assets, PXE frontend, and the
+installer-registry frontend that Talos *upgrades* pull from.
+
+Deployment notes (settled intent, details at deploy time):
+
+- Runs on the management cluster as a *platform service* — second tier, not
+  one of the critical three. Cold start uses the public factory.talos.dev;
+  repoint clusters at the self-hosted factory once it's up (same
+  product-of-bootstrap pattern as Vault).
+- Talos VM images stay *generic*: per-node identity arrives via CAPN's
+  cloud-init disk at instance create, not baked into images.
+- Cache-signing key joins the secrets-custody family (T15).
+- Needs a stable in-lab URL — depends on DNS/ingress decisions (open
+  elsewhere); not a blocker for cold start.
+- Schematic definitions are cluster-template inputs (T08) and live in git
+  with the template.
+
 ### Bootstrap sequence
 
 **[PROVISIONAL]** Josh's intended flow:
@@ -391,10 +415,11 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T24 | Vault bootstrap + DR: unseal strategy, backup, and what depends on Vault during cold start | open | Design with bootstrap flow |
 | T25 | Image factory → product-side: `componere/incusos-builder` (active dev). Parked opinions: pinned `flasher-tool` wrapping; upstream `incus-osd/api/seed` types; deterministic tar; CI publishes to GHCR per OCI-distribution vision | in-progress | Product-side work; lab consumes it |
 | T26 | ~~Product/instance boundary~~ | resolved | Ruled 2026-08-15: `GilmanLab/fleet` = bare-metal-only instance repo; k8s config in separate later repos (reusable code + gitops); pinned pre-release consumption OK; lab-first-then-promote flow; wait for incusos-builder (no interim tooling); generic-product boundary test. See Product vs. instance section |
-| T27 | Talos image plane: self-host Sidero image-factory (verified 2026-08-15: single Go service, MPL-2.0, official Helm chart; requires OCI cache registry — GHCR fine, ECDSA cache-signing key, cosign-verified pulls of Sidero source images from ghcr.io; provides schematics/ISO/disk/PXE + installer-registry frontend used by Talos upgrades). Runs on mgmt cluster; cold start uses public factory.talos.dev, repoint after. Bespoke builder dropped unless imgoci-mirroring need emerges | open | Josh leaning adopt; confirm to mark decided |
+| T27 | ~~Talos image plane~~ | resolved | Adopted 2026-08-15: self-hosted Sidero image-factory; bespoke builder dead; generic images + CAPN-injected identity. See "Talos image plane" section |
 | T28 | Secrets in published seeded IncusOS images: seed-free-of-secrets vs. burn-time `SEED_DATA` overlay vs. private-registry acceptance | open | Rule before CI publishes anything real |
 | T29 | bootc-style + Fedora CoreOS image lines for one-off VMs (defined in git, CI-published, imgoci-pushed) | deferred | Later product work; captured for context |
 | T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
+| T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
