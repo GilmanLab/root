@@ -14,6 +14,8 @@ and runbook lives here.
 
 - [ADR-0001: Use VyOS for Layer 3 and Dedicated Switches for Layer 2](decisions/0001-use-vyos-for-layer-3-and-switches-for-layer-2.md)
   assigns core routing and switching responsibilities.
+- [ADR-0002: Manage the Tailnet Policy File with GitOps](decisions/0002-manage-tailscale-policy-with-gitops.md)
+  makes git the source of truth for the tailnet policy file.
 
 ## Designs
 
@@ -31,3 +33,10 @@ and runbook lives here.
   network devices and their roles.
 - [Physical connections](reference/networking/physical-connections.md) records
   every installed cable and its endpoint ports.
+- [Tailscale policy](reference/networking/tailscale-policy.md) records the
+  tailnet identity, tags, auto-approved routes, and sync credentials.
+
+## Runbooks
+
+- [Change the Tailscale policy](runbooks/tailscale-policy-change.md) covers
+  changing, verifying, reverting, and emergency-editing the tailnet policy.
