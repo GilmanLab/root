@@ -113,9 +113,12 @@ emergency edit that is not carried back into git is silently lost.
 
 - Validation fails with an error you cannot interpret: check the
   [policy file syntax reference](https://tailscale.com/docs/reference/syntax/policy-file).
-- The apply step fails to authenticate: inspect the trust credential on the
+- The step fails with `token exchange failed with status 403`: the OIDC token's
+  claims do not match the trust credential. Inspect the credential on the
   [Trust credentials](https://login.tailscale.com/admin/settings/trust-credentials)
-  page, which records the most recent token exchange error, and confirm the
-  repository variables still match the credential.
+  page, which records the most recent token exchange error, and compare its
+  subject against the
+  [expected subject](../reference/networking/tailscale-policy.md#credentials).
+  Confirm the repository variables still match the credential.
 - The apply step fails on a checksum mismatch: someone edited the policy in the
   console. Reconcile that edit into git, then re-run the workflow.
