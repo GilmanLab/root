@@ -119,3 +119,37 @@ persisted, so the console lock is the real control; both repos default to
 Next: user completes console setup and sets the three variables, then open the
 networking PR, verify `Validate policy`, squash merge, confirm `Apply policy`,
 merge root PR #9, and enable the console lock.
+
+## 2026-08-18 17:50 — GitOps pipeline live; subject claim corrected
+Correction to the 17:35 entry: the trust credential subject recorded there,
+`repo:GilmanLab/networking:*`, is wrong. The first `Validate policy` run failed
+with `token exchange failed with status 403`. A throwaway workflow on branch
+`chore/oidc-debug` (since deleted) minted a token with the same audience and
+printed its claims:
+  iss https://token.actions.githubusercontent.com
+  aud api.tailscale.com/THZctfF8wr11CNTRL-ka6ybAnLf721CNTRL
+  sub repo:GilmanLab@66194346/networking@1334494603:ref:refs/heads/chore/oidc-debug
+The GilmanLab organization issues OIDC subjects in GitHub's immutable form with
+numeric org and repo IDs, so a name-based subject pattern can never match. The
+correct value is `repo:GilmanLab@66194346/networking@1334494603:*`; the user
+updated the credential and the rerun passed.
+Rollout completed:
+- `GilmanLab/networking` PR #6 squash merged as `b160c71`. `Validate policy`
+  passed (control `266e13bf`, local `73f11bf0`); `Apply policy` on master wrote
+  the policy; a second dispatch run reported control == local == `73f11bf0` and
+  `no update needed, doing nothing`, proving convergence.
+- `GilmanLab/root` PR #9 squash merged as `3ef719a` (ADR-0002, policy reference,
+  change runbook, index and nav).
+- `GilmanLab/root` PR #10 squash merged as `7f2f569`: corrected the documented
+  subject and added a 403 escalation path to the runbook.
+- Implementation worktrees and branches removed in both repos; `git ls-files
+  .journal` is empty on the root default branch.
+Learned: `gh workflow run` requires the workflow to exist on the default branch,
+so an ad-hoc debug workflow on a side branch needs a `push` trigger instead of
+`workflow_dispatch`. Also, a stale chrome-devtools MCP Chrome can hold its
+profile lock for days and must be killed before a new instance starts.
+Remaining: the user enables Tailscale's `Prevent edits in the admin console`
+with the external reference to `tailscale/policy.hujson`. Deferred by choice: ACL
+`tests`, a cron re-apply, branch protection, and any `grants` migration.
+Next: session close, promoting the credential, variable, and drift facts into
+TECH_NOTES.
