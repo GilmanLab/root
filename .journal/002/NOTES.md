@@ -189,3 +189,16 @@ distribution"; leg 1 rewritten; kept: fleet CI validates seed rendering
 without publishing. imgoci remains the format for leg 3 (bootc/CoreOS).
 T25 note updated (no publish; local build+burn).
 Remaining before bootstrap design draft: step-3 deploy mechanism dump.
+
+## 2026-08-18 14:48 — VM orchestrator brainstorm (T32 opened)
+Josh raised: what orchestrates Incus VMs — OpenTofu (original thought),
+Crossplane, or other? Framed as two regimes: cattle-cluster VMs already
+CAPI-owned (T09); the open question is pre-k8s VMs (3 mgmt Talos VMs +
+one-offs). Crossplane rejected (runs in k8s — can't bootstrap; no first-
+class Incus provider; duplicates CAPI). Real fork: (a) OpenTofu from laptop
+(boring, zero new tools, mgmt cluster forever special) vs (b) CAPI self-
+managed via kind+CAPN+clusterctl-move pivot (one source of truth, upgrades/
+stretch as CAPI edits; choreography + CAPN maturity risk). Lean (b) spike-
+verified; UM760 proposed as sacrificial Incus host for the spike. Rides
+along: tofu state backend pre-lab (local encrypted → Garage later).
+VM orchestration section added to VISION.md; T32 opened.

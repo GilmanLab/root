@@ -261,6 +261,38 @@ Deployment notes (settled intent, details at deploy time):
 - Schematic definitions are cluster-template inputs (T08) and live in git
   with the template.
 
+### VM orchestration (T32 — the open fork)
+
+Two lifecycle regimes; only one is undecided:
+
+- Cattle-cluster VMs: **[DECIDED]** CAPI/CAPN owns them (T09).
+- Pre-Kubernetes VMs (the 3 mgmt-cluster Talos VMs + one-off VMs): **[OPEN]**.
+
+Candidates weighed 2026-08-18:
+
+- **Crossplane — rejected.** Runs *in* k8s (cannot bootstrap the cluster it
+  would run on) and post-bootstrap it duplicates CAPI with no first-class
+  Incus provider (Upjet-wrapped TF provider only). Revisit only if a
+  self-service claims UX is ever wanted product-side.
+- **(a) OpenTofu**: official `lxc/terraform-provider-incus` + Talos provider
+  create/bootstrap the mgmt VMs from a laptop. Zero new tools (tofu already
+  owns Incus runtime config). Cost: mgmt cluster forever special — tofu
+  describes it, CAPI describes everything else; day-2 = tofu+talosctl.
+- **(b) CAPI self-managed (pivot pattern)**: temp kind cluster on a
+  workstation runs CAPN against the Incus API → creates mgmt VMs → install
+  CAPI into the new cluster → `clusterctl move` → mgmt cluster describes
+  itself; one source of truth; upgrades/stretch (T21) become CAPI edits.
+  Cost: bootstrap choreography, CAPN Talos template not-CI-tested,
+  self-managed sharp edges (recovery = re-pivot from laptop).
+
+Lean: **(b), spike-verified** — paradigm-pure, tools already chosen, boring
+fallback to (a) if the pivot proves flaky. Spike needs no lab hardware: kind
++ CAPN + any Incus daemon (the shelved UM760 is a natural sacrificial host).
+
+Rides along either way: OpenTofu **state backend** for the Incus-config plane
+must exist pre-lab (encrypted local first, migrate to Garage-S3 later, or a
+GitHub-backed backend) — decide at `fleet` creation (T30).
+
 ### Bootstrap sequence
 
 **[PROVISIONAL]** Josh's intended flow:
@@ -422,6 +454,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T29 | bootc-style + Fedora CoreOS image lines for one-off VMs (defined in git, CI-published, imgoci-pushed) | deferred | Later product work; captured for context |
 | T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
+| T32 | Pre-k8s VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected). Lean (b) CAPI pivot, spike-verified; UM760 as sacrificial spike host; tofu state backend decision rides along | open | Spike, then rule — see VM orchestration section |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
