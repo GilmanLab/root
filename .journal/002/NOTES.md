@@ -202,3 +202,13 @@ stretch as CAPI edits; choreography + CAPN maturity risk). Lean (b) spike-
 verified; UM760 proposed as sacrificial Incus host for the spike. Rides
 along: tofu state backend pre-lab (local encrypted → Garage later).
 VM orchestration section added to VISION.md; T32 opened.
+
+## 2026-08-18 14:52 — Non-Talos VMs decided: OpenTofu; T32 narrowed
+Josh asked about non-Talos VMs. Decided: OpenTofu owns one-off (bootc/
+CoreOS) VMs as resources in the same roots as Incus runtime config — CAPI
+categorically wrong (cluster object model), no Incus VM operator exists,
+plan/apply fits pets. Parked componere product idea: Incus VM-CR reconciler
+(passes second-user test). T32 narrowed to mgmt-cluster Talos VMs only;
+recorded honest caveat that tofu is in the stack regardless, so (b)'s value
+is cluster-fleet consistency, not tool count; spike verdict now more
+decisive between (a) and (b).
