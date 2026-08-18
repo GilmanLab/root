@@ -177,3 +177,15 @@ joins T15 custody; schematics live with cluster template (T08); stable URL
 depends on DNS/ingress (open). T31 opened for the eventual deployment.
 Remaining: T28 (seed secrets model), step-3 deploy mechanism dump; then
 draft lab-v2-bootstrap.md + ADR-0002.
+
+## 2026-08-18 14:25 — Leg 1 amended: no OCI publish for IncusOS images
+Josh dropped OCI persistence for IncusOS images: publish→pull→burn round
+trip adds work for a 4-node fleet; single-step local build+burn makes seed
+injection (incl. secrets) trivial. Agreed — reproducibility lives in the
+pinned recipe (config+checksum+tool version), not a persisted artifact.
+T28 dissolved (nothing seeded is published; secrets Bitwarden→seed at burn,
+nowhere at rest). VISION.md "OCI-backed distribution" renamed "Image
+distribution"; leg 1 rewritten; kept: fleet CI validates seed rendering
+without publishing. imgoci remains the format for leg 3 (bootc/CoreOS).
+T25 note updated (no publish; local build+burn).
+Remaining before bootstrap design draft: step-3 deploy mechanism dump.

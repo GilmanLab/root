@@ -45,31 +45,33 @@ a bare-metal setup. Implications agents should internalize:
    rebuild-from-scratch-able systems. (This is exactly why IncusOS was chosen
    as the bare-metal hypervisor.)
 
-### OCI-backed distribution
+### Image distribution
 
 **[DECIDED]** The concrete realization of both principles: *configs written in
-git → reproducibly published/tagged to OCI registries via CI → consumed by the
-things that need them.* Three legs:
+git → reproducibly built from pinned recipes → consumed by the things that
+need them.* Reproducibility lives in the pinned recipe (config + base-image
+checksum + tool version), not necessarily a persisted artifact. Three legs:
 
-1. **IncusOS**: per-machine seed configuration lives in git; CI publishes
-   seeded images to GHCR; the componere tooling can fetch an image and burn
-   it to USB (or serve it to AMT). Runtime Incus configuration (pools,
-   networks, profiles, VMs) is IaC via OpenTofu's Incus provider, in git.
-2. **Talos**: a future builder (TBD) working identically — images in OCI
-   registries. Open research: integration with CAPI. (Note: Incus VMs get
-   machine config via an attached cloud-init disk at *instance create* —
-   CAPN injects it — so Talos images may be able to stay generic rather than
-   per-node seeded; and Sidero's image-factory is OSS/self-hostable. T27.)
+1. **IncusOS** (amended 2026-08-18): per-machine seed configuration lives in
+   git (`GilmanLab/fleet`); the componere tooling builds **and burns/serves
+   locally in a single step** — no OCI publish. Rationale: for this fleet the
+   publish→pull→burn round trip adds work and creates a secrets-at-rest
+   problem; single-step local render lets secrets flow Bitwarden → seed at
+   burn time, existing nowhere at rest. CI on `fleet` *validates* seed
+   rendering (schema checks, optional throwaway build) but publishes nothing.
+   Runtime Incus configuration (pools, networks, profiles, VMs) is IaC via
+   OpenTofu's Incus provider, in git.
+2. **Talos**: self-hosted Sidero image-factory (T27, decided) — generic
+   images, schematics in git, per-node identity injected by CAPN at instance
+   create.
 3. **Other VM images**: purpose-built bootc-style (defined in git, published
    via CI, pushed with imgoci) OR Fedora CoreOS + Ignition where the job is
    just a small container stack in a VM (VM isolation preferred over Incus
-   containers for security).
+   containers for security). imgoci remains the distribution format for this
+   leg.
 
-**[OPEN]** Secrets in published seeded images (T28): IncusOS seeds *can*
-carry secrets (`security.encryption_recovery_keys`, WireGuard keys). Options:
-keep seeds secret-free (set recovery keys post-install via API), or publish
-generic images + inject a secret overlay at burn time via IncusOS's external
-`SEED_DATA` mechanism (external seed takes precedence section-by-section).
+~~T28 (secrets in published seeded images)~~ — dissolved by the leg-1
+amendment: nothing seeded is published.
 
 ## Product vs. instance (componere & imgoci)
 
@@ -413,10 +415,10 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T22 | GitOps engine choice (Flux vs. Argo etc.); Git home effectively GitHub (GHCR publishing implies it) — internet becomes a hard cold-start dependency, accept explicitly | open | Engine + consequence ruling |
 | T23 | ~~Tinkerbell network requirements~~ | resolved | Moot — Tinkerbell dropped (T20); no DHCP/PXE VLAN needed |
 | T24 | Vault bootstrap + DR: unseal strategy, backup, and what depends on Vault during cold start | open | Design with bootstrap flow |
-| T25 | Image factory → product-side: `componere/incusos-builder` (active dev). Parked opinions: pinned `flasher-tool` wrapping; upstream `incus-osd/api/seed` types; deterministic tar; CI publishes to GHCR per OCI-distribution vision | in-progress | Product-side work; lab consumes it |
+| T25 | IncusOS image tooling → product-side: `componere/incusos-builder` (active dev). Parked opinions: pinned `flasher-tool` wrapping; upstream `incus-osd/api/seed` types; deterministic build. Amended 2026-08-18: build + burn/serve locally in one step, **no OCI publish**; `fleet` CI validates rendering only | in-progress | Product-side work; lab consumes it |
 | T26 | ~~Product/instance boundary~~ | resolved | Ruled 2026-08-15: `GilmanLab/fleet` = bare-metal-only instance repo; k8s config in separate later repos (reusable code + gitops); pinned pre-release consumption OK; lab-first-then-promote flow; wait for incusos-builder (no interim tooling); generic-product boundary test. See Product vs. instance section |
 | T27 | ~~Talos image plane~~ | resolved | Adopted 2026-08-15: self-hosted Sidero image-factory; bespoke builder dead; generic images + CAPN-injected identity. See "Talos image plane" section |
-| T28 | Secrets in published seeded IncusOS images: seed-free-of-secrets vs. burn-time `SEED_DATA` overlay vs. private-registry acceptance | open | Rule before CI publishes anything real |
+| T28 | ~~Secrets in published seeded images~~ | resolved | Dissolved 2026-08-18: IncusOS images are never published — single-step local build+burn; secrets flow Bitwarden → seed at burn time, nowhere at rest |
 | T29 | bootc-style + Fedora CoreOS image lines for one-off VMs (defined in git, CI-published, imgoci-pushed) | deferred | Later product work; captured for context |
 | T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
