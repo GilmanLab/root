@@ -75,9 +75,17 @@ short-lived API token, and no long-lived credential is stored.
 | --- | --- |
 | Credential type | OpenID Connect trust credential |
 | Issuer | GitHub Actions |
-| Subject | `repo:GilmanLab/networking:*` |
+| Subject | `repo:GilmanLab@66194346/networking@1334494603:*` |
 | Scopes | `policy_file`, with `devices:posture_attributes` and `devices:core:read` |
 | Audience | `api.tailscale.com/<client id>` |
+
+The `GilmanLab` organization issues OIDC subjects in GitHub's immutable form,
+with numeric organization and repository IDs rather than
+`repo:GilmanLab/networking:...`. A subject pattern written with plain names
+never matches, and Tailscale rejects the token exchange with HTTP 403 before it
+evaluates scopes. The trailing `*` covers both subject shapes CI produces:
+`:ref:refs/heads/master` for an apply run and `:pull_request` for a validation
+run.
 
 Trust credentials are managed on the
 [Trust credentials](https://login.tailscale.com/admin/settings/trust-credentials)
