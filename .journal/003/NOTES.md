@@ -47,3 +47,38 @@ modified 2025-11-16). `~/code/lab_old` and `~/code/homelab` contain no Tailscale
 references at all.
 Next: confirm with the user what "the Tailscale configuration" means, since
 there is nothing executable to port from `~/code/lab`.
+
+## 2026-08-18 16:40 — Tailscale GitOps plan proposed
+Request: manage the personal tailnet policy (id `THZctfF8wr11CNTRL`) GitOps
+style under `networking`, synced by Tailscale's GitHub Action.
+Grounding gathered:
+- `tailscale/gitops-acl-action@v1` is a composite action that installs Go and
+  runs `go run tailscale.com/cmd/gitops-pusher@b4d39e2` with
+  `--policy-file=<path>` and subcommand `test` or `apply`. Inputs: `tailnet`,
+  `policy-file`, and one of `api-key`, `oauth-client-id`+`oauth-secret`, or
+  `oauth-client-id`+`audience` (OIDC federated identity, needs
+  `id-token: write`).
+- gitops-pusher compares sha256 of `hujson.Format(local)` against the control
+  ACL etag. Manual-edit detection uses `--cache-file` (default
+  `./version-cache.json`); in ephemeral CI the cache is absent, so
+  `cache.PrevETag` is seeded from control and drift detection is a no-op. The
+  admin-console lock ("Prevent edits in the admin console") is the real control.
+- Policy tests (`tests`, `sshTests`) require concrete `src`/`dst` entities; no
+  wildcards. `autogroup:*` cannot be a test `src`, so admin-path tests need a
+  user email.
+- `GilmanLab/networking` is public with default branch `master` and currently
+  tracks only `.gitignore`, `mise.toml`, `mise.lock`. Tailscale docs recommend a
+  private repo because policy files often contain user emails; the owner email
+  is already public in commit history.
+- Existing SOPS-encrypted Tailscale OAuth client in `~/code/infra` is for node
+  registration (auth_keys/tags), not `policy_file` scope. Do not reuse it.
+Plan proposed: phase 1 verbatim policy import plus test/apply workflow in
+`GilmanLab/networking` (`tailscale/policy.hujson`,
+`.github/workflows/tailscale-acl.yml`, WIF credentials); phase 2 encode
+invariants as `tests`/`sshTests` and prove the gate fails; phase 3 companion docs
+in root (ADR 0002, `reference/networking/tailscale-policy.md`, runbook, nav,
+`moon run docs:build`); phase 4 optional cron re-apply and branch protection.
+Open questions for the user: purpose/naming of `tag:dntls`, the tailnet admin
+login to use as a test `src`, whether the autoApprover CIDRs are authoritative
+for the coming address plan, and whether to enable the admin-console lock now.
+Next: user decision on the plan before any implementation branch is created.
