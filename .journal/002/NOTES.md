@@ -224,3 +224,20 @@ recovery secrets like ZFS recovery keys / seed client key / factory signing
 key also live there — they need an out-of-lab, lab-independent home);
 T34 = Vault sync, deferred. Awaiting Josh: age recipient decision, then
 scaffold repo.
+
+## 2026-08-18 16:38 — v1 "AWS" audit: iDrive e2 + age/YubiKey SOPS precedent
+OldLabAwsAudit (full brief: history://OldLabAwsAudit) on ~/code/lab: NO
+native AWS services anywhere — "AWS" = AWS SDK/Boto3 speaking S3 protocol
+to iDrive e2 (image-pipeline intermediary: CI pushed Talos/VyOS/Harvester
+images, Synology pulled; real AWS S3 explicitly rejected in v1 ADR-007).
+v1 SOPS root of trust: age + YubiKey-PGP dual recipients, ONE key group
+across all domains (e2 creds, talsecret, VyOS SSH) — blast-radius weakness;
+CI age key as GitHub secret SOPS_AGE_KEY. Housekeeping hazard found:
+plaintext IDRIVE_* keys in old ignored .env (vestigial).
+Folded into VISION.md: Secrets precedent block; T33 sharpened (reuse YubiKey
+PGP recipient?, fresh v2 age keys rec, per-subtree key groups rec); e2 added
+as strong tofu state-backend candidate (rides-along note in VM
+orchestration).
+Awaiting Josh: recipient rulings for T33, and confirmation of what exactly
+e2 continues to do in v2 (state backend? image intermediary is obsolete —
+AMT delivery replaced NAS-pull).

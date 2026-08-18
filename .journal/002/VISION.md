@@ -53,11 +53,24 @@ the GitOps mandate applied to secrets. Automation (TODO, later) keeps them in
 sync with Vault. The mandate deliberately does NOT apply to ephemeral or
 generated secrets.
 
+**Precedent from lab v1** (audited 2026-08-18, `~/code/lab`; full brief in
+session notes): despite the "AWS" framing, v1 used **no native AWS services**
+— the AWS SDK/Boto3 spoke the S3 *protocol* to **iDrive e2** (external
+S3-compatible storage) as an image-pipeline intermediary (CI pushed images,
+NAS pulled; explicit ADR rejected real AWS S3 as overkill). The v1 SOPS root
+of trust was **age + PGP/YubiKey dual recipients** in one key group across
+all secret domains (e2 creds, Talos cluster secrets, VyOS SSH): CI held an
+age private key as GitHub secret `SOPS_AGE_KEY`; the operator/recovery
+recipient was a YubiKey-backed PGP key. Known v1 weakness: one key group for
+everything (single compromise unlocks all domains).
+
 **[OPEN]** residue the model must answer (T33):
 
-- Root of trust: the SOPS age/PGP private key(s) cannot live in git — their
-  custody (per-human key? recovery copy? offline?) is the one non-GitOps
-  secret. Same will apply to Vault unseal material later.
+- Root of trust: v1 precedent answers the shape — YubiKey PGP as the
+  human/recovery recipient, age key(s) for automation. Open for v2: reuse
+  the existing YubiKey PGP recipient? Mint fresh v2 age keys (cheap,
+  recommended)? Per-subtree key groups to fix the v1 blast-radius weakness
+  (recommended)? Same custody question recurs for Vault unseal later.
 - Generated-but-durable, lab-recovery-critical secrets (IncusOS ZFS recovery
   keys, seed client key, factory cache-signing key): they need an
   out-of-lab home *before* Vault exists and independent of the lab being
@@ -324,8 +337,11 @@ kind + CAPN + any Incus daemon (the shelved UM760 is a natural sacrificial
 host).
 
 Rides along either way: OpenTofu **state backend** for the Incus-config plane
-must exist pre-lab (encrypted local first, migrate to Garage-S3 later, or a
-GitHub-backed backend) — decide at `fleet` creation (T30).
+must exist pre-lab. Strong candidate from the v1 audit: **iDrive e2**
+(external S3-compatible storage, already in use in v1 with SOPS-encrypted
+credentials, carried forward per Josh) as an S3 state backend — out-of-lab,
+no bootstrap circularity, no local-state custody problem. Alternatives:
+encrypted local first, or Garage-S3 later. Decide at `fleet` creation (T30).
 
 ### Bootstrap sequence
 
@@ -489,7 +505,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
 | T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified; UM760 as sacrificial spike host; tofu state backend decision rides along | open | Spike, then rule — see VM orchestration section |
-| T33 | Create `GilmanLab/secrets` repo (SOPS hierarchy) — **priority, secrets production imminent**. Must settle: age root-of-trust custody, hierarchy layout, whether generated-durable recovery secrets live there too | open | Josh supplies/creates age recipient(s); then scaffold repo |
+| T33 | Create `GilmanLab/secrets` repo (SOPS hierarchy) — **priority, secrets production imminent**. Must settle: reuse v1 YubiKey PGP recipient?; fresh v2 automation age keys (rec); per-subtree key groups to fix v1 single-key-group blast radius (rec); whether generated-durable recovery secrets live there too | open | Josh rules on recipients; then scaffold repo |
 | T34 | Secrets→Vault sync automation | deferred | Explicitly later (TODO per Josh) |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
