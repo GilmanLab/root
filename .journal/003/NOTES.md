@@ -153,3 +153,21 @@ with the external reference to `tailscale/policy.hujson`. Deferred by choice: AC
 `tests`, a cron re-apply, branch protection, and any `grants` migration.
 Next: session close, promoting the credential, variable, and drift facts into
 TECH_NOTES.
+
+## 2026-08-18 16:48 — Close
+Correction: the entries labeled `17:35` and `17:50` were written between roughly
+16:20 and 16:47 local time. Their timestamps are wrong; this entry uses the
+verified clock.
+Merged and landed: `GilmanLab/networking` PR #6 (`b160c71`), `GilmanLab/root`
+PR #9 (`3ef719a`), `GilmanLab/root` PR #10 (`c1ed11b`). Local `master` in both
+`/Users/josh/code/lab2` and `/Users/josh/code/lab2/networking` fast-forwarded to
+those tips; implementation worktrees and branches removed; `git ls-files
+.journal` empty in both.
+Recorded: `SUMMARY.md` written, `INDEX.md` row 003 set to complete, and
+`TECH_NOTES.md` gained a Tailscale policy section (policy path, workflow, tailnet
+ID, repository variables, trust credential scopes, the immutable OIDC subject
+form, inert drift detection) plus a correction that the MkDocs site now lives
+only in the meta repository.
+Hand-off: the tailnet policy pipeline is live and converged. The developer still
+has to enable `Prevent edits in the admin console` with the external reference to
+`tailscale/policy.hujson`. Nothing else is in flight.
