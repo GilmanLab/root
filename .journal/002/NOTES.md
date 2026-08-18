@@ -212,3 +212,15 @@ plan/apply fits pets. Parked componere product idea: Incus VM-CR reconciler
 recorded honest caveat that tofu is in the stack regardless, so (b)'s value
 is cluster-fleet consistency, not tool count; spike verdict now more
 decisive between (a) and (b).
+
+## 2026-08-18 16:21 — Secrets model corrected: SOPS repo, not Bitwarden
+Josh: all non-generated secrets live in GilmanLab/secrets as a SOPS file
+hierarchy; later automation (TODO) syncs to Vault; ephemeral/generated
+secrets exempt from the mandate. Priority: create the repo now (not the
+Vault sync). VISION.md: new Secrets section; Bitwarden references swept;
+T15 superseded/resolved into T33 (create repo — must settle age
+root-of-trust custody, hierarchy layout, and whether generated-durable
+recovery secrets like ZFS recovery keys / seed client key / factory signing
+key also live there — they need an out-of-lab, lab-independent home);
+T34 = Vault sync, deferred. Awaiting Josh: age recipient decision, then
+scaffold repo.

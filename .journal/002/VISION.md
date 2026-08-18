@@ -45,6 +45,29 @@ a bare-metal setup. Implications agents should internalize:
    rebuild-from-scratch-able systems. (This is exactly why IncusOS was chosen
    as the bare-metal hypervisor.)
 
+### Secrets
+
+**[DECIDED]** (2026-08-18) All **non-generated** secrets live in a
+`GilmanLab/secrets` repo as an organized hierarchy of SOPS-encrypted files —
+the GitOps mandate applied to secrets. Automation (TODO, later) keeps them in
+sync with Vault. The mandate deliberately does NOT apply to ephemeral or
+generated secrets.
+
+**[OPEN]** residue the model must answer (T33):
+
+- Root of trust: the SOPS age/PGP private key(s) cannot live in git — their
+  custody (per-human key? recovery copy? offline?) is the one non-GitOps
+  secret. Same will apply to Vault unseal material later.
+- Generated-but-durable, lab-recovery-critical secrets (IncusOS ZFS recovery
+  keys, seed client key, factory cache-signing key): they need an
+  out-of-lab home *before* Vault exists and independent of the lab being
+  alive. Candidate: store them in the secrets repo too (the mandate requires
+  non-generated there; it doesn't forbid generated), or keep the mandate
+  pure and give them separate offline custody.
+
+Priority: create the repo soon — secrets production is imminent (T33). Vault
+sync automation is explicitly later (T34).
+
 ### Image distribution
 
 **[DECIDED]** The concrete realization of both principles: *configs written in
@@ -56,7 +79,8 @@ checksum + tool version), not necessarily a persisted artifact. Three legs:
    git (`GilmanLab/fleet`); the componere tooling builds **and burns/serves
    locally in a single step** — no OCI publish. Rationale: for this fleet the
    publish→pull→burn round trip adds work and creates a secrets-at-rest
-   problem; single-step local render lets secrets flow Bitwarden → seed at
+   problem; single-step local render lets secrets flow from the SOPS-encrypted
+   `GilmanLab/secrets` repo (or be generated at render) into the seed at
    burn time, existing nowhere at rest. CI on `fleet` *validates* seed
    rendering (schema checks, optional throwaway build) but publishes nothing.
    Runtime Incus configuration (pools, networks, profiles, VMs) is IaC via
@@ -447,7 +471,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T12 | Disk roles per node: seed `install.target` (bus/id/min/max_size/sort_order) selects install disk deterministically — encode small-NVMe target in seed | open | Encode in seed templates |
 | T13 | `nas01` TPM 2.0 + Secure Boot capability for IncusOS | open | Verify in BIOS before cluster commit |
 | T14 | ~~IncusOS seeding/bootstrap deep-dive~~ | resolved | Research done; facts in Seeding & install mechanics. Next deliverable: bootstrap design draft |
-| T15 | Secrets custody: ZFS recovery keys + seed client certs outside the lab (Bitwarden?) | open | Recovery keys are seedable (`security.encryption_recovery_keys`) — generate, seed, custody in Bitwarden |
+| T15 | ~~Secrets custody model~~ | resolved | Superseded 2026-08-18 by the SOPS model (see Secrets section): non-generated secrets → `GilmanLab/secrets`; residue questions moved to T33 |
 | T16 | Garage / object storage design + critical-data backup story | deferred | Josh deferred entirely |
 | T17 | One-off VM inventory (what bypasses k8s) | deferred | Emerges with usage |
 | T18 | Upstream-of-`rtr01` documentation (WAN/modem) | deferred | Low priority per Josh |
@@ -460,11 +484,13 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T25 | IncusOS image tooling → product-side: `componere/incusos-builder` (active dev). Parked opinions: pinned `flasher-tool` wrapping; upstream `incus-osd/api/seed` types; deterministic build. Amended 2026-08-18: build + burn/serve locally in one step, **no OCI publish**; `fleet` CI validates rendering only | in-progress | Product-side work; lab consumes it |
 | T26 | ~~Product/instance boundary~~ | resolved | Ruled 2026-08-15: `GilmanLab/fleet` = bare-metal-only instance repo; k8s config in separate later repos (reusable code + gitops); pinned pre-release consumption OK; lab-first-then-promote flow; wait for incusos-builder (no interim tooling); generic-product boundary test. See Product vs. instance section |
 | T27 | ~~Talos image plane~~ | resolved | Adopted 2026-08-15: self-hosted Sidero image-factory; bespoke builder dead; generic images + CAPN-injected identity. See "Talos image plane" section |
-| T28 | ~~Secrets in published seeded images~~ | resolved | Dissolved 2026-08-18: IncusOS images are never published — single-step local build+burn; secrets flow Bitwarden → seed at burn time, nowhere at rest |
+| T28 | ~~Secrets in published seeded images~~ | resolved | Dissolved 2026-08-18: IncusOS images are never published — single-step local build+burn; secrets flow from the SOPS secrets repo into the seed at burn time, nowhere at rest |
 | T29 | bootc-style + Fedora CoreOS image lines for one-off VMs (defined in git, CI-published, imgoci-pushed) | deferred | Later product work; captured for context |
 | T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
 | T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified; UM760 as sacrificial spike host; tofu state backend decision rides along | open | Spike, then rule — see VM orchestration section |
+| T33 | Create `GilmanLab/secrets` repo (SOPS hierarchy) — **priority, secrets production imminent**. Must settle: age root-of-trust custody, hierarchy layout, whether generated-durable recovery secrets live there too | open | Josh supplies/creates age recipient(s); then scaffold repo |
+| T34 | Secrets→Vault sync automation | deferred | Explicitly later (TODO per Josh) |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
