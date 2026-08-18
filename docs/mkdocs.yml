@@ -33,6 +33,7 @@ nav:
   - Home: index.md
   - Decisions:
       - "ADR-0001: Use VyOS for Layer 3 and Dedicated Switches for Layer 2": decisions/0001-use-vyos-for-layer-3-and-switches-for-layer-2.md
+      - "ADR-0002: Manage the Tailnet Policy File with GitOps": decisions/0002-manage-tailscale-policy-with-gitops.md
   - Designs:
       - Drafts:
           - Lab v2 core network: designs/drafts/lab-v2-core-network.md
@@ -42,6 +43,9 @@ nav:
       - Networking:
           - Hardware: reference/networking/hardware.md
           - Physical connections: reference/networking/physical-connections.md
+          - Tailscale policy: reference/networking/tailscale-policy.md
+  - Runbooks:
+      - Change the Tailscale policy: runbooks/tailscale-policy-change.md
 
 plugins:
   - search
