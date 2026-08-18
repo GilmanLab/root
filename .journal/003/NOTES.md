@@ -82,3 +82,40 @@ Open questions for the user: purpose/naming of `tag:dntls`, the tailnet admin
 login to use as a test `src`, whether the autoApprover CIDRs are authoritative
 for the coming address plan, and whether to enable the admin-console lock now.
 Next: user decision on the plan before any implementation branch is created.
+
+## 2026-08-18 17:35 — Policy tests dropped; branches pushed
+Correction to the 16:40 plan: the `tests`/`sshTests` phase was dropped. The user
+objected that a single-owner tailnet makes deliberate changes the norm, and the
+claimed benefit was already free: `gitops-pusher test` POSTs the whole policy to
+`/api/v2/tailnet/<tailnet>/acl/validate` and fails on returned errors or
+warnings with no `tests` block present. Tests would have duplicated the rules and
+forced a two-file edit per change. Also dropped the two-credential read/write
+split in favor of one credential, for the same single-owner reason.
+User answers: remove `tag:dntls`; the four autoApprover CIDRs are authoritative
+for now; lock the admin console (after the first successful apply). Browser-driven
+console setup was abandoned mid-attempt at the user's request, so the console
+work and the GitHub variables are the user's manual steps.
+Delivered:
+- `GilmanLab/networking` branch `feat/tailscale-policy-gitops`, commit `e4310f5`,
+  pushed, PR intentionally not opened (a PR triggers `test`, which fails without
+  the repo variables): `tailscale/policy.hujson` (policy minus every `tag:dntls`
+  element), `.github/workflows/tailscale-acl.yml` (test on PR, apply on push to
+  master plus dispatch, action pinned `5a4a17f` = tag `v1` = `v1.5.2`),
+  `.gitignore` entry for `version-cache.json`.
+- `GilmanLab/root` PR #9 from `docs/tailscale-policy-gitops`, commit `969ac3b`:
+  ADR-0002, `reference/networking/tailscale-policy.md`,
+  `runbooks/tailscale-policy-change.md`, index and nav. Build documentation check
+  passed.
+Verification performed: policy parsed with `github.com/tailscale/hujson` and
+`Standardize` produced exactly the intended JSON; `actionlint` clean on the
+workflow; strict MkDocs build passed and all three pages rendered.
+Durable context for TECH_NOTES at close: workflow variables are
+`TS_TAILNET`, `TS_POLICY_CLIENT_ID`, `TS_POLICY_AUDIENCE`; trust credential
+subject `repo:GilmanLab/networking:*` with scopes `policy_file`,
+`devices:posture_attributes`, `devices:core:read`; gitops-pusher drift detection
+is inert in ephemeral CI because the `--cache-file` etag cache is never
+persisted, so the console lock is the real control; both repos default to
+`master`.
+Next: user completes console setup and sets the three variables, then open the
+networking PR, verify `Validate policy`, squash merge, confirm `Apply policy`,
+merge root PR #9, and enable the console lock.
