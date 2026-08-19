@@ -4,6 +4,7 @@
 .wt/
 /networking/
 /aws/
+/sandbox/
 
 # Moon
 .moon/cache/
