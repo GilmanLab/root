@@ -3,8 +3,8 @@
 ## Repository layout
 
 - `GilmanLab/root` is a meta repository. `init.sh` clones
-  `GilmanLab/networking` and private `GilmanLab/aws` as ignored independent
-  repositories, not submodules.
+  `GilmanLab/networking`, private `GilmanLab/aws`, and private
+  `GilmanLab/sandbox` as ignored independent repositories, not submodules.
 - Sub-repository changes use a branch and Worktrunk created inside that child
   repository, followed by a GitHub squash-merge PR.
 - The canonical documentation skill is
@@ -66,6 +66,10 @@
   uplinks directly to the VP6630.
 - The MikroTik CCR2004 connects the lab to the home network and internet over
   `10.0.0.0/30`; `gw01` is `10.0.0.2` and uses `10.0.0.1` as its default route.
+- The CCR2004's physical `10.10.0.0/16 via 10.0.0.2` route uses an ICMP
+  health check. `gw01` must allow ICMP from transit-router address `10.0.0.1`;
+  otherwise RouterOS marks the route inactive and silently uses its internet
+  default route for lab destinations.
 - `docs/docs/reference/networking/physical-connections.md` is the authoritative
   port-to-port map. `docs/docs/reference/networking/address-plan.md` owns
   prefixes, VLANs, DHCP reservations, and logical port roles.
@@ -77,6 +81,26 @@
   and `PendingSave=True`; reboot to the saved config before retrying.
 - Do not import historical or unverified values into authoritative documents.
   Ask the user to verify missing facts or omit them.
+
+## Sandbox host
+
+- Private `GilmanLab/sandbox` owns reset-button pyinfra automation for Ubuntu
+  26.04 host `sandbox01` (`10.10.40.10`, VLAN 40). Routine deploys target
+  MagicDNS `sandbox01`; explicit physical host and known-hosts overrides are
+  only for unenrolled bootstrap or break-glass access.
+- The controller mints a single-use, preauthorized, non-ephemeral Tailscale key
+  with a 10-minute TTL from the scoped OAuth client in
+  `GilmanLab/secrets/sandbox/tailscale.sops.yaml`, and only when enrollment is
+  required. Runtime key material lives under root-only `/run` and is shredded.
+- Routine SSH host verification uses the online `tag:sandbox` peer keys from
+  `tailscale status --json`, written to a mode-0600 cache file. Do not restore
+  ProxyJump or disable strict host-key checking.
+- sshd hardening is a separate final command. The managed effective policy
+  disables password and root login, permits `josh`, and keeps Tailscale SSH and
+  explicit physical recovery available.
+- Incus intentionally uses one 50 GiB loop-backed ZFS pool and the default
+  bridge. There is no cluster, project taxonomy, monitoring, backup policy, or
+  approved durable workload yet.
 
 ## Documentation tooling
 
@@ -95,6 +119,8 @@
   `.github/workflows/tailscale-acl.yml`: `test` on pull requests, `apply` on
   push to `master` and manual dispatch. Never edit the policy in the admin
   console; the next apply overwrites it.
+- `tag:sandbox` is owned by `autogroup:admin`; the policy authorizes the
+  intended `josh`, `sandbox`, and `root` Tailscale SSH paths to sandbox hosts.
 - Tailnet ID `THZctfF8wr11CNTRL`. The workflow reads repository *variables*
   `TS_TAILNET`, `TS_POLICY_CLIENT_ID`, and `TS_POLICY_AUDIENCE`; none is secret.
 - CI authenticates with a Tailscale OIDC trust credential (workload identity
