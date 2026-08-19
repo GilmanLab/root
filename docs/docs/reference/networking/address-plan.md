@@ -84,8 +84,8 @@ vPro interface receives its OOB reservation independently from AMT firmware.
 | --- | --- | --- | --- |
 | `SFP+ 1` | `eth0` | Routed | Transit `10.0.0.2/30` to `rtr01` |
 | `SFP+ 2` | `eth1` | 802.1Q trunk | VLANs 10 and 40 to `sw-core01` |
-| `Port 1` | `eth3` | Untagged access | VLAN 40 to `sandbox01` |
-| `Port 2` | `eth2` | 802.1Q trunk | VLANs 10 and 70 to `sw-mgmt01` |
+| `Port 1` | `eth3` | 802.1Q trunk | VLANs 10 and 70 to `sw-mgmt01` |
+| `Port 2` | `eth2` | Untagged access | VLAN 40 to `sandbox01` |
 | `Port 3` | `eth4` | Untagged access | VLAN 70 to `pikvm01` |
 | `Port 4` | `eth5` | Untagged access | VLAN 70 to `kvm01` |
 
