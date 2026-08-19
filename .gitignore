@@ -3,6 +3,7 @@
 .journal/
 .wt/
 /networking/
+/aws/
 
 # Moon
 .moon/cache/
