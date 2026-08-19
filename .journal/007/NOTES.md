@@ -40,3 +40,8 @@ Verification against live `sandbox01`:
 - T32 is ready: Incus is reachable, the Alpine container smoke passed, and no opinionated Incus configuration was added.
 
 The live host was not destructively reset, per Josh's instruction. The README documents the fresh-Ubuntu reset procedure; the deploy was exercised end-to-end against the existing Ubuntu 26.04 host and proved convergent and idempotent.
+
+
+## 2026-08-19 16:06 — Correction: physical lab route is inactive on rtr01
+
+Follow-up routing diagnosis corrected the earlier ProxyJump explanation. The Mac does not need a host route; without accepted Tailscale routes it sends `10.10.40.10` to its default gateway `rtr01` at `192.168.1.1`. The intended `rtr01` static route `10.10.0.0/16 via 10.0.0.2` exists but is inactive (`I s`, empty `immediate-gw`) because it uses `check-gateway=ping` and `rtr01` cannot ping `gw01` from transit source `10.0.0.1`. The deployed `gw01` `WAN_LOCAL` chain allows ICMP only from `HOME_NETWORKS`, so it drops that health probe. RouterOS consequently resolves lab traffic through its internet default route instead. A Mac-sourced ping to `10.0.0.2` succeeds because `192.168.1.20` matches `HOME_NETWORKS`; `10.10.40.1` and physical direct SSH time out. The source fix belongs in the tracked gateway firewall: permit ICMP from the transit router (narrowly `10.0.0.1`) so the static route becomes active. Tailscale subnet routing masked this defect before `sandbox01` enabled Tailscale SSH.
