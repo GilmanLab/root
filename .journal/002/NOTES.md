@@ -313,3 +313,18 @@ zero-diff plan; risks; open items left to implementer).
 T35 → blocked/handed off: Josh will spawn a dedicated implementation
 session; session 002 resumes tracking on its report (close T35, unblock
 T33, open Keycloak-teardown task).
+
+## 2026-08-18 18:05 — T35 closed: session 004 executed the migration
+Verified via .journal/004/SUMMARY.md: six roots live in GilmanLab/aws
+(aws/lab-foundation, aws/github-oidc [new, holds OIDC provider],
+aws/subnet-router, aws/keycloak, network/tailscale, security/pki/root-ca);
+all destination plans 0/0/0; identities preserved; tombstone resolved via
+import + exact-instance removal (never applied); tailscale state pull/push
+cross-account with lineage preserved; legacy writers removed (infra#57/58),
+stale platform publisher workflow removed (platform#70), meta init.sh wired
+(root#11, master 9fd7575 pulled). Correction absorbed: live Keycloak
+instance is i-069f5e943c6e11092 (audit's cached ID stale).
+Tracker: T35 resolved · T33 unblocked (next priority) · T38 opened
+(Keycloak teardown, blocked on Zitadel serving) · T39 opened (timed
+cleanup: shred /tmp/gilmanlab-aws-migration-20260819, delete old-account
+tailscale state object after rollback window).

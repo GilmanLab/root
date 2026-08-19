@@ -170,10 +170,16 @@ Working relationship (T26, **[DECIDED]** 2026-08-15):
 ## AWS substrate (carried forward from glab/v1)
 
 **[DECIDED]** The lab keeps a small AWS footprint as its out-of-lab anchor.
-Account `186067932323` (profile `lab-admin`, SSO, us-west-2). Audited
-2026-08-18 (GlabAwsMigrationAudit, session notes): **six** IaC roots in
-`GilmanLab/infra` (glab generation), state bucket
-`glab-lab-tfstate-186067932323` unless noted:
+Account `186067932323` (profile `lab-admin`, SSO, us-west-2). **Migrated
+2026-08-18 (session 004): all six IaC roots now live in the private
+`GilmanLab/aws` repo** (sole writer; legacy `GilmanLab/infra` roots removed;
+meta `init.sh` bootstraps it beside `networking`). State bucket
+`glab-lab-tfstate-186067932323` for all roots (tailscale state migrated in;
+legacy broker state retired). Roots: `aws/lab-foundation`, `aws/github-oidc`
+(new — holds the shared GitHub OIDC provider), `aws/subnet-router`,
+`aws/keycloak`, `network/tailscale`, `security/pki/root-ca`. Live Keycloak
+instance is `i-069f5e943c6e11092` (the audit's cached ID was stale).
+Root inventory below reflects pre-migration paths for historical context:
 
 - `aws/lab-foundation` — VPC `172.16.0.0/16`, IGW/subnet/routes, private
   Route53 zone `glab.lol` (`Z009084217D5KKVQERJY3`), public zone
@@ -569,11 +575,13 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
 | T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified; UM760 as sacrificial spike host; tofu state backend decision rides along | open | Spike, then rule — see VM orchestration section |
-| T33 | Restructure existing `GilmanLab/secrets` for v2 — **priority, secrets production imminent**: v2 hierarchy; keep KMS+context-scope model (`alias/glab-sops`, `Repo`+`Scope`); add YubiKey PGP back as recovery recipient (conscious reversal of glab KMS-only decision) + `sops updatekeys`; per-scope OIDC role/IAM grants for CI; decide generated-durable exception | open | Wants migration audit (T35) context; then execute |
+| T33 | Restructure existing `GilmanLab/secrets` for v2 — **priority, secrets production imminent**: v2 hierarchy; keep KMS+context-scope model (`alias/glab-sops`, `Repo`+`Scope`); add YubiKey PGP back as recovery recipient (conscious reversal of glab KMS-only decision) + `sops updatekeys`; per-scope OIDC role/IAM grants for CI (provider now in `aws/github-oidc`); decide generated-durable exception | open | **Unblocked by T35** — next priority |
 | T34 | Secrets→Vault sync automation | deferred | Explicitly later (TODO per Josh) |
-| T35 | Migrate all SIX roots to `GilmanLab/aws` preserving tfstate. **Plan drafted: `.journal/002/AWS_MIGRATION_PLAN.md`** (self-contained handoff: facts, inventory, invariants, 6 phases, acceptance = zero-diff plans) | blocked | Handed to a dedicated implementation session; session 002 tracks results and closes T35 on its report |
+| T35 | ~~AWS migration to `GilmanLab/aws`~~ | resolved | Executed by session 004 per `.journal/002/AWS_MIGRATION_PLAN.md`: six roots moved, all plans 0/0/0, identities preserved, tombstone imported to `aws/github-oidc`, tailscale backend migrated, legacy writers removed (aws#1, infra#57/#58, platform#70, root#11) |
 | T36 | ~~Identity service~~ | resolved | Zitadel (Josh 2026-08-18; had forgotten the hosted Keycloak). Keycloak migrates as live infra, follow-up destroy once Zitadel serves (tracked inside T35 + future teardown task) |
 | T37 | Systematic glab (v1) carry-forward audit beyond AWS: labctl, DNS mirror, VyOS configs, Talos platform cluster remnants, docs architecture pages — what migrates, what dies | open | After T35; candidate researcher task |
+| T38 | Keycloak teardown (EC2 + EBS + `id.glab.lol` + broker consumers) | blocked | Only after Zitadel serves; reason: live identity provider |
+| T39 | Post-rollback-window cleanup: shred `/tmp/gilmanlab-aws-migration-20260819`, delete old-account `s3://gilmanlab-tfstate/network/tailscale.tfstate` (NEVER the old root-ca object beside it) | open | Timed housekeeping from session 004 |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
