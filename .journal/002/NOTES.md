@@ -265,3 +265,12 @@ Tracker: T33 → restructure existing secrets repo; T35 AWS→GilmanLab/aws
 migration (GlabAwsMigrationAudit spawned); T36 Keycloak vs Zitadel; T37
 broader glab carry-forward audit. New AWS substrate section in VISION.md;
 AWS accepted as hard external dependency alongside GitHub.
+
+## 2026-08-18 17:05 — PGP reversal confirmed; T36 resolved: Zitadel
+Josh confirmed PGP recovery recipient is intentional (AWS-loss recovery).
+T36 resolved: Zitadel is v2 identity (he'd forgotten the hosted Keycloak);
+keycloak root migrates into GilmanLab/aws as live infra with a follow-up
+destroy once Zitadel serves. T35 scope confirmed: all four roots
+(lab-foundation, keycloak, OIDC provider/token broker, pki root-ca).
+VISION.md AWS substrate + tracker updated. Awaiting GlabAwsMigrationAudit
+for the migration plan.

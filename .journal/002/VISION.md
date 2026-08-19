@@ -178,17 +178,20 @@ applied infrastructure (currently in `GilmanLab/infra`, glab generation):
 - EC2 **Tailscale subnet router** bridging AWS VPC ↔ lab/home (see ADR-0002
   and reference/networking/tailscale-policy.md, added by session 003).
 - `aws/keycloak` — EC2 (Flatcar + Docker Compose) Keycloak at `id.glab.lol`.
-  Fate vs. v2's Zitadel choice: **[OPEN]** (T36).
+  **[DECIDED]** (T36, 2026-08-18): **Zitadel** is v2's identity service.
+  Keycloak migrates into `GilmanLab/aws` as-is (it's live infra), then gets a
+  follow-up destroy once Zitadel is serving.
 - GitHub Actions **OIDC provider** + token-broker machinery (legacy Lambda
   removed; provider retained).
 - `security/pki/root-ca` — KMS-backed internal root CA
   (`alias/glab-pki-root-ca`, pathlen:2) intended to sign Vault intermediates.
 - OpenTofu state bucket `glab-lab-tfstate-186067932323`.
 
-**[PROVISIONAL]** Migration intent (T35): move the AWS IaC into a dedicated
-`GilmanLab/aws` repo, preserving tfstate (state objects must keep working;
-KMS key ARNs must not change). Audit in flight to inventory roots, state
-objects, and blast radius.
+**[DECIDED]** Migration scope (T35): move ALL four AWS roots —
+`lab-foundation`, `keycloak`, the OIDC-provider/token-broker root, and
+`security/pki/root-ca` — into a dedicated `GilmanLab/aws` repo, preserving
+tfstate (state objects must keep working; KMS key ARNs must not change).
+Audit in flight for exact roots, state objects, and blast radius.
 
 Consequence adopted knowingly: AWS joins GitHub as a hard external
 dependency — it is the secrets root of trust (KMS), the out-of-lab anchor for
@@ -542,8 +545,8 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified; UM760 as sacrificial spike host; tofu state backend decision rides along | open | Spike, then rule — see VM orchestration section |
 | T33 | Restructure existing `GilmanLab/secrets` for v2 — **priority, secrets production imminent**: v2 hierarchy; keep KMS+context-scope model (`alias/glab-sops`, `Repo`+`Scope`); add YubiKey PGP back as recovery recipient (conscious reversal of glab KMS-only decision) + `sops updatekeys`; per-scope OIDC role/IAM grants for CI; decide generated-durable exception | open | Wants migration audit (T35) context; then execute |
 | T34 | Secrets→Vault sync automation | deferred | Explicitly later (TODO per Josh) |
-| T35 | Migrate AWS IaC from `GilmanLab/infra` (glab) to dedicated `GilmanLab/aws` repo, preserving tfstate (lab-foundation, keycloak?, OIDC provider, root-ca) | in-progress | GlabAwsMigrationAudit running; then plan PR |
-| T36 | Identity service: Keycloak (live on EC2, glab) vs. Zitadel (v2 critical-services list) | open | Josh to rule; decides keycloak root's migration-vs-teardown fate |
+| T35 | Migrate ALL four AWS roots from `GilmanLab/infra` (glab) to dedicated `GilmanLab/aws`, preserving tfstate: lab-foundation, keycloak (live — migrate now, destroy after Zitadel serves), OIDC provider/token broker, security/pki/root-ca | in-progress | GlabAwsMigrationAudit running; then plan PR |
+| T36 | ~~Identity service~~ | resolved | Zitadel (Josh 2026-08-18; had forgotten the hosted Keycloak). Keycloak migrates as live infra, follow-up destroy once Zitadel serves (tracked inside T35 + future teardown task) |
 | T37 | Systematic glab (v1) carry-forward audit beyond AWS: labctl, DNS mirror, VyOS configs, Talos platform cluster remnants, docs architecture pages — what migrates, what dies | open | After T35; candidate researcher task |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
