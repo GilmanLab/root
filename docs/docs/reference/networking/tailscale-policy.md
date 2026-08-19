@@ -60,9 +60,8 @@ manual approval:
 | `192.168.1.0/24` | Home |
 | `192.168.2.0/24` | Home |
 
-These ranges are authoritative for the tailnet today. The Lab v2 address plan is
-not yet written; when it exists, it becomes the canonical source for lab ranges
-and these entries must be reconciled with it.
+The [network address and VLAN plan](address-plan.md) is canonical for lab
+prefixes. Reconcile this list whenever that plan changes.
 
 ## Credentials
 

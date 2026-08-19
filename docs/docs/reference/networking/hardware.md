@@ -25,5 +25,5 @@ Models and physical specifications live in the
 [hardware inventory](../hardware-inventory.md). The
 [physical connection map](physical-connections.md) records every installed
 cable and its endpoint ports. The
-[Lab v2 core network design](../../designs/drafts/lab-v2-core-network.md) defines
+[Lab v2 core network design](../../designs/lab-v2-core-network.md) defines
 the logical topology and device boundaries.

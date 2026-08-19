@@ -40,12 +40,8 @@ is:
 | `pikvm01` | PiKVM V4 Plus | KVM-over-IP console |
 | `kvm01` | TESmart HKS801-EB23 8x1 KVM | Console switch |
 | `ups01` | APC Smart-UPS SMT1000 | UPS |
+| `sandbox01` | Minisforum UM760 | General-purpose test and spike host |
 
-## Unnamed hardware
-
-| Device | Status |
-| --- | --- |
-| Minisforum UM760 | Shelf spare; named at commissioning |
 
 Models and physical specifications live in the
 [hardware inventory](hardware-inventory.md).

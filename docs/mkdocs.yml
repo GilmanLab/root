@@ -36,12 +36,12 @@ nav:
       - "ADR-0002: Manage the Tailnet Policy File with GitOps": decisions/0002-manage-tailscale-policy-with-gitops.md
       - "ADR-0003: Use AWS KMS with PGP Recovery for Secrets": decisions/0003-use-kms-with-pgp-recovery-for-secrets.md
   - Designs:
-      - Drafts:
-          - Lab v2 core network: designs/drafts/lab-v2-core-network.md
+      - Lab v2 core network: designs/lab-v2-core-network.md
   - Reference:
       - Device naming: reference/naming.md
       - Hardware inventory: reference/hardware-inventory.md
       - Networking:
+          - Address and VLAN plan: reference/networking/address-plan.md
           - Hardware: reference/networking/hardware.md
           - Physical connections: reference/networking/physical-connections.md
           - Tailscale policy: reference/networking/tailscale-policy.md
