@@ -378,3 +378,21 @@ validated). Completed the rename over SSH: hostnamectl static = sandbox01,
 /etc/hosts 127.0.1.1 updated, hostname verified. sandbox01's system
 identity now matches the registry (T06: sandbox01 done; gw01 done by 006;
 remaining devices get names at commissioning/config).
+
+## 2026-08-19 11:17 — T41 plan drafted for handoff
+Josh confirmed dedicated GilmanLab/sandbox repo; noted pyinfra is the house
+tool (also drives VyOS in networking via pyinfra-vyos). Grounded
+conventions: networking repo = uv/py3.14/hatchling/ruff/mypy/moon/mise with
+pinned pyinfra-vyos; pyinfra-incus (meigma) = controller-side CLI-over-SSH
+library, sudo not incus-admin, secrets kept off argv.
+Wrote .journal/002/SANDBOX_SETUP_PLAN.md: repo scaffold mirroring
+networking; admin group + josh/sandbox users (retire ad-hoc sudoers
+drop-in); Docker+Podman (no podman-docker shim); Incus via pyinfra-incus
+(zabbly lean, vanilla daemon = T32 spike target); Tailscale enrollment as
+cross-repo work (networking policy PR: tag:sandbox + Tailscale SSH rules;
+first sandbox scope in secrets for the auth key — MUST use encryption
+subkey 5109…979C!); SSH hardening ordered LAST with lockout drill
+(Tailscale SSH primary, josh@LAN+key break glass, AllowUsers josh);
+baseline: unattended-upgrades, hostname assertion, minimal tools.
+Acceptance: reset-button run, idempotent second run, functional smoke of
+all runtimes + both auth paths. T41 → blocked/handed off.
