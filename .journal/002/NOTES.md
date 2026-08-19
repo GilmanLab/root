@@ -241,3 +241,27 @@ orchestration).
 Awaiting Josh: recipient rulings for T33, and confirmation of what exactly
 e2 continues to do in v2 (state backend? image intermediary is obsolete —
 AMT delivery replaced NAS-pull).
+
+## 2026-08-18 17:02 — Lineage corrected: glab is v1; KMS+PGP decided; AWS substrate
+Josh corrected the migration source: ~/code/glab (not ~/code/lab) is the
+deprecated predecessor. So: v0 = ~/code/lab (age+YubiKey, iDrive e2), v1 =
+~/code/glab (full AWS substrate, GilmanLab/{infra,secrets,docs}), v2 = lab2.
+Earlier OldLabAwsAudit examined v0 — conclusions lineage-corrected in
+VISION.md.
+Verified from glab: GilmanLab/secrets EXISTS with KMS-only SOPS
+(alias/glab-sops, context Repo+Scope, scopes network-tailscale/network-vyos/
+keycloak/talos-platform); GilmanLab/infra has aws/lab-foundation (VPC
+172.16/16, KMS, Route53 glab.lol), aws/keycloak (EC2 id.glab.lol), OIDC
+provider + token broker (legacy lambda destroyed), security/pki/root-ca
+(alias/glab-pki-root-ca, pathlen:2); state bucket
+glab-lab-tfstate-186067932323; account 186067932323 profile lab-admin.
+Decided: secrets root of trust = AWS KMS + PGP (YubiKey recovery recipient =
+conscious reversal of glab session-026 KMS-only rule; rationale AWS-loss
+survivability, pending Josh confirm). Catalyst-infra pattern studied
+(.sops.yaml Repo+Scope contexts, grant invariant, OIDC publisher roles).
+Tofu state backend question dissolved: existing bucket is the answer;
+e2 candidate withdrawn.
+Tracker: T33 → restructure existing secrets repo; T35 AWS→GilmanLab/aws
+migration (GlabAwsMigrationAudit spawned); T36 Keycloak vs Zitadel; T37
+broader glab carry-forward audit. New AWS substrate section in VISION.md;
+AWS accepted as hard external dependency alongside GitHub.

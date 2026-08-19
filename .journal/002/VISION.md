@@ -47,39 +47,47 @@ a bare-metal setup. Implications agents should internalize:
 
 ### Secrets
 
-**[DECIDED]** (2026-08-18) All **non-generated** secrets live in a
+**[DECIDED]** (2026-08-18) All **non-generated** secrets live in the
 `GilmanLab/secrets` repo as an organized hierarchy of SOPS-encrypted files —
 the GitOps mandate applied to secrets. Automation (TODO, later) keeps them in
 sync with Vault. The mandate deliberately does NOT apply to ephemeral or
 generated secrets.
 
-**Precedent from lab v1** (audited 2026-08-18, `~/code/lab`; full brief in
-session notes): despite the "AWS" framing, v1 used **no native AWS services**
-— the AWS SDK/Boto3 spoke the S3 *protocol* to **iDrive e2** (external
-S3-compatible storage) as an image-pipeline intermediary (CI pushed images,
-NAS pulled; explicit ADR rejected real AWS S3 as overkill). The v1 SOPS root
-of trust was **age + PGP/YubiKey dual recipients** in one key group across
-all secret domains (e2 creds, Talos cluster secrets, VyOS SSH): CI held an
-age private key as GitHub secret `SOPS_AGE_KEY`; the operator/recovery
-recipient was a YubiKey-backed PGP key. Known v1 weakness: one key group for
-everything (single compromise unlocks all domains).
+**[DECIDED]** Root of trust: **AWS KMS + PGP**. The existing `alias/glab-sops`
+KMS key in the `lab-admin` account (186067932323, us-west-2, key
+`2aba1d94-6eaf-4d80-8d26-2077f32fd7c5`) is the backing key; hierarchy
+*scoping* controls access via SOPS encryption context (`Repo` + `Scope`,
+continuing the existing repo's convention). CI authenticates via GitHub
+OIDC-assumed AWS roles whose IAM policies condition `kms:Decrypt` on the
+encryption context — what CI can see is an IAM policy question. The
+YubiKey-backed PGP key (offline master, subkeys on three YubiKeys, Josh sole
+holder) is the human/disaster-recovery recipient. Inspiration:
+`~/work/catalyst-infra` (same single-key + context-scope + grant-invariant
+model; catalyst forbids non-KMS recipients — the lab deliberately differs by
+keeping PGP).
 
-**[OPEN]** residue the model must answer (T33):
+**State of the world**: `GilmanLab/secrets` already exists (glab generation)
+with KMS-only creation rules and scopes `network-tailscale`, `network-vyos`,
+`keycloak`, `talos-platform`. The glab generation (session 026/027)
+deliberately *removed* PGP/age recipients; adding PGP back is a **conscious
+reversal** — rationale: the lab must be rebuildable if the AWS account is
+lost. T33 is therefore *restructure*, not create: v2 hierarchy, add PGP
+recipient to key groups, `sops updatekeys` sweep.
 
-- Root of trust: v1 precedent answers the shape — YubiKey PGP as the
-  human/recovery recipient, age key(s) for automation. Open for v2: reuse
-  the existing YubiKey PGP recipient? Mint fresh v2 age keys (cheap,
-  recommended)? Per-subtree key groups to fix the v1 blast-radius weakness
-  (recommended)? Same custody question recurs for Vault unseal later.
-- Generated-but-durable, lab-recovery-critical secrets (IncusOS ZFS recovery
-  keys, seed client key, factory cache-signing key): they need an
-  out-of-lab home *before* Vault exists and independent of the lab being
-  alive. Candidate: store them in the secrets repo too (the mandate requires
-  non-generated there; it doesn't forbid generated), or keep the mandate
-  pure and give them separate offline custody.
+**Lineage note**: the earlier "no AWS in the old lab" audit examined
+`~/code/lab`, which is v0 (ancient: age+YubiKey SOPS, iDrive e2). The actual
+deprecated predecessor is **`~/code/glab`** (v1): full AWS substrate, the
+existing secrets repo, `GilmanLab/infra`. Lab2 = v2.
 
-Priority: create the repo soon — secrets production is imminent (T33). Vault
-sync automation is explicitly later (T34).
+**[OPEN]** residue (T33): generated-but-durable, lab-recovery-critical
+secrets (IncusOS ZFS recovery keys, seed client key, factory cache-signing
+key) need a home before Vault exists and independent of the lab being alive —
+candidate: the secrets repo as a documented exception (mandate requires
+non-generated there; doesn't forbid generated). Vault unseal custody recurs
+later (T24).
+
+Priority: restructure the repo soon — secrets production is imminent (T33).
+Vault sync automation is explicitly later (T34).
 
 ### Image distribution
 
@@ -158,6 +166,34 @@ Working relationship (T26, **[DECIDED]** 2026-08-15):
 - **Identity boundary**: product repos stay generic. Test for any change:
   "would a second componere user want this?" No → instance repo. Product
   defines config schemas; the instance supplies instances of them.
+
+## AWS substrate (carried forward from glab/v1)
+
+**[DECIDED]** The lab keeps a small AWS footprint as its out-of-lab anchor.
+Account `186067932323` (profile `lab-admin`, SSO, us-west-2). Existing,
+applied infrastructure (currently in `GilmanLab/infra`, glab generation):
+
+- `aws/lab-foundation` — VPC (`172.16.0.0/16`), the `alias/glab-sops` KMS key,
+  private Route53 zone `glab.lol`.
+- EC2 **Tailscale subnet router** bridging AWS VPC ↔ lab/home (see ADR-0002
+  and reference/networking/tailscale-policy.md, added by session 003).
+- `aws/keycloak` — EC2 (Flatcar + Docker Compose) Keycloak at `id.glab.lol`.
+  Fate vs. v2's Zitadel choice: **[OPEN]** (T36).
+- GitHub Actions **OIDC provider** + token-broker machinery (legacy Lambda
+  removed; provider retained).
+- `security/pki/root-ca` — KMS-backed internal root CA
+  (`alias/glab-pki-root-ca`, pathlen:2) intended to sign Vault intermediates.
+- OpenTofu state bucket `glab-lab-tfstate-186067932323`.
+
+**[PROVISIONAL]** Migration intent (T35): move the AWS IaC into a dedicated
+`GilmanLab/aws` repo, preserving tfstate (state objects must keep working;
+KMS key ARNs must not change). Audit in flight to inventory roots, state
+objects, and blast radius.
+
+Consequence adopted knowingly: AWS joins GitHub as a hard external
+dependency — it is the secrets root of trust (KMS), the out-of-lab anchor for
+state, DNS (`glab.lol`), and the site-to-site tailnet bridge. The PGP
+recovery recipient exists precisely so total AWS loss is survivable.
 
 ## Device naming
 
@@ -336,12 +372,11 @@ anything but smooth, (a) wins on simplicity. Spike needs no lab hardware:
 kind + CAPN + any Incus daemon (the shelved UM760 is a natural sacrificial
 host).
 
-Rides along either way: OpenTofu **state backend** for the Incus-config plane
-must exist pre-lab. Strong candidate from the v1 audit: **iDrive e2**
-(external S3-compatible storage, already in use in v1 with SOPS-encrypted
-credentials, carried forward per Josh) as an S3 state backend — out-of-lab,
-no bootstrap circularity, no local-state custody problem. Alternatives:
-encrypted local first, or Garage-S3 later. Decide at `fleet` creation (T30).
+Rides along either way: OpenTofu **state backend** — answered by the AWS
+substrate: the existing `glab-lab-tfstate-186067932323` bucket (lab-admin
+account) is the backend; out-of-lab, no bootstrap circularity. (Earlier
+iDrive-e2 candidate withdrawn — that was v0's storage, and a real bucket
+already exists.)
 
 ### Bootstrap sequence
 
@@ -505,8 +540,11 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
 | T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified; UM760 as sacrificial spike host; tofu state backend decision rides along | open | Spike, then rule — see VM orchestration section |
-| T33 | Create `GilmanLab/secrets` repo (SOPS hierarchy) — **priority, secrets production imminent**. Must settle: reuse v1 YubiKey PGP recipient?; fresh v2 automation age keys (rec); per-subtree key groups to fix v1 single-key-group blast radius (rec); whether generated-durable recovery secrets live there too | open | Josh rules on recipients; then scaffold repo |
+| T33 | Restructure existing `GilmanLab/secrets` for v2 — **priority, secrets production imminent**: v2 hierarchy; keep KMS+context-scope model (`alias/glab-sops`, `Repo`+`Scope`); add YubiKey PGP back as recovery recipient (conscious reversal of glab KMS-only decision) + `sops updatekeys`; per-scope OIDC role/IAM grants for CI; decide generated-durable exception | open | Wants migration audit (T35) context; then execute |
 | T34 | Secrets→Vault sync automation | deferred | Explicitly later (TODO per Josh) |
+| T35 | Migrate AWS IaC from `GilmanLab/infra` (glab) to dedicated `GilmanLab/aws` repo, preserving tfstate (lab-foundation, keycloak?, OIDC provider, root-ca) | in-progress | GlabAwsMigrationAudit running; then plan PR |
+| T36 | Identity service: Keycloak (live on EC2, glab) vs. Zitadel (v2 critical-services list) | open | Josh to rule; decides keycloak root's migration-vs-teardown fate |
+| T37 | Systematic glab (v1) carry-forward audit beyond AWS: labctl, DNS mirror, VyOS configs, Talos platform cluster remnants, docs architecture pages — what migrates, what dies | open | After T35; candidate researcher task |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
