@@ -274,3 +274,23 @@ destroy once Zitadel serves. T35 scope confirmed: all four roots
 (lab-foundation, keycloak, OIDC provider/token broker, pki root-ca).
 VISION.md AWS substrate + tracker updated. Awaiting GlabAwsMigrationAudit
 for the migration plan.
+
+## 2026-08-18 17:11 — Migration audit distilled into T35 plan
+GlabAwsMigrationAudit (full: history://GlabAwsMigrationAudit) found SIX
+roots, not four: + aws/subnet-router (own root: EC2 router, EIP, IAM
+glab-aws-subnet-router, dns-mirror via SSM; VyOS pulls glab.lol zone from
+its Tailscale IP 100.80.89.100) and + network/tailscale (Tailscale provider;
+state in OLD account bucket gilmanlab-tfstate/340752822076 via
+jmgilman-prod — needs backend migration). github-token-broker root =
+tombstone (targeted destroy in glab session 044; state likely retains only
+the GitHub OIDC provider; never ordinary-apply; carve provider into small
+identity root via cross-state mv/import). Keycloak root owns the CURRENT
+broker Lambda (module v2.0.0). Migration mechanics: pure repo move, same
+bucket/keys/locks, zero-diff plan acceptance; order freeze/capture →
+bootstrap repo → tombstone resolve → foundation → root-ca → tailscale →
+subnet-router → keycloak → ownership cutover. Risks: KMS identity, dual
+root-ca.tfstate name in two buckets (never copy old), broker resurrection,
+OIDC orphan consumers, DNS/route breakage, single-writer.
+VISION.md AWS substrate rewritten with all six roots + plan; T35 ready to
+execute pending Josh green-light + tailscale-root home ruling (aws vs
+networking repo).
