@@ -16,7 +16,7 @@ no printed label.
 | --- | --- | --- | --- | --- |
 | `PHY-001` | `rtr01` | `SFP+ 1` | `gw01` | `SFP+ 1` |
 | `PHY-002` | `gw01` | `SFP+ 2` | `sw-core01` | `Port 8` |
-| `PHY-003` | `gw01` | `Port 2` | `sw-mgmt01` | `Port 1` |
+| `PHY-003` | `gw01` | `Port 1` | `sw-mgmt01` | `Port 1` |
 | `PHY-004` | `gw01` | `Port 3` | `pikvm01` | `Unlabeled Ethernet port` |
 | `PHY-005` | `gw01` | `Port 4` | `kvm01` | `Unlabeled Ethernet port` |
 | `PHY-006` | `sw-mgmt01` | `Port 2` | `lab01` | `10GbE RJ45 (upper)` |
@@ -33,7 +33,7 @@ no printed label.
 | `PHY-017` | `sw-core01` | `Port 6` | `lab03` | `Left SFP 25G` |
 | `PHY-018` | `sw-core01` | `Port 7` | `nas01` | `10GB Port` |
 | `PHY-019` | `sw-mgmt01` | `Port 8` | `nas01` | `5GB Port` |
-| `PHY-020` | `gw01` | `Port 1` | `sandbox01` | `2.5GbE RJ45` |
+| `PHY-020` | `gw01` | `Port 2` | `sandbox01` | `2.5GbE RJ45` |
 
 
 IP addresses, VLANs, bonds, interface names, and link settings belong to the
