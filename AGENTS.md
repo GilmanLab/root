@@ -14,7 +14,7 @@ installed correctly.
 
 ## Sub-repository workflow
 
-This is a meta repository. Directories cloned by `init.sh`, such as `networking/`, are independent Git repositories. They are ignored here and are not submodules.
+This is a meta repository. Directories cloned by `init.sh`, including `networking/` and `aws/`, are independent Git repositories. They are ignored here and are not submodules.
 
 For work inside a sub-repository:
 
