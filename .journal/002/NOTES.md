@@ -294,3 +294,11 @@ OIDC orphan consumers, DNS/route breakage, single-writer.
 VISION.md AWS substrate rewritten with all six roots + plan; T35 ready to
 execute pending Josh green-light + tailscale-root home ruling (aws vs
 networking repo).
+
+## 2026-08-18 17:15 — Tailscale root home resolved
+Grounded network/tailscale contents: 2 AWS-coupled resources (federated
+identity, VPC route approval — lifecycle-bound to subnet-router boot) + 2
+non-AWS (MagicDNS, split DNS → lab CoreDNS). Ruling: whole root migrates
+unchanged into GilmanLab/aws (keeps T35 zero-diff, single writer); optional
+later split of the DNS resources into networking. T35 fully specified,
+awaiting green-light.
