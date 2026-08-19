@@ -16,6 +16,9 @@ and runbook lives here.
   assigns core routing and switching responsibilities.
 - [ADR-0002: Manage the Tailnet Policy File with GitOps](decisions/0002-manage-tailscale-policy-with-gitops.md)
   makes git the source of truth for the tailnet policy file.
+- [ADR-0003: Use AWS KMS with PGP Recovery for Secrets](decisions/0003-use-kms-with-pgp-recovery-for-secrets.md)
+  uses scoped KMS access for routine decryption and a YubiKey-backed PGP key
+  for recovery outside AWS.
 
 ## Designs
 
