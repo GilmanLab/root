@@ -589,6 +589,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T38 | Keycloak teardown (EC2 + EBS + `id.glab.lol` + broker consumers) | blocked | Only after Zitadel serves; reason: live identity provider |
 | T39 | Post-rollback-window cleanup: shred `/tmp/gilmanlab-aws-migration-20260819`, delete old-account `s3://gilmanlab-tfstate/network/tailscale.tfstate` (NEVER the old root-ca object beside it) | open | Timed housekeeping from session 004 |
 | T40 | Confirm Tailscale admin-console edit lock ("Prevent edits") is actually enabled — session 003 recorded it pending; session 005 could not confirm | open | One-click operator check in the admin console |
+| T41 | Create `GilmanLab/sandbox` repo: pyinfra base config for `sandbox01` (the box's reset button). Dedicated repo over `fleet/` subfolder — charter mismatch: fleet = IncusOS/production invariants, sandbox = mutable/expendable churn. README must state the deliberate immutability exception. Wire into `init.sh`; `sandbox` secrets scope on demand | open | Josh to confirm repo choice; then scaffold |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
