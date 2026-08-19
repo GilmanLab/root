@@ -328,3 +328,16 @@ Tracker: T35 resolved · T33 unblocked (next priority) · T38 opened
 (Keycloak teardown, blocked on Zitadel serving) · T39 opened (timed
 cleanup: shred /tmp/gilmanlab-aws-migration-20260819, delete old-account
 tailscale state object after rollback window).
+
+## 2026-08-18 18:09 — T33 plan drafted for handoff
+Wrote .journal/002/SECRETS_RESTRUCTURE_PLAN.md. Inventory grounded from the
+repo: 7 SOPS files across 4 scopes, plus stale tailnet policy + workflow
+(superseded by session 003 / ADR-0002). Key design points encoded: KMS+PGP
+in ONE key group (alternatives, not Shamir — PGP-alone must decrypt when
+AWS is dead); existing file paths frozen (live consumers: keycloak labctl
+boot, VyOS ansible, tailscale tofu root); new fleet scope + hierarchy
+convention; generated-durable exception verbatim for README; ADR-0003
+(KMS+PGP reversal) as meta-docs companion; CI decrypt = per-consumer OIDC
+roles with the catalyst grant invariant, instantiated on first real
+consumer only; phases with break-glass PGP-only decrypt proof and plaintext
+hash acceptance. T33 → blocked/handed off.
