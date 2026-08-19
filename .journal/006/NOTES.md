@@ -44,3 +44,9 @@ CoreDNS on `gw01` now owns both the mirrored `glab.lol` zone and recursive forwa
 Verification passed: 40 networking tests, formatting, lint, typing, template validation, two complete live syncs, `PendingSave=False`, redaction assertions, authoritative `glab.lol` resolution, recursive public DNS resolution, strict documentation build, and all three pull-request checks.
 
 Open security follow-up: an early VyOS load failure included the former Tailscale OAuth client secret and the current password hash in controller transcript output. The router no longer stores the OAuth secret, and facts now mask both values, but the OAuth client must be revoked and the console password hash must be rotated because both values should be treated as exposed.
+
+## 2026-08-19 09:58 — Close
+
+Session complete. Root PRs [#13](https://github.com/GilmanLab/root/pull/13) and [#14](https://github.com/GilmanLab/root/pull/14), networking PR [#7](https://github.com/GilmanLab/networking/pull/7), and secrets PR [#22](https://github.com/GilmanLab/secrets/pull/22) are squash-merged. Local `master` branches for all three repositories were fast-forwarded and the implementation worktrees were removed.
+
+The accepted configuration is live and saved on `gw01`; a second full synchronization, `PendingSave=False`, redaction checks, and authoritative and recursive DNS checks passed. Remaining security handoff: revoke the exposed Tailscale node-registration OAuth client and rotate the exposed console password/hash.

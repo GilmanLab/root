@@ -54,16 +54,27 @@
 
 ## Network authority
 
-- The VP6630 runs VyOS and owns Layer 3 gateways, routing, firewall policy, and
-  NAT.
-- The MikroTik CRS309-1G-8S+IN carries core Layer 2 VLAN traffic.
-- The TRENDnet TEG-3102WS connects both non-SFP NICs from each MS-02 for
-  management/OOB traffic and uplinks directly to the VP6630.
-- The VP6630 provides the management/OOB Layer 3 gateway and firewall policy.
-- The MikroTik CCR2004 connects the lab to the home network and internet.
-- `networking/docs/docs/reference/physical-connections.md` is the authoritative
-  port-to-port map: 18 cables, 36 unique connected endpoints, and two explicitly
-  unconnected ports.
+- The VP6630 `gw01` runs VyOS and owns Layer 3 gateways, static routing,
+  firewall policy, NAT, DHCP, CoreDNS, and Tailscale subnet routing.
+- The accepted routed VLANs are management VLAN 10 (`10.10.10.0/24`),
+  sandbox/workload VLAN 40 (`10.10.40.0/24`), and OOB VLAN 70
+  (`10.10.70.0/24`). VLAN 20 and BGP are retired.
+- The former UM760 cluster node is `sandbox01` on VP6630 `eth3`, untagged VLAN
+  40, with DHCP reservation `10.10.40.10`.
+- The MikroTik CRS309-1G-8S+IN carries core Layer 2 VLAN traffic. The TRENDnet
+  TEG-3102WS connects both non-SFP NICs from each MS-02 for management/OOB and
+  uplinks directly to the VP6630.
+- The MikroTik CCR2004 connects the lab to the home network and internet over
+  `10.0.0.0/30`; `gw01` is `10.0.0.2` and uses `10.0.0.1` as its default route.
+- `docs/docs/reference/networking/physical-connections.md` is the authoritative
+  port-to-port map. `docs/docs/reference/networking/address-plan.md` owns
+  prefixes, VLANs, DHCP reservations, and logical port roles.
+- `GilmanLab/networking/vyos/gw01/config.boot.tmpl` and its CoreDNS assets are
+  the gateway source. `networking_vyos sync` performs a secret-free full load,
+  applies the console hash separately, verifies live behavior, then saves.
+- The rolling VyOS 2025.11 image needs empty nftables compatibility chains
+  before interface commit hooks. Failed commits can leave runtime side effects
+  and `PendingSave=True`; reboot to the saved config before retrying.
 - Do not import historical or unverified values into authoritative documents.
   Ask the user to verify missing facts or omit them.
 
@@ -96,5 +107,7 @@
 - `gitops-pusher` drift detection is inert in ephemeral CI because its
   `--cache-file` etag cache is never persisted. The admin-console lock is the
   real control.
-- The SOPS-encrypted Tailscale OAuth client in `~/code/infra` is a
-  node-registration credential and must not be reused for policy work.
+- The SOPS-encrypted node-registration OAuth client in
+  `GilmanLab/secrets/network/vyos/tailscale.sops.yaml` must not be reused for
+  policy work. It is no longer present in `gw01` configuration or required by
+  gateway automation. Treat it as exposed and revoke it.
