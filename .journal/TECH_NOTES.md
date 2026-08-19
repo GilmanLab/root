@@ -32,6 +32,26 @@
   a refresh-only plan observes provider-computed EBS attachment metadata and
   should not be applied merely to silence migration drift.
 
+## Secrets root of trust
+
+- Private `GilmanLab/secrets` uses one SOPS key group per file containing
+  scoped AWS KMS and YubiKey-backed PGP as alternative recipients. Routine
+  access uses KMS key `2aba1d94-6eaf-4d80-8d26-2077f32fd7c5`; break-glass
+  recovery uses exact Curve25519 encryption subkey
+  `51098F038D5D9F84FE342036858A466C85A0979C!` from primary identity
+  `3965F16E293466CFE77D47F38C15553EEB22DB2A`.
+- Every KMS recipient requires encryption context `Repo: GilmanLab/secrets`
+  plus `Scope: <access-boundary>`. An unconditioned consumer grant spans every
+  scope and is a defect. Future IAM roles belong in `GilmanLab/aws` and are
+  created only for real workflows.
+- Secret domains are `fleet/<node>/`, future `clusters/<name>/`,
+  `services/<service>/`, and `network/`; legacy `compute/` remains frozen.
+  Generated but durable recovery material belongs in the encrypted repository;
+  ephemeral runtime-generated secrets do not.
+- `GilmanLab/secrets/scripts/check_sops_metadata.py` validates recipients and
+  encryption context in CI without decryption. PGP recovery must still be
+  tested periodically with a YubiKey and AWS credentials absent.
+
 ## Network authority
 
 - The VP6630 runs VyOS and owns Layer 3 gateways, routing, firewall policy, and
