@@ -8,3 +8,4 @@
 | 004 | 2026-08-18 | Migrate AWS infrastructure into GilmanLab/aws | complete | Moved all six OpenTofu roots into the private AWS repository with preserved identities and zero-change plans, then retired the legacy writers. |
 | 005 | 2026-08-18 | Restructure the secrets root of trust | complete | Added YubiKey-backed recovery to every SOPS file, defined the lab v2 secret hierarchy, removed stale policy artifacts, and documented the scoped KMS model. |
 | 006 | 2026-08-18 | Automate and deploy the VyOS gateway | complete | Finalized the core-network design, replaced legacy VyOS automation, and deployed the accepted saved configuration to `gw01`. |
+| 007 | 2026-08-19 | Review sandbox setup plan | in-progress | Started a fresh session to load session 002's ready-for-implementation sandbox setup plan and prepare for the next request. |
