@@ -89,5 +89,5 @@ Management addresses on the switches do not violate this decision.
 
 ## More Information
 
-See the [Lab v2 core network design](../designs/drafts/lab-v2-core-network.md)
+See the [Lab v2 core network design](../designs/lab-v2-core-network.md)
 and [hardware reference](../reference/networking/hardware.md).

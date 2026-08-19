@@ -22,8 +22,8 @@ and runbook lives here.
 
 ## Designs
 
-- [Lab v2 core network design](designs/drafts/lab-v2-core-network.md) defines
-  the core topology, device boundaries, configuration requirements, and
+- [Lab v2 core network design](designs/lab-v2-core-network.md) defines the
+  accepted topology, device boundaries, network services, migration, and
   verification criteria.
 
 ## Reference
@@ -34,6 +34,9 @@ and runbook lives here.
   device in the lab with its model and specifications.
 - [Networking hardware](reference/networking/hardware.md) identifies the core
   network devices and their roles.
+- [Network address and VLAN plan](reference/networking/address-plan.md) is the
+  canonical source for routed prefixes, VLANs, address allocations, gateway
+  interfaces, and switch port roles.
 - [Physical connections](reference/networking/physical-connections.md) records
   every installed cable and its endpoint ports.
 - [Tailscale policy](reference/networking/tailscale-policy.md) records the

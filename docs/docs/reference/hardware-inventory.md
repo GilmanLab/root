@@ -28,6 +28,7 @@ documentation, not this inventory.
 ### Minisforum UM760
 
 - Quantity: `1`
+- Role: general-purpose sandbox host
 - Hardware details:
   - `Ryzen 7`
   - `32GB RAM`
@@ -36,6 +37,7 @@ documentation, not this inventory.
 ### Minisforum MS-02 Ultra
 
 - Quantity: `3`
+- Product page: <https://www.minisforum.com/products/ms-02-ultra>
 - Hardware details:
   - Model: `MS-02-Ultra`
   - CPU: `Intel Core Ultra 9 285HX`
@@ -44,8 +46,8 @@ documentation, not this inventory.
     - `Samsung SSD 990 EVO Plus 2TB`
     - `Patriot M.2 P300 128GB`
   - `2x 10/25GbE-capable SFP+` ports
-  - `2x 2.5GbE RJ45` ports
-  - Intel `vPro/AMT`
+  - Upper `10GbE RJ45` port
+  - Lower `2.5GbE RJ45` port with Intel `vPro/AMT`
 
 ### MINISFORUM N5 Pro NAS
 
