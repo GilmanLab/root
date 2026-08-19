@@ -358,3 +358,16 @@ secrets worktree session-054 now conflicts with master (T37 scope); GitHub
 Pro limitation blocks rulesets on private secrets repo.
 Remaining v2-critical: T32 spike, T13 nas01 TPM/SB check, step-3 deploy
 mechanism dump.
+
+## 2026-08-19 10:25 — sandbox01 live; session 006 outcomes absorbed
+UM760 commissioned as sandbox01 (Josh's "sandbox" + registry ordinal;
+session 006 already registered it in naming.md/inventory/address plan/
+cabling PHY-020). SSH verified: josh@10.10.40.10, Ubuntu 26.04, hostname
+currently "sandbox" — rename to sandbox01 needs Josh's sudo (commands
+provided; sudo requires interactive TTY, could not automate).
+Session 006 absorbed into VISION.md: core design finalized+deployed to gw01
+(designs/lab-v2-core-network.md now canonical, out of drafts); VLANs
+10/40/70, VLAN20+PXE retired; sandbox VLAN isolated from mgmt/OOB; gw01
+runs NO BGP (rejected without consumer) → T10 note updated: first cluster
+LB consumer brings the BGP design. T32: spike host ready. T06: gw01 named
+by 006; sandbox01 hostname pending; rest at commissioning.

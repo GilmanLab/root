@@ -260,7 +260,7 @@ Registry:
 | `pikvm01` | PiKVM V4 Plus | KVM-over-IP |
 | `kvm01` | TESmart 8x1 HDMI KVM | Console switch |
 | `ups01` | APC Smart-UPS SMT1000 | UPS |
-| — | Minisforum UM760 | Shelf spare, unnamed until commissioned |
+| `sandbox01` | Minisforum UM760 | General-purpose test/spike host (commissioned 2026-08-18, session 006; Ubuntu 26.04; `10.10.40.10` on VLAN 40; deliberately outside the IncusOS cluster) |
 
 All other docs (inventory, cabling map, designs) reference devices by
 canonical name. Setting the identity on each physical device (hostnames,
@@ -276,7 +276,7 @@ RouterOS identity, chassis labels) is a pending implementation task.
 | TRENDnet TEG-3102WS (8x 2.5G + 2x SFP+) | 1 | Management/OOB switch for MS-02s | [DECIDED] ADR-0001 |
 | Minisforum MS-02 Ultra (Ultra 9 285HX, 64GB, 2TB+128GB NVMe, 2x 25G SFP+, 2x 2.5G, vPro/AMT) | 3 | IncusOS compute nodes `lab01`–`lab03` — expendable by design | [DECIDED] |
 | Minisforum N5 Pro NAS (Ryzen AI 9 HX PRO 370, 32GB, 2x 1TB NVMe + 128GB OS, 10GbE+5GbE) | 1 | IncusOS node `nas01` — storage-centric services (e.g., Garage); accepted as more critical than lab01–03 | [DECIDED] |
-| Minisforum UM760 (Ryzen 7, 32GB, 1x 2.5GbE) | 1 | Shelf spare — deliberately uncommissioned | [DECIDED] (for now) |
+| Minisforum UM760 (Ryzen 7, 32GB, 1x 2.5GbE) | 1 | `sandbox01` — general-purpose test/spike host, Ubuntu 26.04, VLAN 40, outside the IncusOS cluster | [DECIDED] session 006 |
 | PiKVM V4 Plus + TESmart 8x1 HDMI KVM | 1+1 | OOB console access | wired (untested); see OOB section |
 | APC Smart-UPS SMT1000 (700W) | 1 | Power | mgmt card present, not hooked up (TODO); shutdown story [OPEN] |
 
@@ -287,8 +287,14 @@ RouterOS identity, chassis labels) is a pending implementation task.
 - **[DECIDED]** Physical topology per docs/reference/networking/physical-connections.md:
   each MS-02 has 2x SFP+ to core switch and 2x 2.5G to TEG-3102WS (mgmt/OOB).
   NAS 10G to core switch, NAS 5G to TEG-3102WS port 8. TEG uplinks to VP6630.
-- **[PROVISIONAL]** Address/VLAN allocation, DHCP/DNS/NTP ownership explicitly
-  out of scope of current docs — nothing decided yet.
+- **[DECIDED]** (session 006) Core network design finalized and deployed to
+  `gw01`: canonical docs are `designs/lab-v2-core-network.md` +
+  `reference/networking/address-plan.md`. VLANs: 10 management
+  (`10.10.10.0/24`), 40 sandbox/workload (`10.10.40.0/24`), 70 OOB
+  (`10.10.70.0/24`); VLAN 20/PXE retired; DHCP reservations on `gw01`;
+  sandbox VLAN cannot initiate to management/OOB. `gw01` runs **no BGP**
+  ("BGP peers without a consumer" explicitly rejected) — T10's LB story must
+  add it with its first consumer.
 - Note: MS-02 SFP+ ports are 25G-capable but CRS309 is 10G — links run at 10G.
   Expected, not a fault.
 
@@ -548,11 +554,11 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T03 | AMT role vs. KVM chain; switch recovery paths (no KVM inputs) | open | Decide during OOB design |
 | T04 | UPS: connect mgmt card; define monitoring + shutdown ordering | open | Hardware task, then design |
 | T05 | Full-load power draw vs. 700W UPS ceiling | open | Measure once compute runs real load |
-| T06 | Apply canonical names to device identities + chassis labels | open | Network gear likely session 001 |
+| T06 | Apply canonical names to device identities + chassis labels | open | `sandbox01` hostname pending Josh's sudo (commands provided); network gear done by session 006 (`gw01`); rest at commissioning |
 | T07 | `gw01` Port 1 unconnected — reserved purpose? | open | Josh to answer, low stakes |
 | T08 | Cluster template contents (Talos version, CNI, bootstrap, storage class, LB) | open | Design after T14/T20 spikes |
 | T09 | ~~Cluster-creation machinery~~ | resolved | CAPI it is (Josh: CAPI is the EKS mechanism, GitOps-driven); CAPN not-CI-tested risk stands — spike before trusting |
-| T10 | IPAM for ephemeral clusters (workload supernet + BGP to `gw01`?) | open | Coordinate with session 001 addressing |
+| T10 | IPAM for ephemeral clusters (workload supernet + LB advertisement to `gw01`) | open | Session 006 deployed gw01 WITHOUT BGP (rejected sans consumer) — first cluster LB consumer must bring the BGP/L2 design with it |
 | T11 | Talos VM attachment: bridged VLANs now; OVN needs external DB (revisit when IncusOS hosts OVN central) | resolved-for-now | Bridged VLANs |
 | T12 | Disk roles per node: seed `install.target` (bus/id/min/max_size/sort_order) selects install disk deterministically — encode small-NVMe target in seed | open | Encode in seed templates |
 | T13 | `nas01` TPM 2.0 + Secure Boot capability for IncusOS | open | Verify in BIOS before cluster commit |
@@ -574,7 +580,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T29 | bootc-style + Fedora CoreOS image lines for one-off VMs (defined in git, CI-published, imgoci-pushed) | deferred | Later product work; captured for context |
 | T30 | Create `GilmanLab/fleet` private sub-repo (bare-metal instance config: IncusOS seeds, Incus/OpenTofu roots) and wire into `init.sh` | open | Actionable once first seed configs exist to hold |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
-| T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified; UM760 as sacrificial spike host; tofu state backend decision rides along | open | Spike, then rule — see VM orchestration section |
+| T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified | open | **Spike host ready**: `sandbox01` live at `10.10.40.10` (SSH verified) — install Incus, run kind+CAPN pivot spike, then rule |
 | T33 | ~~Restructure `GilmanLab/secrets`~~ | resolved | Executed by session 005 per `.journal/002/SECRETS_RESTRUCTURE_PLAN.md`: KMS+PGP single key group on all 7 files, both paths hash-verified, fleet rule, metadata CI guard, docs (ADR-0003), stale policy removed (secrets#21, root#12). Deviation absorbed: recipient = encryption subkey `5109…979C!`, not primary fp |
 | T34 | Secrets→Vault sync automation | deferred | Explicitly later (TODO per Josh) |
 | T35 | ~~AWS migration to `GilmanLab/aws`~~ | resolved | Executed by session 004 per `.journal/002/AWS_MIGRATION_PLAN.md`: six roots moved, all plans 0/0/0, identities preserved, tombstone imported to `aws/github-oidc`, tailscale backend migrated, legacy writers removed (aws#1, infra#57/#58, platform#70, root#11) |
