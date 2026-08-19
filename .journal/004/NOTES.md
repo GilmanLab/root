@@ -27,3 +27,24 @@ Current state of the world:
 Plan: wait for the user's request, then create a child-local Worktrunk
 implementation worktree from the fetched default branch in whichever repository
 the work targets, and integrate via a squash-merged GitHub PR.
+
+## 2026-08-19 00:20 — AWS migration assigned
+Goal for the session: execute session 002's `.journal/002/AWS_MIGRATION_PLAN.md`
+today: move the six AWS/OpenTofu roots from deprecated `GilmanLab/infra` into
+new private `GilmanLab/aws` while preserving state and live resource identities.
+
+Acceptance and safety boundaries:
+- Every migrated live root must plan `0 creates, 0 changes, 0 destroys` from the
+  destination repo.
+- Never ordinary-apply the legacy GitHub token broker tombstone root.
+- Preserve both KMS key identities, IAM names, hosted zones, subnet-router
+  identity, Keycloak instance/data volume, and all state keys.
+- Freeze and capture state/version metadata before mutation; stop on unexpected
+  tombstone resources, drift, identity mismatch, or authentication failure.
+- Cut over the old repo only after destination verification, then report results
+  and deviations back to session 002.
+
+Plan: authenticate and capture read-only baselines; inspect org/repo conventions;
+bootstrap `GilmanLab/aws`; carve the retained GitHub OIDC provider out of the
+tombstone; migrate and verify roots in dependency order; remove old writers;
+wire the new repo into lab2; validate CI/docs; checkpoint evidence.
