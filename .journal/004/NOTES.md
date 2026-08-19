@@ -119,3 +119,17 @@ Session 002 handoff: close T35, unblock T33, and open a separate task to destroy
 Keycloak only after Zitadel serves. Session 004 did not mutate session 002's
 active files under concurrent journal ownership; this entry is the handoff
 report for that session to ingest.
+
+## 2026-08-18 18:01 — Close
+Session goal met. The AWS migration and cutover landed through
+`GilmanLab/aws` PR #1, `GilmanLab/infra` PRs #57 and #58,
+`GilmanLab/platform` PR #70, and `GilmanLab/root` PR #11. All four local
+default checkouts are clean and fast-forwarded; session implementation
+worktrees were removed.
+
+Final handoff: `GilmanLab/aws` is the sole writer for all six migrated roots,
+and every normal plan was 0/0/0 with critical identities preserved. Retain the
+mode-0700 scratch backups and old-account Tailscale state only through the
+rollback window, then remove both without touching the old root-CA state.
+Session 002 should ingest the report above, close T35, unblock T33, and track
+Keycloak teardown after Zitadel serves.

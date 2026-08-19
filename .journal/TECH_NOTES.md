@@ -3,11 +3,34 @@
 ## Repository layout
 
 - `GilmanLab/root` is a meta repository. `init.sh` clones
-  `GilmanLab/networking` as an ignored independent repository, not a submodule.
+  `GilmanLab/networking` and private `GilmanLab/aws` as ignored independent
+  repositories, not submodules.
 - Sub-repository changes use a branch and Worktrunk created inside that child
   repository, followed by a GitHub squash-merge PR.
 - The canonical documentation skill is
   `.agents/skills/gilmanlab-documentation/SKILL.md` in the root repository.
+
+## AWS substrate
+
+- Private `GilmanLab/aws` is the sole writer for six OpenTofu roots:
+  `aws/lab-foundation`, `aws/github-oidc`, `network/tailscale`,
+  `security/pki/root-ca`, `aws/subnet-router`, and `aws/keycloak`.
+  `GilmanLab/infra` no longer contains or writes these roots.
+- The lab account is `186067932323` in `us-west-2`, operated with profile
+  `lab-admin`. Its manually bootstrapped state bucket is
+  `glab-lab-tfstate-186067932323`; state keys remained stable through the move.
+- Identity-critical resources include SOPS KMS key
+  `2aba1d94-6eaf-4d80-8d26-2077f32fd7c5`, root-CA KMS key
+  `5b585512-8604-43ce-b416-90fbd3cffcfa`, private zone
+  `Z009084217D5KKVQERJY3`, subnet router `i-07878bb4aa9896dd4`, and Keycloak
+  instance `i-069f5e943c6e11092` with volume `vol-09baa3d716d956887`.
+- The old-account `s3://gilmanlab-tfstate/network/tailscale.tfstate` remains
+  only for the migration rollback window. Delete it explicitly afterward, but
+  never read, copy, or delete that bucket's similarly named
+  `security/pki/root-ca.tfstate`, which belongs to a destroyed old key.
+- Keycloak stays live until Zitadel serves. Its normal OpenTofu plan is clean;
+  a refresh-only plan observes provider-computed EBS attachment metadata and
+  should not be applied merely to silence migration drift.
 
 ## Network authority
 
