@@ -47,6 +47,7 @@ nav:
           - Tailscale policy: reference/networking/tailscale-policy.md
   - Runbooks:
       - Change the Tailscale policy: runbooks/tailscale-policy-change.md
+      - Deploy the VyOS gateway configuration: runbooks/vyos-gateway-deployment.md
 
 plugins:
   - search

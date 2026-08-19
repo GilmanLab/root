@@ -10,6 +10,11 @@ interface mapping, DHCP allocations, and logical switch port roles. The
 [physical connection map](physical-connections.md) remains authoritative for
 installed cables.
 
+Deploy changes to the gateway with the
+[VyOS gateway deployment runbook](../../runbooks/vyos-gateway-deployment.md).
+The runbook identifies the repository source and operator commands; this page
+remains the source for network values.
+
 ## Routed prefixes
 
 | Network | Prefix | Gateway | Purpose |
@@ -119,10 +124,9 @@ not required for initial IncusOS management boot.
 `gw01` is available before managed hosts boot and owns cold-start DHCP and DNS
 forwarding. Clients use their VLAN gateway address as the DNS resolver.
 
-`gw01` forwards `glab.lol` queries to the local mirror at `10.10.10.54`. The
-mirror copies the private Route 53 zone from the AWS subnet-router service.
-Other queries use the configured recursive resolvers. `gw01` does not run
-PowerDNS and does not serve `lab.gilman.io`.
+The CoreDNS service on `gw01` answers `glab.lol` from a local mirror of the
+private Route 53 zone and forwards other queries to the configured recursive
+resolvers. `gw01` does not run PowerDNS and does not serve `lab.gilman.io`.
 
 ## Routing protocols
 
