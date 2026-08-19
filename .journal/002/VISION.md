@@ -212,8 +212,12 @@ tombstone (OIDC provider carve-out) → foundation → root-ca → tailscale
 (backend migration) → subnet-router → keycloak → docs/ownership cutover,
 single-writer enforced. Invariants: KMS ARNs, IAM role/function names,
 hosted zones, `id.glab.lol`, Tailscale device identity all unchanged.
-Open sub-question: does `network/tailscale` belong in `GilmanLab/aws` or in
-`GilmanLab/networking` (where session 003 put the tailnet policy)?
+Sub-question resolved 2026-08-18: `network/tailscale` migrates whole into
+`GilmanLab/aws`. The root is half AWS-coupled (federated identity + VPC
+route approval, lifecycle-bound to subnet-router's boot sequence) and half
+tailnet DNS (MagicDNS + split DNS → lab CoreDNS `10.10.10.1`); it moves
+unchanged to keep T35 zero-diff, with an optional later refactor to split
+the two DNS resources into `GilmanLab/networking`.
 
 Consequence adopted knowingly: AWS joins GitHub as a hard external
 dependency — it is the secrets root of trust (KMS), the out-of-lab anchor for
@@ -567,7 +571,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified; UM760 as sacrificial spike host; tofu state backend decision rides along | open | Spike, then rule — see VM orchestration section |
 | T33 | Restructure existing `GilmanLab/secrets` for v2 — **priority, secrets production imminent**: v2 hierarchy; keep KMS+context-scope model (`alias/glab-sops`, `Repo`+`Scope`); add YubiKey PGP back as recovery recipient (conscious reversal of glab KMS-only decision) + `sops updatekeys`; per-scope OIDC role/IAM grants for CI; decide generated-durable exception | open | Wants migration audit (T35) context; then execute |
 | T34 | Secrets→Vault sync automation | deferred | Explicitly later (TODO per Josh) |
-| T35 | Migrate all SIX roots to `GilmanLab/aws` preserving tfstate (audit done — plan in AWS substrate section): lab-foundation, subnet-router, keycloak, broker tombstone (OIDC carve-out only), root-ca, network/tailscale (backend migration from old account). Precondition: live read-only state capture with fresh `lab-admin` SSO. Sub-question: tailscale root's repo home (aws vs. networking) | open | Ready to execute as implementation work; Josh to green-light + rule tailscale home |
+| T35 | Migrate all SIX roots to `GilmanLab/aws` preserving tfstate (audit done — plan in AWS substrate section): lab-foundation, subnet-router, keycloak, broker tombstone (OIDC carve-out only), root-ca, network/tailscale (whole root, backend migration from old account; optional later DNS-resource split into networking). Precondition: live read-only state capture with fresh `lab-admin` SSO | open | Ready to execute; awaiting Josh's green-light |
 | T36 | ~~Identity service~~ | resolved | Zitadel (Josh 2026-08-18; had forgotten the hosted Keycloak). Keycloak migrates as live infra, follow-up destroy once Zitadel serves (tracked inside T35 + future teardown task) |
 | T37 | Systematic glab (v1) carry-forward audit beyond AWS: labctl, DNS mirror, VyOS configs, Talos platform cluster remnants, docs architecture pages — what migrates, what dies | open | After T35; candidate researcher task |
 
