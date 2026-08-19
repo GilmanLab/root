@@ -113,10 +113,10 @@ bound to permanent hardware MAC addresses. Unnamed temporary clients use the
 documented dynamic pools. IncusOS seeds request DHCP on each node's 10GbE RJ45
 management interface; AMT independently requests DHCP on the 2.5GbE interface.
 
-Clients use their `gw01` VLAN gateway as the DNS resolver. `gw01` forwards
-`glab.lol` to its local mirror of the private Route 53 zone and sends other
-queries to configured recursive resolvers. The gateway does not serve the
-legacy `lab.gilman.io` zone.
+Clients use their `gw01` VLAN gateway as the DNS resolver. CoreDNS on `gw01`
+answers `glab.lol` from its local mirror of the private Route 53 zone and sends
+other queries to configured recursive resolvers. The gateway does not serve
+the legacy `lab.gilman.io` zone.
 
 This cold-start model assumes `gw01` is installed and its version-controlled
 network configuration is applied before managed machines boot.
@@ -155,18 +155,30 @@ port, direction, and owner in the version-controlled gateway policy.
 ## Configuration and Deployment
 
 `gw01`, `sw-core01`, and `sw-mgmt01` each have one version-controlled
-configuration source. A deployment:
+configuration source. The authoritative `gw01` source is the tracked
+configuration template and CoreDNS assets in `GilmanLab/networking`; encrypted
+inputs remain in `GilmanLab/secrets` and are rendered in memory.
 
-1. Renders the effective configuration.
-2. Validates syntax and policy.
-3. Shows the effective change for operator review.
-4. Applies the candidate without saving it as startup configuration.
-5. Verifies required connectivity and denied flows.
-6. Saves only after verification succeeds.
-7. Restores the previous configuration when verification fails.
+The `networking_vyos` package owns validation, rendering, locking, asset
+staging, and verification. Its `pyinfra-vyos` 0.1.0 boundary is the `Version`,
+redacted `ConfigurationCommands`, and `PendingSave` facts plus `config_load()`,
+`config()`, and `config_save()`. Pull-request CI validates the tracked template
+and assets without decrypting secrets, contacting the router, or deploying
+configuration.
 
-Drift detection compares each running configuration with its repository source.
-Legacy configuration is migration input, not a second source of truth.
+A sync validates local inputs, then acquires a fail-fast local lock that covers
+all remote stages. The lock serializes operators sharing one checkout;
+operators on separate controllers must coordinate. A read-only preflight
+requires no pending save before the sync stages the non-secret CoreDNS assets
+and loads a candidate containing no password hash. A separate generic
+configuration operation applies the hash before a fresh process verifies the
+running configuration. Only successful verification can call `config_save()`;
+a second fresh process must then report `PendingSave=False`.
+
+The [VyOS gateway deployment runbook](../runbooks/vyos-gateway-deployment.md)
+defines the operator commands, secret and SSH inputs, lock semantics,
+verification, and console-recovery procedure. A failed candidate verification
+never changes the boot configuration.
 
 ## Management and Recovery
 
@@ -179,7 +191,8 @@ The PiKVM and TESmart chain provides remote console access to the connected
 hosts. A local monitor, keyboard, and mouse attached to `pikvm01` remain the
 break-glass path when `gw01` or routed access is unavailable.
 
-Recovery credentials do not reside in committed device configuration.
+Plaintext recovery credentials and SSH private keys do not reside in committed
+device configuration.
 
 ## Failure Boundaries
 
@@ -195,14 +208,17 @@ Recovery credentials do not reside in committed device configuration.
 
 ## Delivery
 
-Migration from the current VyOS configuration removes VLAN 20, Tinkerbell
-firewall rules, PowerDNS, IncusOS artifact serving, `bootstrap-k0s`, BGP, and
-legacy UM760 bridge behavior. It renames the router to `gw01`, establishes the
-management-switch trunk, and applies the canonical DHCP reservations and
-firewall boundaries.
+The accepted `gw01` configuration is delivered from `GilmanLab/networking`
+through the `networking_vyos` operator commands. The tracked template removes
+VLAN 20, Tinkerbell firewall rules, PowerDNS, IncusOS artifact serving,
+`bootstrap-k0s`, BGP, and legacy UM760 bridge behavior. It names the router
+`gw01`, establishes the management-switch trunk, and applies the canonical DHCP
+reservations and firewall boundaries.
 
 The network may migrate one VLAN at a time. Preserve the routed transit and
-current OOB access until replacement paths pass verification.
+current OOB access until replacement paths pass verification. Legacy deployment
+material is migration input only; it is not an active Ansible deployment path
+or a second source of truth.
 
 ## Verification
 
@@ -222,8 +238,10 @@ A deployment is valid when:
 - each MS-02 retains management when its AMT link is disconnected and retains
   AMT when its management link is disconnected;
 - no BGP peers or retired gateway services remain;
-- a failed candidate deployment leaves or restores the previous startup
-  configuration.
+- a successful sync completes a fresh post-save check with
+  `PendingSave=False`; and
+- a failed candidate verification does not save the candidate, so a reboot
+  restores the previous startup configuration.
 
 ## Alternatives Considered
 
