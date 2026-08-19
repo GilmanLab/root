@@ -396,3 +396,18 @@ subkey 5109…979C!); SSH hardening ordered LAST with lockout drill
 baseline: unattended-upgrades, hostname assertion, minimal tools.
 Acceptance: reset-button run, idempotent second run, functional smoke of
 all runtimes + both auth paths. T41 → blocked/handed off.
+
+## 2026-08-19 16:46 — T41 closed: session 007 delivered sandbox automation
+Verified via .journal/007/SUMMARY.md: GilmanLab/sandbox live (pyinfra reset
+button, 27 behavioral tests, CI); sandbox01 converged and smoke-passed
+(Docker/Podman/Incus/Tailscale/sudo/SSH); tag:sandbox + Tailscale SSH
+primary with strict host keys from tailscale status; LAN break-glass
+verified; six PRs across root/networking/secrets/sandbox.
+Improvements over plan worth reusing: OAuth client minting single-use
+preauthorized 10min keys only-when-unenrolled (no stored node key —
+candidate pattern for future MS-02 enrollment); gw01 firewall bug (RouterOS
+health probes) fixed at tracked source. Incus vanilla per plan: 50GiB loop
+ZFS, default bridge, Zabbly stable.
+Residuals: fresh-image reset documented but unexercised (first real wipe
+validates); physical-override path needed for unenrolled fresh image.
+Tracker: T41 resolved; T32 spike fully unblocked (next up).
