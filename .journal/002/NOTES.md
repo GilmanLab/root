@@ -302,3 +302,14 @@ non-AWS (MagicDNS, split DNS → lab CoreDNS). Ruling: whole root migrates
 unchanged into GilmanLab/aws (keeps T35 zero-diff, single writer); optional
 later split of the DNS resources into networking. T35 fully specified,
 awaiting green-light.
+
+## 2026-08-18 17:19 — AWS migration plan drafted for handoff
+Wrote .journal/002/AWS_MIGRATION_PLAN.md: self-contained implementation
+handoff (goal/non-goals, account/bucket facts, six-root inventory with
+treatments, 9 invariants, phases 0-5: freeze/capture → repo bootstrap →
+tombstone OIDC carve-out → pure moves foundation/root-ca/subnet-router/
+keycloak → tailscale backend migration → cutover; per-root acceptance =
+zero-diff plan; risks; open items left to implementer).
+T35 → blocked/handed off: Josh will spawn a dedicated implementation
+session; session 002 resumes tracking on its report (close T35, unblock
+T33, open Keycloak-teardown task).
