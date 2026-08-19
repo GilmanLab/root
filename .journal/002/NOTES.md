@@ -341,3 +341,20 @@ convention; generated-durable exception verbatim for README; ADR-0003
 roles with the catalyst grant invariant, instantiated on first real
 consumer only; phases with break-glass PGP-only decrypt proof and plaintext
 hash acceptance. T33 → blocked/handed off.
+
+## 2026-08-18 19:06 — T33 closed: session 005 executed the restructure
+Verified via .journal/005/SUMMARY.md: KMS+PGP single key group on all 7
+files, both decrypt paths hash-verified (PGP proof with AWS absent), fleet
+creation rule added, metadata CI guard (KMS ARN + Repo/Scope + PGP, no
+decryption), README/CONTRIBUTING model docs, ADR-0003 merged in meta docs
+(root#12), stale tailnet policy + workflow removed after confirming
+networking canonical (secrets#21). Deviation absorbed into VISION.md: SOPS
+recipient must be the Curve25519 ENCRYPTION SUBKEY 5109…979C! — primary
+fingerprint selects the Ed25519 auth subkey and yields undecryptable
+packets; also a stale gpg-agent can mask this.
+Tracker: T33 resolved · T40 opened (confirm Tailscale console edit-lock —
+pending operator step from session 003, unconfirmed by 005). Noted: glab
+secrets worktree session-054 now conflicts with master (T37 scope); GitHub
+Pro limitation blocks rulesets on private secrets repo.
+Remaining v2-critical: T32 spike, T13 nas01 TPM/SB check, step-3 deploy
+mechanism dump.
