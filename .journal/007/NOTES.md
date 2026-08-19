@@ -11,3 +11,32 @@ Plan: Load the sandbox setup plan in full, summarize readiness and constraints, 
 
 ## 2026-08-19 11:36 — Sandbox plan loaded
 Read session 002's `SANDBOX_SETUP_PLAN.md` in full. It is ready for implementation and covers the private `GilmanLab/sandbox` pyinfra repository, live `sandbox01` convergence, companion networking/secrets/meta changes, lockout-safe SSH hardening, idempotence, functional smoke tests, and reporting pinned implementation choices back to session 002. No implementation has started.
+
+
+## 2026-08-19 15:45 — T41 implemented; report for session 002
+
+T41 is complete. The implementation was merged through four squash PRs:
+
+- `GilmanLab/root` PR #16 (`feat: bootstrap sandbox repository`) adds the private sandbox repository to `init.sh`.
+- `GilmanLab/networking` PR #9 (`feat(tailscale): authorize sandbox hosts`) adds `tag:sandbox`, tag ownership by `autogroup:admin`, and Tailscale SSH rules for josh, sandbox, and root.
+- `GilmanLab/secrets` PR #23 (`feat(sops): add sandbox enrollment client`) adds `sandbox/tailscale.sops.yaml` under the scoped KMS + exact Curve25519 encryption-subkey recipient rule.
+- `GilmanLab/sandbox` PR #1 (`feat: add sandbox01 reset automation`) adds the reset-button pyinfra project, CI, operator README, deploy/harden split, and live-tested host configuration.
+
+Implementation choices and deviations from the handoff plan:
+
+- Replaced a stored reusable Tailscale auth key with a non-expiring OAuth client constrained to `auth_keys` scope and `tag:sandbox`. The controller decrypts the OAuth credentials only when an unenrolled host is detected, mints a single-use, preauthorized, non-ephemeral key with a 10-minute TTL, writes it to root-only `/run`, runs `tailscale up`, and shreds the file on success or failure. Idempotent runs make no Tailscale API request.
+- Incus tracks Zabbly `stable` for Ubuntu `resolute`; live version was `1:7.3-ubuntu26.04-202608160201`. `pyinfra-incus` is pinned exactly at `0.2.0`. The daemon remains vanilla: one 50 GiB loop-backed ZFS `default` pool, `incusbr0`, no cluster, no IncusOS, no projects, no monitoring, and no backup policy.
+- Docker comes from the Ubuntu 26.04 archive (`docker.io`, `docker-buildx`, `docker-compose-v2`, `containerd.io`) because Docker CE did not publish a `resolute` suite. The deploy removes any stale Docker CE source/key. Podman also comes from the Ubuntu archive and `podman-docker` is kept absent.
+- Tailscale uses the official stable repository pinned to its supported `noble` suite because no `resolute` suite exists. Repository refreshes use content-derived remote markers so immediate reruns report no changes; packages are not force-upgraded on every deploy. Ubuntu unattended upgrades are limited to the security pocket with no automatic reboot.
+- The Mac's accepted tailnet subnet route for VLAN 40 superseded its physical route and made direct LAN SSH to `10.10.40.10` fail after enrollment. The repository therefore tracks `ssh_config` with a physical `ProxyJump` through `gw01` at `10.0.0.2`; pyinfra and the documented break-glass command use that path. This preserves access independently of Tailscale while keeping strict host-key checking.
+- sshd hardening remains a separate final command. It atomically stages `50-hardening.conf`, validates with `sshd -t`, removes cloud-init's earlier `50-cloud-init.conf` password override in the same operation, installs, and reloads. Effective state is `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PermitRootLogin no`, `PubkeyAuthentication yes`, `AllowUsers josh`, `X11Forwarding no`, and `MaxAuthTries 3`.
+
+Verification against live `sandbox01`:
+
+- Repository check passed: lock validation, Ruff format/lint, mypy, and 23 pytest tests. Both final GitHub Actions workflows passed.
+- Full deploy converged successfully, then an immediate rerun reported zero changes for all 37 base operations. A second hardening run also reported zero changes.
+- Functional smoke passed: passwordless sudo for josh and sandbox with the ad-hoc sudoers file absent and managed mode `0440`; Docker hello-world; rootless Podman hello; Incus Alpine 3.22 launch/exec/delete; running `tag:sandbox` Tailscale identity; josh and sandbox Tailscale SSH.
+- Post-hardening access passed independently: josh LAN key login through the physical gateway plus passwordless sudo; josh and sandbox Tailscale SSH plus passwordless sudo. Effective sshd state disables password authentication and restricts direct sshd logins to josh.
+- T32 is ready: Incus is reachable, the Alpine container smoke passed, and no opinionated Incus configuration was added.
+
+The live host was not destructively reset, per Josh's instruction. The README documents the fresh-Ubuntu reset procedure; the deploy was exercised end-to-end against the existing Ubuntu 26.04 host and proved convergent and idempotent.
