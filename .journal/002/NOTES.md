@@ -371,3 +371,10 @@ Session 006 absorbed into VISION.md: core design finalized+deployed to gw01
 runs NO BGP (rejected without consumer) → T10 note updated: first cluster
 LB consumer brings the BGP design. T32: spike host ready. T06: gw01 named
 by 006; sandbox01 hostname pending; rest at commissioning.
+
+## 2026-08-19 10:34 — sandbox01 hostname applied
+Josh enabled passwordless sudo on sandbox01 (sudoers drop-in, visudo-
+validated). Completed the rename over SSH: hostnamectl static = sandbox01,
+/etc/hosts 127.0.1.1 updated, hostname verified. sandbox01's system
+identity now matches the registry (T06: sandbox01 done; gw01 done by 006;
+remaining devices get names at commissioning/config).

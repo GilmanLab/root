@@ -554,7 +554,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T03 | AMT role vs. KVM chain; switch recovery paths (no KVM inputs) | open | Decide during OOB design |
 | T04 | UPS: connect mgmt card; define monitoring + shutdown ordering | open | Hardware task, then design |
 | T05 | Full-load power draw vs. 700W UPS ceiling | open | Measure once compute runs real load |
-| T06 | Apply canonical names to device identities + chassis labels | open | `sandbox01` hostname pending Josh's sudo (commands provided); network gear done by session 006 (`gw01`); rest at commissioning |
+| T06 | Apply canonical names to device identities + chassis labels | open | `sandbox01` ✓ (2026-08-19), `gw01` ✓ (session 006); switches/PiKVM/compute nodes at commissioning; chassis labels pending a label-maker pass |
 | T07 | `gw01` Port 1 unconnected — reserved purpose? | open | Josh to answer, low stakes |
 | T08 | Cluster template contents (Talos version, CNI, bootstrap, storage class, LB) | open | Design after T14/T20 spikes |
 | T09 | ~~Cluster-creation machinery~~ | resolved | CAPI it is (Josh: CAPI is the EKS mechanism, GitOps-driven); CAPN not-CI-tested risk stands — spike before trusting |
