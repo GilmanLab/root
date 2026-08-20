@@ -424,3 +424,22 @@ step 1; if (b) wins, nas01 Incus later needs HTTPS listener + CAPN trust
 proven nas01 procedure, gated on AMT reachability (T01/T03) or USB — the
 old wait-for-services ordering was a Tinkerbell artifact. Bootstrap
 sequence rewritten accordingly.
+
+## 2026-08-19 17:56 — incusos-builder done; NAS bootstrap plan drafted
+Josh: builder is done (release process in a separate stream); local source
+builds suffice for now. Verified: v0.1.0 released-shaped (init/validate/
+build/versions, JSON envelope, full MkDocs manual, native SOPS in-memory
+config decrypt via -f file or stdin — docs demo age; KMS must be verified).
+T25 → resolved-for-lab.
+Wrote .journal/002/NAS_BOOTSTRAP_PLAN.md (T30+T42+T13 handoff): Phase 0
+Josh-physical (TPM/SB check, MS-CA key retention warning, disk inventory);
+fleet repo scaffold (validate-only CI, no publish); first fleet secrets
+with recovery-key-escrowed-BEFORE-install rule; config/secret split —
+plaintext node config in fleet, secret fragment in secrets fleet scope,
+in-memory merge piped to builder stdin (alt: whole-config encrypted in
+secrets repo if merge clumsy); nas01 config specifics (usb image, size-
+targeted install disk, 5GbE MAC-bound static 10.10.10.14 mgmt+cluster
+roles, 10GbE left bare, apply_defaults true, stable channel); USB install;
+deliberate-TOFU remote add; cluster enable (cluster name = conscious
+choice, suggest boring "glab"); smoke incl. reboot survival; docs runbook
+companion. T30/T42 → blocked/handed off.
