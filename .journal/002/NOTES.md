@@ -470,3 +470,10 @@ Josh chose to run the NAS plan here with me leading. Progress:
   PGP subkey recipient present, metadata guard green).
 - Awaiting Josh Phase 0: TPM/SB check (keep MS CA keys!), disk inventory,
   5GbE NIC MAC → then finalize config, build image, USB install.
+
+## 2026-08-19 19:28 — fleet wired into meta; all remaining work Josh-gated
+root#17 merged (9979924): init.sh clones fleet, .gitignore covers it.
+Everything else in the NAS bootstrap is now blocked on Josh's Phase 0 trip
+(TPM/SB check, disk inventory, 5GbE MAC) → then image build, USB install,
+remote add, cluster enable, recovery-key escrow, runbook, tracker closure.
+fleet PR #1 stays draft until the MAC lands.
