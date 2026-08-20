@@ -443,3 +443,30 @@ roles, 10GbE left bare, apply_defaults true, stable channel); USB install;
 deliberate-TOFU remote add; cluster enable (cluster name = conscious
 choice, suggest boring "glab"); smoke incl. reboot survival; docs runbook
 companion. T30/T42 → blocked/handed off.
+
+## 2026-08-19 19:25 — NAS bootstrap execution (interactive, this session)
+Josh chose to run the NAS plan here with me leading. Progress:
+- Builder built from source (dev, incus-os API pin 20260815).
+- SCHEMA DISCOVERY amending the plan: seeds.security.encryption_recovery_keys
+  is REJECTED by incus-osd at boot and by the builder at parse time —
+  recovery keys are NOT seedable. Consequence: nas01 config is fully
+  plaintext (zero secrets), no render/merge machinery; recovery key becomes
+  a post-install API step + immediate escrow.
+- Builder config shape grounded from init --no-input + configuration.md:
+  image.type raw|iso; seeds flattened (network seed = version + fields, no
+  config: wrapper).
+- GilmanLab/fleet created; scaffold on PR #1 (draft): README (charter,
+  never-publish, builder pin 065b9e8), nodes/nas01/config.yaml (static
+  10.10.10.14/24 VLAN10, roles mgmt+cluster, size-targeted <=200GiB NVMe
+  install disk, apply_defaults true, bootstrap-admin cert trusted, stable
+  channel, no auto_reboot; 10GbE NIC deliberately bare; MAC = TODO pending
+  Phase 0), CI validating with pinned builder via go install (builder repo
+  is PUBLIC, no GH release yet). validate passes locally.
+- DHCP check: mgmt pool .200-.250 → static .14 collision-safe, no
+  networking change needed (nas01 absent from Kea reservations — fine).
+- Secrets: lab-admin SSO live; bootstrap client keypair
+  (josh@jmgilman-mbp, fp 84:F4:F0:40..., valid 2036) escrowed as FIRST
+  fleet-scope secret — secrets#24 merged (KMS roundtrip byte-identical,
+  PGP subkey recipient present, metadata guard green).
+- Awaiting Josh Phase 0: TPM/SB check (keep MS CA keys!), disk inventory,
+  5GbE NIC MAC → then finalize config, build image, USB install.
