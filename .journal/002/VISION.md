@@ -421,15 +421,28 @@ already exists.)
 
 ### Bootstrap sequence
 
-**[PROVISIONAL]** Josh's intended flow:
+**[PROVISIONAL]** Flow (resequenced 2026-08-19 — lab01–03 no longer wait for
+critical services; that ordering was a Tinkerbell artifact):
 
-1. Install IncusOS on `nas01` (delivery options under investigation — T14).
-2. Spawn the three initial Talos management-cluster nodes as Incus VMs.
-3. Set up/deploy the critical services (exact mechanism TBD; Josh has a
-   working idea).
-4. `lab01`–`lab03` get IncusOS via AMT-mounted seeded ISOs and join the
-   Incus cluster (`incus cluster join`).
+1. Install IncusOS on `nas01` (USB, seeded IMG from `incusos-builder`) →
+   `incus remote add` → `incus cluster enable`. Prereqs: T13 BIOS check,
+   builder ready, `fleet` repo with nas01's seed (T30), first `fleet`
+   secrets (recovery key, bootstrap client key). Bay drives (T19) NOT
+   required. (T42)
+2. `lab01`–`lab03` join as batch repeats of the proven procedure
+   (`apply_defaults: false`, AMT-mounted seeded ISOs or USB fallback,
+   `incus cluster join`) — any time after step 1 proves out; gated on AMT
+   reachability (T01/T03), not on services.
+3. Spawn the three Talos management-cluster VMs on `nas01` — mechanism per
+   the T32 spike verdict (runs in parallel on `sandbox01`; independent of
+   steps 1–2).
+4. Set up/deploy the critical services (exact mechanism TBD; Josh has a
+   working idea — still undumped).
 5. Future clusters are spawned via GitOps-applied CAPI resources.
+
+Parallelism note: the T32 spike shares no dependency with steps 1–2 — it
+needs only `sandbox01`. If (b) wins, `nas01`'s Incus later gets an HTTPS API
+listener + CAPN client trust (runtime config, not seed).
 
 Resolved 2026-08-15 (T20): Tinkerbell dropped from the critical services.
 The fleet is homogeneous IncusOS with no netboot path; AMT virtual media +
@@ -590,6 +603,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T39 | Post-rollback-window cleanup: shred `/tmp/gilmanlab-aws-migration-20260819`, delete old-account `s3://gilmanlab-tfstate/network/tailscale.tfstate` (NEVER the old root-ca object beside it) | open | Timed housekeeping from session 004 |
 | T40 | Confirm Tailscale admin-console edit lock ("Prevent edits") is actually enabled — session 003 recorded it pending; session 005 could not confirm | open | One-click operator check in the admin console |
 | T41 | ~~Create `GilmanLab/sandbox`~~ | resolved | Executed by session 007 per `.journal/002/SANDBOX_SETUP_PLAN.md`: repo live with tested reset-button automation (27 behavioral tests), host converged + smoke-passed, `tag:sandbox` + Tailscale SSH primary, LAN break-glass verified, managed sudoers/sshd, OAuth-minted single-use enrollment keys (improvement over stored auth key — reuse this pattern), gw01 health-probe firewall bug fixed at source (root#16, networking#9/#10, secrets#23, sandbox#1/#2). Residual: fresh-image reset documented but unexercised — first real wipe validates it |
+| T42 | nas01 IncusOS install + `cluster enable` (bootstrap step 1). Prereq chain: T13 BIOS check → incusos-builder ready (status? Josh/product) → T30 fleet repo + nas01 seed → first fleet secrets (recovery key, bootstrap client key) → USB install → remote add + cluster enable. Bay drives (T19) not required | open | Parallel with the T32 spike; builder status is the pacing item |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue

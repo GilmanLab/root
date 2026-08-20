@@ -411,3 +411,16 @@ ZFS, default bridge, Zabbly stable.
 Residuals: fresh-image reset documented but unexercised (first real wipe
 validates); physical-override path needed for unenrolled fresh image.
 Tracker: T41 resolved; T32 spike fully unblocked (next up).
+
+## 2026-08-19 17:22 — Bootstrap resequenced; T42 opened
+Josh asked: what does nas01 take, spike-first?, when lab01-03?
+Answers recorded in VISION.md: (1) nas01 chain = T13 BIOS check →
+incusos-builder ready (pacing item, status unknown) → fleet repo + seed
+(T30) → first fleet secrets → USB install → remote add + cluster enable;
+bay drives not required (T42 opened). (2) Spike and nas01 share no
+dependency — run in parallel; spike verdict gates step 3 (mgmt VMs), not
+step 1; if (b) wins, nas01 Incus later needs HTTPS listener + CAPN trust
+(runtime config). (3) lab01-03 resequenced EARLIER: batch repeats of
+proven nas01 procedure, gated on AMT reachability (T01/T03) or USB — the
+old wait-for-services ordering was a Tinkerbell artifact. Bootstrap
+sequence rewritten accordingly.
