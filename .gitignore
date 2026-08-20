@@ -5,6 +5,7 @@
 /networking/
 /aws/
 /sandbox/
+/fleet/
 
 # Moon
 .moon/cache/
