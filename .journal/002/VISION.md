@@ -562,7 +562,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 
 | ID | Item | Status | Next action / note |
 | --- | --- | --- | --- |
-| T01 | OOB verification pass: pikvm01 reaches/controls all 5 hosts incl. kvm01 channel switching; also test pikvm01 mass-storage (virtual USB) emulation through kvm01 — it would eliminate USB sneakernet for `nas01` installs | open | Hands-on test session |
+| T01 | OOB verification pass | open | Partially proven live 2026-08-20: pikvm01 console + HID keyboard through kvm01 work excellently (drove the whole nas01 install); MSD through kvm01 does NOT (USB 1.1 enumeration + resets) — sneakernet stays for install media. Remaining: other KVM inputs, kvm01 channel-switch control, **ATX not wired** (cost a manual power-cycle walk — wire it) |
 | T02 | Console cabling reference in docs site (KVM chain is undocumented) | open | Fold into next docs PR |
 | T03 | AMT role vs. KVM chain; switch recovery paths (no KVM inputs) | open | Decide during OOB design |
 | T04 | UPS: connect mgmt card; define monitoring + shutdown ordering | open | Hardware task, then design |
@@ -574,7 +574,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T10 | IPAM for ephemeral clusters (workload supernet + LB advertisement to `gw01`) | open | Session 006 deployed gw01 WITHOUT BGP (rejected sans consumer) — first cluster LB consumer must bring the BGP/L2 design with it |
 | T11 | Talos VM attachment: bridged VLANs now; OVN needs external DB (revisit when IncusOS hosts OVN central) | resolved-for-now | Bridged VLANs |
 | T12 | Disk roles per node: seed `install.target` (bus/id/min/max_size/sort_order) selects install disk deterministically — encode small-NVMe target in seed | open | Encode in seed templates |
-| T13 | `nas01` TPM 2.0 + Secure Boot capability for IncusOS | open | Verify in BIOS before cluster commit |
+| T13 | ~~`nas01` TPM 2.0 + Secure Boot~~ | resolved | Verified live 2026-08-20 from a live session: TPM 2.0 (`/dev/tpm0`), Secure Boot enabled. Caveat learned: stale fTPM state from the glab era blocked first unseal — fTPM clear in BIOS fixed it (now in the rebuild runbook) |
 | T14 | ~~IncusOS seeding/bootstrap deep-dive~~ | resolved | Research done; facts in Seeding & install mechanics. Next deliverable: bootstrap design draft |
 | T15 | ~~Secrets custody model~~ | resolved | Superseded 2026-08-18 by the SOPS model (see Secrets section): non-generated secrets → `GilmanLab/secrets`; residue questions moved to T33 |
 | T16 | Garage / object storage design + critical-data backup story | deferred | Josh deferred entirely |
@@ -591,7 +591,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T27 | ~~Talos image plane~~ | resolved | Adopted 2026-08-15: self-hosted Sidero image-factory; bespoke builder dead; generic images + CAPN-injected identity. See "Talos image plane" section |
 | T28 | ~~Secrets in published seeded images~~ | resolved | Dissolved 2026-08-18: IncusOS images are never published — single-step local build+burn; secrets flow from the SOPS secrets repo into the seed at burn time, nowhere at rest |
 | T29 | bootc-style + Fedora CoreOS image lines for one-off VMs (defined in git, CI-published, imgoci-pushed) | deferred | Later product work; captured for context |
-| T30 | Create `GilmanLab/fleet` (bare-metal instance config). **Folded into `.journal/002/NAS_BOOTSTRAP_PLAN.md`** — scaffold + nas01 config + render-and-burn flow + validate-only CI | blocked | Handed off with T42 |
+| T30 | ~~Create `GilmanLab/fleet`~~ | resolved | Live 2026-08-20 (fleet#1, this session): scaffold, nas01 config (validates), pinned-builder CI, wired into `init.sh` (root#17). Default branch fixed to `master` post-merge |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
 | T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified | open | **Spike fully unblocked**: `sandbox01` converged with vanilla Incus (50GiB loop ZFS, default bridge, Zabbly stable), Tailscale-SSH transport — run kind+CAPN pivot spike, then rule |
 | T33 | ~~Restructure `GilmanLab/secrets`~~ | resolved | Executed by session 005 per `.journal/002/SECRETS_RESTRUCTURE_PLAN.md`: KMS+PGP single key group on all 7 files, both paths hash-verified, fleet rule, metadata CI guard, docs (ADR-0003), stale policy removed (secrets#21, root#12). Deviation absorbed: recipient = encryption subkey `5109…979C!`, not primary fp |
@@ -603,7 +603,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T39 | Post-rollback-window cleanup: shred `/tmp/gilmanlab-aws-migration-20260819`, delete old-account `s3://gilmanlab-tfstate/network/tailscale.tfstate` (NEVER the old root-ca object beside it) | open | Timed housekeeping from session 004 |
 | T40 | Confirm Tailscale admin-console edit lock ("Prevent edits") is actually enabled — session 003 recorded it pending; session 005 could not confirm | open | One-click operator check in the admin console |
 | T41 | ~~Create `GilmanLab/sandbox`~~ | resolved | Executed by session 007 per `.journal/002/SANDBOX_SETUP_PLAN.md`: repo live with tested reset-button automation (27 behavioral tests), host converged + smoke-passed, `tag:sandbox` + Tailscale SSH primary, LAN break-glass verified, managed sudoers/sshd, OAuth-minted single-use enrollment keys (improvement over stored auth key — reuse this pattern), gw01 health-probe firewall bug fixed at source (root#16, networking#9/#10, secrets#23, sandbox#1/#2). Residual: fresh-image reset documented but unexercised — first real wipe validates it |
-| T42 | nas01 IncusOS install + `cluster enable`. **Plan drafted: `.journal/002/NAS_BOOTSTRAP_PLAN.md`** (Phase 0 = Josh's T13 BIOS check + disk inventory; fleet scaffold; first fleet secrets w/ recovery-key-before-install rule; config/secret split with in-memory merge; USB install; remote add + cluster enable + smoke) | blocked | Handed to implementation session; closes T30+T42+T13 on report |
+| T42 | ~~nas01 IncusOS install + cluster enable~~ | resolved | Executed live in this session 2026-08-20: seeded USB install to RS128, zero-touch config (static 10.10.10.14, hostname nas01.glab.lol), fingerprint-verified remote add, cluster `nas01` enabled (database-leader, ONLINE), container smoke pass, recovery keys escrowed BEFORE reboot test (secrets#24/#26), reboot survival with TPM auto-unseal. Runbook: docs `runbooks/rebuild-nas01.md` (root#18). Detours absorbed: sw-mgmt01 was factory-default (configured live, escrowed secrets#25), nas01 NIC cables were swapped (fixed physically), glab-era IncusOS install on RS128 wiped with consent, stale fTPM cleared |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue

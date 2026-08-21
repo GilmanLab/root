@@ -477,3 +477,31 @@ Everything else in the NAS bootstrap is now blocked on Josh's Phase 0 trip
 (TPM/SB check, disk inventory, 5GbE MAC) → then image build, USB install,
 remote add, cluster enable, recovery-key escrow, runbook, tracker closure.
 fleet PR #1 stays draft until the MAC lands.
+
+## 2026-08-20 17:09 — nas01 LIVE: cluster bootstrapped (T13/T30/T42 closed)
+Executed the NAS plan interactively over two days with Josh's hands for
+physical steps. Final state: IncusOS 202608201218 on nas01 (RS128 target),
+static 10.10.10.14 / nas01.glab.lol from seed, cluster "nas01" enabled
+(database-leader ONLINE), local ZFS pool + incusbr0 from apply_defaults,
+alpine container smoke pass, reboot survival with TPM auto-unseal, recovery
+keys (LUKS + ZFS pool) escrowed BEFORE reboot test.
+PRs: fleet#1 (config, merged; default branch fixed main→master — CI never
+ran on #1 due to branch filter, works on master now), root#17 (init.sh),
+root#18 (rebuild-nas01 runbook), secrets#24 (bootstrap client), #25
+(sw-mgmt01 creds + new scope), #26 (recovery keys).
+Detours (all documented in runbook/tracker): sw-mgmt01 was FACTORY-DEFAULT
+— configured live via browser through gw01 tunnel (VLANs 10/70, trunk
+port 1, access 2/4/6/8+3/5/7, PVIDs auto, reboot-persistent); nas01's NIC
+cables were physically SWAPPED (10G was on mgmt switch) — proven via live
+session ethtool, Josh swapped, eno1=8d:7b RTL8127A 10G→sw-core01@10G,
+enp197s0=8d:7a RTL8126A 5G→sw-mgmt01@2.5G, seed MAC locked 8d:7a; RS128
+carried a GLAB-ERA IncusOS install (Apr/Jul 2026) — the passphrase-prompt
+failure was its stale fTPM binding, wiped with Josh's consent + fTPM
+cleared; internal-NVMe installer delivery attempted and abandoned (PCR4
+pollution lesson — runbook forbids it); PiKVM HID through kvm01 = excellent
+(drove everything), MSD through kvm01 = broken (USB 1.1), ATX not wired.
+Kea note: PXE ROM DHCP OFFERs unanswered but real clients lease fine
+(live env got .234) — backlog curiosity only.
+Tracker: T13/T30/T42 resolved; T01 updated with live findings + wire-ATX.
+Next: T32 spike on sandbox01; lab01-03 as batch repeats (AMT provisioning
+first); step-3 deploy mechanism dump still pending from Josh.
