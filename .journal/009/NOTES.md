@@ -169,3 +169,33 @@ Step 3 executed ahead of step 1:
 - MEBx checklist addition for Josh: beyond password + static IP
   (10.10.70.11/12/13, /24, gw 10.10.70.1), enable SOL + storage redirection
   + KVM, and set User Consent/opt-in to NONE (headless KVM fails otherwise).
+
+## 2026-08-21 15:30 — lab01 AMT verified; IDER boot ruled out; USB install handoff
+Step 1-2 results (lab01): Josh set MEBx static 10.10.70.11 (all three AMT
+passwords are HIS values now — secrets#30 synced them; my generated ones are
+dead). Gotchas hit: BIOS-integrated MEBx commits on Save & Exit only; AMT 19
+is TLS-only (16993/16995 open, 16992/16994 dark by design — my laptop probes
+were ALSO firewalled: home→OOB passes ICMP but not AMT ports; MGMT→OOB is the
+blanket-allowed path, so the nas01 gateway placement is REQUIRED, not just
+convenient). Digest auth verified with curl (200). MeshCommander connect
+needed Digest/TLS mode — its combobox ignores tab.select; set el.value +
+dispatch change event. AMT state: ME 19.0.5 ACM, redirection+SOL+KVM active,
+consent Not Required. KVM verified live (AMI setup tiles rendered, keyboard
+injection worked — drove the UEFI shell).
+MAC harvest: UEFI shell has NO network drivers (ifconfig -l empty after
+connect -r). Winning method: boot the resident old OS (Fedora 43 WS) and
+watch gw01 leases — lab01 mgmt 10GbE = 38:05:25:35:48:87 (= AMT MAC + 1;
+pattern to verify per node). Fedora also DHCPed the shared 2.5G NIC on
+VLAN 70 — validates leaving it unconfigured in seeds.
+Step 6 verdict: AMT IDER/USB-R BOOT IS NON-VIABLE on MS-02 Ultra (AMI
+2.22.0059, ME 19.0.5). Two reproduced firmware wedges: Reset-to-IDER-CDROM →
+black screen, no CD reads, no boot events, input dead (physical AND remote
+per Josh at the local monitor); once wedged only a cold AMT power cycle
+recovers. Also learned: MeshCommander IDER streams from the BROWSER TAB
+(reload = session killed), and each reset costs a "Waiting Up to 8 Minutes
+For KVM FW" delay before video returns. AMT keeps KVM/SOL/power/console
+duties; install media = USB (fleet configs reverted to raw, force_reboot
+false; force_install true stays for the dirty disks).
+lab01.img (raw, 202608201218, sha256 bb8edd09…) built and handed to Josh for
+dd + boot. While it installs: MEBx on lab02/03, then remote power-on + lease
+harvest per node, image builds, same stick re-dd'd.
