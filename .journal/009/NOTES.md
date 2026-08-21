@@ -199,3 +199,27 @@ false; force_install true stays for the dirty disks).
 lab01.img (raw, 202608201218, sha256 bb8edd09…) built and handed to Josh for
 dd + boot. While it installs: MEBx on lab02/03, then remote power-on + lease
 harvest per node, image builds, same stick re-dd'd.
+
+## 2026-08-21 16:13 — lab01 JOINED: 2-node cluster, smoke passed
+Secure Boot detour (new fleet knowledge): IncusOS needs its own SB keys.
+AMI "Factory Key Provision" re-installs factory keys on every reset while in
+Setup Mode — it MUST be disabled BEFORE Reset to Setup Mode, else the clear
+silently undoes itself and the USB keeps failing SB validation. Working
+recipe: Secure Boot Mode Custom → Factory Key Provision Disabled → Reset to
+Setup Mode → Save & Exit → boot USB → installer auto-enrolls IncusOS
+PK/KEK/db (User Mode after; signed db/dbx updates flow automatically). The
+console then showed "Applying Secure Boot certificate update" on first boot.
+lab01 first boot: static mgmt(10.10.10.11) ✓, fingerprint console-vs-API
+match (3f0856d0…e82fe66) ✓, remote added, recovery keys escrowed
+(secrets#31 MERGED) + retrieval acked BEFORE join. Join: token from
+`incus cluster add nas01:lab01`, PUT /1.0/cluster on lab01 — payload needs
+server_name (error message told us), cluster cert from
+~/.config/incus/servercerts/nas01.crt, member_config storage-pool
+local/source=local/incus (as predicted). Joined in ~15s:
+lab01 ONLINE database-standby. Smoke: alpine container --target lab01,
+ping 10.10.10.1 0% loss, deleted. Removed the stale standalone lab01 remote
+(join adopts the cluster cert).
+Remaining: lab02/03 MEBx (Josh) → AMT verify → remote power-on → Fedora
+lease harvest → config MACs → build raw images → USB per node (with the
+SB recipe) → escrow+join each. PiKVM note: Josh re-seated the lab01 KVM
+input; earlier stale-frame confusion explained by the disconnected cable.
