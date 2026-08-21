@@ -505,3 +505,20 @@ Kea note: PXE ROM DHCP OFFERs unanswered but real clients lease fine
 Tracker: T13/T30/T42 resolved; T01 updated with live findings + wire-ATX.
 Next: T32 spike on sandbox01; lab01-03 as batch repeats (AMT provisioning
 first); step-3 deploy mechanism dump still pending from Josh.
+
+## 2026-08-20 17:15 — Close
+Session closed. All work landed and merged during the session: root#8
+(naming), root#17 (fleet in init.sh), root#18 (rebuild-nas01 runbook),
+fleet#1 (nas01 seed config), secrets#24/#25/#26 (bootstrap client,
+sw-mgmt01 creds, recovery keys). Sibling-executed handoffs verified and
+absorbed: 004 (AWS), 005 (secrets), 007 (sandbox01).
+VISION.md promoted to .journal/VISION.md (journal root, beside
+TECH_NOTES.md) per Josh — it carries the vision, decisions, and the running
+Tracker; future sessions read it first and keep it current. TECH_NOTES.md
+updated with compute-platform durables (nas01 facts, fleet/builder flow,
+sw-mgmt01 state incl. outstanding mgmt-IP move, PiKVM capabilities/limits).
+SUMMARY.md written; INDEX row → complete.
+Handoff state: nas01 live and cluster-enabled; next moves per Tracker —
+T32 spike (sandbox01 idle+ready), Josh's step-3 deploy-mechanism dump
+(+T22), lab01-03 batch installs behind AMT provisioning (T03) and the OOB
+remainder (T01, incl. wiring the PiKVM ATX cable).

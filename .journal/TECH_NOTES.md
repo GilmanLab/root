@@ -1,5 +1,44 @@
 # Technical Notes
 
+## Vision and tracker
+
+- `.journal/VISION.md` (journal root, beside this file) is the living Lab v2
+  vision-and-context document with the running work Tracker (T-items). Read it
+  before substantive lab work and keep its statuses current. Confidence tags:
+  [DECIDED]/[PROVISIONAL]/[OPEN]. Handoff plans it references live in
+  `.journal/002/`.
+
+## Compute platform (first node live)
+
+- `nas01` runs IncusOS (installed 2026-08-20 from `GilmanLab/fleet`
+  `nodes/nas01/config.yaml`): static `10.10.10.14`, hostname `nas01.glab.lol`,
+  Incus cluster member `nas01` (database-leader). Operator access uses the
+  seeded `bootstrap-admin` client cert (private half escrowed at
+  `fleet/shared/bootstrap-client` in `GilmanLab/secrets`).
+- Recovery material is escrowed at `fleet/nas01/incusos.sops.yaml` (LUKS
+  recovery key + `local` ZFS pool key). Rebuild procedure:
+  `docs/docs/runbooks/rebuild-nas01.md` — key lessons: clear the fTPM on
+  previously-used hardware, never write install media to an internal drive,
+  never install through Ventoy, escrow recovery keys before any reboot test.
+- Private `GilmanLab/fleet` holds bare-metal instance config only (no k8s).
+  Install images are built locally with componere's `incusos-builder` (from
+  source until released; pin recorded in the fleet README) and are never
+  published. Fleet CI validates configs with the pinned builder.
+- nas01 NICs: `38:05:25:37:8d:7a` = RTL8126A 5GbE → `sw-mgmt01` port 8
+  (mgmt, links 2.5G, MAC-bound in the seed); `38:05:25:37:8d:7b` = RTL8127A
+  10GbE → `sw-core01` port 7 (links 10G, unconfigured). The 128GB RS128 is
+  the OS drive; both 1TB SN7100s are blank pending the storage design.
+- `sw-mgmt01` (TRENDnet) is configured (VLAN 10 tagged trunk port 1 + untagged
+  2/4/6/8; VLAN 70 untagged 3/5/7; PVIDs match) and persists config on Apply
+  (reboot-verified). Admin credential: `network/sw-mgmt01/admin.sops.yaml`.
+  Management is still via its factory address `192.168.10.200` on untagged
+  VLAN 1 through the gw01 trunk (temporary eth3 address required) — moving it
+  to `10.10.70.2`/VLAN 70 per the address plan is outstanding.
+- PiKVM (`https://10.10.70.20/`): console snapshots (`/api/streamer/snapshot`)
+  and HID text injection (`/api/hid/print`) work through the TESmart and can
+  drive full installs. Mass-storage emulation through the TESmart does NOT
+  work (USB 1.1). The ATX header is not wired — power cycles are physical.
+
 ## Repository layout
 
 - `GilmanLab/root` is a meta repository. `init.sh` clones

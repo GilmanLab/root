@@ -1,14 +1,20 @@
 # GilmanLab v2 — Vision & Context
 
-Working document. Purpose: give any agent enough context to work on the lab
-without re-interviewing Josh. Every statement is tagged by confidence:
+Living working document at the journal root (promoted from session 002; kept
+beside `TECH_NOTES.md` for prominence). Purpose: give any agent enough context
+to work on the lab without re-interviewing Josh. Any session may update it:
+keep statuses current, append tracker items, never silently delete decisions.
+Every statement is tagged by confidence:
 
 - **[DECIDED]** — settled; agents may rely on it. ADRs/designs are canonical where linked.
 - **[PROVISIONAL]** — current thinking; may change; check before building on it.
 - **[OPEN]** — known hole; do not assume an answer.
 
-Canonical docs live in the `docs/` sub-repo (MkDocs site). This file holds the
-vision, rationale, and everything not yet promoted into real docs.
+Canonical facts live in the `docs/` site (MkDocs, this repo). This file holds
+the vision, rationale, the running Tracker, and everything not yet promoted
+into real docs. Handoff plans referenced by the Tracker live in
+`.journal/002/` (their executing sessions' summaries are authoritative for
+outcomes).
 
 ---
 
