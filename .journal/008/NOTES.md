@@ -165,3 +165,13 @@ tasks found" (moon task registration issue for runInCI:false tasks?) while
 vyos-validate works; ran `uv run python -m networking_vyos ...` directly per
 the runbook's described machinery. Runbook commands need this fixed or
 documented.
+
+## 2026-08-20 20:05 — vyos runbook "defect" resolved: CI env, not moon config
+Investigated `moon run network:vyos-facts` "No tasks found": tasks ARE
+registered (`moon tasks network` lists them). Moon 2.4.6 excludes
+`runInCI: false` tasks from `moon run` whenever the `CI` env var is truthy —
+and agent harness shells export `CI=true`. Human terminals are unaffected;
+the repo config is correct. Verified `CI= moon run network:vyos-facts` runs.
+Fix: root#20 (merged) adds a precondition note + one-command workaround to
+the vyos deployment runbook. sw-core01 runbook unaffected (uses just
+directly).
