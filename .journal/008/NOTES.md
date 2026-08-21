@@ -175,3 +175,32 @@ the repo config is correct. Verified `CI= moon run network:vyos-facts` runs.
 Fix: root#20 (merged) adds a precondition note + one-command workaround to
 the vyos deployment runbook. sw-core01 runbook unaffected (uses just
 directly).
+
+## 2026-08-20 20:55 — sw-mgmt01 readdressed, cleaned, escrowed, documented
+Executed the sw-mgmt01 half of the session scope entirely over its JSON API
+(the React SPA's backend — discovered by grepping the app bundle through an
+SSH tunnel via gw01's temporary eth3 192.168.10.5/24):
+- API surface: PATCH /api/system/login {user,password} -> Bearer JWT (300s);
+  GET/PATCH /api/system/settings/mgmtinterface (PATCH takes the FLAT object);
+  GET/PATCH /api/customize_vlan (PATCH takes an ARRAY of vlan rows);
+  GET /api/ports; POST /api/system/save; GET /api/system/config/backup ->
+  {backupURL} -> authenticated download.
+- HAZARD (documented in runbook): malformed write bodies return errCode 0
+  "OK" without applying — every write must be read back.
+- Readdress: mgmt moved factory 192.168.10.200/VLAN1 -> static 10.10.70.2/24
+  VLAN 70 gw 10.10.70.1; saved; reachable from home via routed VLAN 70 path.
+- VLAN 1 trimmed to unused SFP slots + LAG placeholders (9-10,t1-t8); port
+  table now exactly matches address-plan: port1 trunk tagged 10+70 PVID 1
+  (untagged now dropped), 2/4/6/8=VLAN10, 3/5/7=VLAN70, PVIDs match.
+  nas01 canary (port 8, VLAN 10) verified before/after every step.
+- Backup: TEG .cfg is a ustar archive with PLAINTEXT CLI config inside
+  (current_config/SNCSR.conf, no credentials) — diffable, not opaque as the
+  earlier research assumed. Escrowed base64 in secrets
+  network/sw-mgmt01/config-backup.sops.yaml (secrets#28 merged).
+- gw01 temp eth3 address removed again, committed AND saved (clean
+  compare saved).
+- Docs: root#21 merged — new runbook sw-mgmt01-configuration.md (API
+  procedures, silent-no-op hazard, backup escrow, factory break-glass path,
+  recovery) + design-doc paragraph naming the authoritative record.
+- Remaining known state: switch web/API is plain HTTP (no TLS on this device
+  class); credential + JWT transit the trusted mgmt path only.
