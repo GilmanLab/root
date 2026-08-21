@@ -204,3 +204,17 @@ SSH tunnel via gw01's temporary eth3 192.168.10.5/24):
   recovery) + design-doc paragraph naming the authoritative record.
 - Remaining known state: switch web/API is plain HTTP (no TLS on this device
   class); credential + JWT transit the trusted mgmt path only.
+
+## 2026-08-20 20:05 — Close
+Session closed. All work merged and live-verified:
+- networking#11 (sw-core01 tofu root), networking#12 (gw01 NTP firewall),
+  secrets#27 (svc-tofu credential), secrets#28 (sw-mgmt01 backup escrow),
+  root#19 (sw-core01 docs + ADR-0004), root#20 (vyos runbook CI note),
+  root#21 (sw-mgmt01 runbook).
+Handoff state: sw-core01 tofu plan empty against live; sw-mgmt01 at
+10.10.70.2/24 VLAN 70, saved + escrowed; gw01 clean (PendingSave=False, temp
+eth3 address retired); local defaults fast-forwarded, worktrees and merged
+branches removed. Open threads in SUMMARY.md (admin password rotation, v1
+certs on sw-core01, upstream ip_service import defect, untested cfg_upload
+restore path). SUMMARY.md written; INDEX.md row complete; TECH_NOTES.md
+updated (switch state, NTP, RouterOS/moon quirks).

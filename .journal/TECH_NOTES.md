@@ -26,14 +26,18 @@
   published. Fleet CI validates configs with the pinned builder.
 - nas01 NICs: `38:05:25:37:8d:7a` = RTL8126A 5GbE → `sw-mgmt01` port 8
   (mgmt, links 2.5G, MAC-bound in the seed); `38:05:25:37:8d:7b` = RTL8127A
-  10GbE → `sw-core01` port 7 (links 10G, unconfigured). The 128GB RS128 is
+  10GbE → `sw-core01` port 7 (links 10G, port on `bridge-lab`, no VLANs
+  assigned yet — role deferred to the storage design). The 128GB RS128 is
   the OS drive; both 1TB SN7100s are blank pending the storage design.
-- `sw-mgmt01` (TRENDnet) is configured (VLAN 10 tagged trunk port 1 + untagged
-  2/4/6/8; VLAN 70 untagged 3/5/7; PVIDs match) and persists config on Apply
-  (reboot-verified). Admin credential: `network/sw-mgmt01/admin.sops.yaml`.
-  Management is still via its factory address `192.168.10.200` on untagged
-  VLAN 1 through the gw01 trunk (temporary eth3 address required) — moving it
-  to `10.10.70.2`/VLAN 70 per the address plan is outstanding.
+- `sw-mgmt01` (TRENDnet TEG-3102WS, IMG-3.01.347) is fully configured per the
+  address plan: static mgmt `10.10.70.2/24` on VLAN 70 (gw 10.10.70.1), VLAN
+  10 tagged trunk port 1 + untagged 2/4/6/8, VLAN 70 untagged 3/5/7, VLAN 1
+  trimmed to unused SFP slots, PVIDs match; saved config escrowed at
+  `network/sw-mgmt01/config-backup.sops.yaml`. Hand-managed appliance: web UI
+  + JSON API over plain HTTP (runbook `sw-mgmt01-configuration.md` documents
+  the API and its silent-no-op write hazard — always read back writes). Admin
+  credential: `network/sw-mgmt01/admin.sops.yaml`. Factory access requires a
+  temporary gw01 `eth3 192.168.10.5/24` address (runbook).
 - PiKVM (`https://10.10.70.20/`): console snapshots (`/api/streamer/snapshot`)
   and HID text injection (`/api/hid/print`) work through the TESmart and can
   drive full installs. Mass-storage emulation through the TESmart does NOT
@@ -100,15 +104,29 @@
   (`10.10.70.0/24`). VLAN 20 and BGP are retired.
 - The former UM760 cluster node is `sandbox01` on VP6630 `eth3`, untagged VLAN
   40, with DHCP reservation `10.10.40.10`.
-- The MikroTik CRS309-1G-8S+IN carries core Layer 2 VLAN traffic. The TRENDnet
-  TEG-3102WS connects both non-SFP NICs from each MS-02 for management/OOB and
-  uplinks directly to the VP6630.
+- `sw-core01` (MikroTik CRS309, RouterOS 7.16.2, static `10.10.10.2` on VLAN
+  10) carries core Layer 2 VLAN traffic and is OpenTofu-managed: root
+  `routeros/sw-core01/` in `GilmanLab/networking`, state key
+  `networking/routeros/sw-core01.tfstate` in the lab bucket, REST over
+  `www-ssl` pinned to the committed device-local CA, creds via SOPS →
+  `ROS_*` env (`network/sw-core01/terraform.sops.yaml`). Mgmt-path resources
+  are adopt-only; users/groups/certs are runbook-owned (`svc-tofu` lacks the
+  `policy` permission by design). RouterOS quirks: REST needs the `api`
+  policy; leaf certs cannot self-sign (device-local CA); REST rejects
+  percent-encoded `*`; `routeros_ip_service` import is broken upstream
+  (adopt-by-create). Runbook: `sw-core01-configuration.md`, ADR-0004.
+- The TRENDnet TEG-3102WS (`sw-mgmt01`) connects both non-SFP NICs from each
+  MS-02 for management/OOB and uplinks directly to the VP6630.
 - The MikroTik CCR2004 connects the lab to the home network and internet over
   `10.0.0.0/30`; `gw01` is `10.0.0.2` and uses `10.0.0.1` as its default route.
 - The CCR2004's physical `10.10.0.0/16 via 10.0.0.2` route uses an ICMP
   health check. `gw01` must allow ICMP from transit-router address `10.0.0.1`;
   otherwise RouterOS marks the route inactive and silently uses its internet
   default route for lab destinations.
+- `gw01` serves NTP (chrony, synced to time.cloudflare.com); its input
+  firewall admits UDP 123 only from VLANs 10 and 70 (`MGMT_LOCAL`,
+  `OOB_LOCAL`). VLAN 70 has no internet path, so gw01 is its only time
+  source. `sw-core01` syncs to `10.10.10.1`.
 - `docs/docs/reference/networking/physical-connections.md` is the authoritative
   port-to-port map. `docs/docs/reference/networking/address-plan.md` owns
   prefixes, VLANs, DHCP reservations, and logical port roles.
@@ -118,6 +136,9 @@
 - The rolling VyOS 2025.11 image needs empty nftables compatibility chains
   before interface commit hooks. Failed commits can leave runtime side effects
   and `PendingSave=True`; reboot to the saved config before retrying.
+- Moon excludes `runInCI: false` tasks from `moon run` when the `CI` env var
+  is truthy (agent shells export `CI=true`): operator tasks need
+  `CI= moon run network:vyos-facts` (noted in the vyos runbook).
 - Do not import historical or unverified values into authoritative documents.
   Ask the user to verify missing facts or omit them.
 
