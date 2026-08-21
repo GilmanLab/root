@@ -27,6 +27,15 @@ canonical source for addresses, interfaces, and VLANs.
   fail-fast lock serializes syncs only within the same networking checkout.
 - Have PiKVM or local-console access before changing routing, firewall, SSH, or
   transit configuration.
+- Run the operator commands from a shell that does not set the `CI`
+  environment variable. The `vyos-facts` and `vyos-sync` tasks are
+  `runInCI: false`, and Moon excludes them whenever `CI` is truthy, failing
+  with "No tasks found". Agent and automation shells often export `CI=true`;
+  clear it for the single command when needed:
+
+  ```bash
+  CI= moon run network:vyos-facts
+  ```
 
 Pull requests run static validation only. Merging a change does not deploy it
 to `gw01`; an operator must run `moon run network:vyos-sync`.
