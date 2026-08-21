@@ -4,9 +4,10 @@ status: accepted
 authors:
   - GilmanLab
 created: 2026-08-14
-updated: 2026-08-18
+updated: 2026-08-20
 related-decisions:
   - ADR-0001
+  - ADR-0004
 ---
 
 # Lab v2 core network
@@ -40,7 +41,7 @@ test and spike host outside the IncusOS cluster.
 
 ## Goals
 
-- Give every bare-metal management and OOB endpoint a deterministic DHCP
+- Give every bare-metal host management and OOB endpoint a deterministic DHCP
   reservation.
 - Keep management, OOB, and sandbox/workload traffic in separate VLANs.
 - Keep routing, DHCP, DNS forwarding, traffic policy, and NAT on `gw01`.
@@ -108,10 +109,11 @@ locally when needed.
 The [network address and VLAN plan](../reference/networking/address-plan.md)
 is the single source for address and port values.
 
-`gw01` provides DHCP on every client VLAN. Named endpoints use reservations
-bound to permanent hardware MAC addresses. Unnamed temporary clients use the
-documented dynamic pools. IncusOS seeds request DHCP on each node's 10GbE RJ45
-management interface; AMT independently requests DHCP on the 2.5GbE interface.
+`gw01` provides DHCP on every client VLAN. Named host endpoints use
+reservations bound to permanent hardware MAC addresses. Network-device
+management addresses are static interface addresses. IncusOS seeds request
+DHCP on each node's 10GbE RJ45 management interface; AMT independently requests
+DHCP on the 2.5GbE interface.
 
 Clients use their `gw01` VLAN gateway as the DNS resolver. CoreDNS on `gw01`
 answers `glab.lol` from its local mirror of the private Route 53 zone and sends
@@ -158,6 +160,17 @@ port, direction, and owner in the version-controlled gateway policy.
 configuration source. The authoritative `gw01` source is the tracked
 configuration template and CoreDNS assets in `GilmanLab/networking`; encrypted
 inputs remain in `GilmanLab/secrets` and are rendered in memory.
+
+The authoritative `sw-core01` source is the
+[`routeros/sw-core01/`](https://github.com/GilmanLab/networking/tree/master/routeros/sw-core01)
+OpenTofu root in `GilmanLab/networking`. An operator runs `just plan` and
+`just apply` from that root on a workstation and downloads a configuration
+snapshot before every apply. Pull-request CI runs only offline `fmt` and
+`validate` checks because GitHub-hosted runners cannot reach the device.
+
+The [sw-core01 configuration runbook](../runbooks/sw-core01-configuration.md)
+defines the one-time bootstrap, snapshot discipline, adoption cutover, routine
+operator flow, verification, and recovery procedure.
 
 The `networking_vyos` package owns validation, rendering, locking, asset
 staging, and verification. Its `pyinfra-vyos` 0.1.0 boundary is the `Version`,
@@ -227,7 +240,7 @@ A deployment is valid when:
 - every connected interface reports the expected link state and negotiated
   speed;
 - each VLAN appears only on its assigned access ports and trunks;
-- each named endpoint receives its reserved address;
+- each DHCP-managed named endpoint receives its reserved address;
 - each client receives `gw01` as its default gateway and DNS resolver;
 - `glab.lol` resolves through the local mirror while public DNS still resolves;
 - the `rtr01` and `gw01` route tables contain the transit and lab routes;

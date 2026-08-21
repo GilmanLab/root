@@ -19,6 +19,8 @@ and runbook lives here.
 - [ADR-0003: Use AWS KMS with PGP Recovery for Secrets](decisions/0003-use-kms-with-pgp-recovery-for-secrets.md)
   uses scoped KMS access for routine decryption and a YubiKey-backed PGP key
   for recovery outside AWS.
+- [ADR-0004: Manage RouterOS Devices with OpenTofu](decisions/0004-manage-routeros-devices-with-opentofu.md)
+  uses an isolated OpenTofu root and state for each RouterOS device.
 
 ## Designs
 
@@ -49,6 +51,9 @@ and runbook lives here.
 - [Rebuild nas01](runbooks/rebuild-nas01.md) reinstalls IncusOS on `nas01`
   from git-defined install media and restores it as the cluster bootstrap
   node.
+- [Manage the sw-core01 configuration](runbooks/sw-core01-configuration.md)
+  covers bootstrap, adoption, routine OpenTofu changes, verification, and
+  recovery for the core switch.
 - [Deploy the VyOS gateway configuration](runbooks/vyos-gateway-deployment.md)
   covers validation, inspection, guarded deployment, verification, and
   console recovery for `gw01`.

@@ -51,10 +51,10 @@ required administration flows explicitly and permits established replies.
 | Endpoint | Address | Allocation |
 | --- | --- | --- |
 | `gw01` management gateway | `10.10.10.1` | Interface address |
-| `sw-core01` management | `10.10.10.2` | DHCP reservation |
+| `sw-core01` management | `10.10.10.2` | Interface address |
 | `gw01` sandbox/workload gateway | `10.10.40.1` | Interface address |
 | `gw01` OOB gateway | `10.10.70.1` | Interface address |
-| `sw-mgmt01` management | `10.10.70.2` | DHCP reservation |
+| `sw-mgmt01` management | `10.10.70.2` | Interface address |
 | `gw01` `glab.lol` mirror | `10.10.10.54` | Local service address |
 
 ### Hosts
@@ -69,9 +69,9 @@ required administration flows explicitly and permits established replies.
 | `pikvm01` | — | `10.10.70.20` | Direct untagged attachment to `gw01` |
 | `kvm01` | — | `10.10.70.21` | Direct untagged attachment to `gw01` |
 
-`gw01` supplies DHCP on every client VLAN. Infrastructure and named hosts use
-DHCP reservations; the gateway interface and local DNS mirror addresses are
-static. Dynamic clients use `.200` through `.250` within each client VLAN.
+`gw01` supplies DHCP on every client VLAN. Named hosts use DHCP reservations.
+Gateway and managed-switch interface addresses and the local DNS mirror address
+are static. Dynamic clients use `.200` through `.250` within each client VLAN.
 Reservations use each endpoint's permanent hardware MAC address as recorded in
 the version-controlled gateway configuration.
 
