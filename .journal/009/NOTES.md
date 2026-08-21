@@ -27,3 +27,24 @@ Current state of the world:
 Plan: wait for the user's actual request, then scope work against
 `.journal/VISION.md` and create implementation worktrees in the appropriate
 repository per the sub-repository workflow.
+
+## 2026-08-21 11:49 — Goal set: bring lab01–03 online
+Josh chose bootstrap step 2 for this session: configure the OOB links on the
+lab nodes and install IncusOS on `lab01`–`lab03`, joining them to the `nas01`
+cluster (VISION step 2; touches T01/T03/T06/T12). NAS storage (T19 + NAS-OS
+design) deliberately deferred to a later session; clarified that the Synology
+drives are already backed up to a large external HDD, so only
+install/wipe remains.
+Operations Center ruling: do NOT set up OC before the node joins. Evidence:
+IncusOS provider is runtime-modifiable (`SystemProviderConfig` documented as
+the modifiable part, `Registered` state flag), so post-install registration
+with a future OC needs no reinstall; OC's documented flow only provisions
+clusters from freshly seeded self-registered servers (adopting an existing
+cluster is undocumented, and nas01 pre-exists OC under any ordering); OC wants
+to own seeding/updates, colliding with decided fleet + incusos-builder model
+(T25/T26/T30); OC is young (announced 2025-12-21, v0.81). Plan: OC becomes a
+follow-up spike on `sandbox01` or a cluster VM — verify late registration +
+existing-cluster visibility empirically. Add a tracker item at close.
+Next: inventory the lab-node hardware facts (AMT state, NIC MACs, cabling)
+and drive the proven seeded-install procedure per `rebuild-nas01.md`,
+adapted for lab01–03.
