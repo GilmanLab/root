@@ -54,6 +54,9 @@ and runbook lives here.
 - [Manage the sw-core01 configuration](runbooks/sw-core01-configuration.md)
   covers bootstrap, adoption, routine OpenTofu changes, verification, and
   recovery for the core switch.
+- [Manage the sw-mgmt01 configuration](runbooks/sw-mgmt01-configuration.md)
+  covers desired state, supervised changes, backup escrow, verification, and
+  recovery for the management switch.
 - [Deploy the VyOS gateway configuration](runbooks/vyos-gateway-deployment.md)
   covers validation, inspection, guarded deployment, verification, and
   console recovery for `gw01`.

@@ -50,6 +50,7 @@ nav:
       - Change the Tailscale policy: runbooks/tailscale-policy-change.md
       - Rebuild nas01: runbooks/rebuild-nas01.md
       - Manage the sw-core01 configuration: runbooks/sw-core01-configuration.md
+      - Manage the sw-mgmt01 configuration: runbooks/sw-mgmt01-configuration.md
       - Deploy the VyOS gateway configuration: runbooks/vyos-gateway-deployment.md
 
 plugins:
