@@ -129,3 +129,20 @@ the session transcript (LUKS key stayed redacted). Same exposure class 008
 accepted for svc-tofu; rotate at will — requires IncusOS pool-key rotation
 support (not investigated).
 Lease poll 12:10: lab nodes still dark — waiting on the rack walk.
+
+## 2026-08-21 12:41 — Decision reversed: AMT goes static-in-MEBx
+Josh proposed static AMT addresses instead of DHCP reservations; he is right
+and this supersedes my 11:58 ruling. Rationale: (1) with static, a laptop on a
+VLAN 70 access port reaches AMT even during a gw01 outage — exactly when OOB
+matters; DHCP would lapse at lease expiry mid-outage. (2) The v1-era
+reservation MACs were never observed live (zero lease attempts) — a wrong MAC
+would strand AMT in the dynamic pool. (3) Consistent with 008's static ruling
+for switches. MEBx values per node: 10.10.70.11/12/13, mask 255.255.255.0,
+gw 10.10.70.1.
+Clarified: this does NOT remove the mgmt-NIC MAC harvest — the seeds bind the
+10GbE NICs by strict_hwaddr (different NICs; AMT MACs were already known).
+Executed the clean cutover: networking#13 removed the three dead lab0N-amt
+static-mappings from gw01's template (full network:check green), squash-merged,
+deployed via the guarded vyos-sync (pending_save false before and after), and
+live-verified zero lab0N-amt mappings remain. Address-plan doc amendment
+(AMT rows: reservation → static interface address) queued for the wrap docs PR.
