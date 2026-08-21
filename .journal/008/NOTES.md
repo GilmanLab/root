@@ -58,3 +58,11 @@ identity `lab-10g-switch`. Config is untouched v1. Full `/export` captured:
 - Trunk to gw01 (port 8 "to-vyos") tags 10/30/40/50/60; gw01 v2 carries 10/40.
 - Identity/time log noise: cloud time jump Aug/11→Aug/14 2026 (no NTP config
   in export; RouterOS cloud time active).
+
+## 2026-08-20 17:36 — Direction decided: OpenTofu-managed sw-core01
+User chose automation-first convergence (option 1) and explicitly chose
+OpenTofu with terraform-routeros over extending the pyinfra pattern.
+Spawned a software-architect agent to propose the architecture: repo/root
+placement, state backend, provider auth + cert strategy, SOPS credential
+flow, resource modeling (incl. defconf adoption/removal), in-band cutover
+safety, operator-vs-CI apply model, and doc impacts.
