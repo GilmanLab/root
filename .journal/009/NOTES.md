@@ -84,3 +84,34 @@ coupling — gw01 owns VLAN 70 L3 anyway).
 Next: author fleet configs (MAC placeholders), generate + escrow AMT MEBx
 passwords, then the rack walk: power on ×3, harvest MACs, MEBx (possibly
 PiKVM-driven via TESmart hotkey channel switch — untested, T01), USB installs.
+
+## 2026-08-21 12:07 — Prep done; blocked on rack walk
+Completed without hands:
+- Fleet: branch `feat/lab-node-configs` pushed with `nodes/lab0{1,2,3}/`
+  configs — nas01 pattern, static .11/.12/.13, apply_defaults:false,
+  bootstrap-admin cert seeded, install.target unchanged (P300 128GB OS drive),
+  release pinned `202608201218` = nas01's RUNNING release (verified live via
+  `incus query nas01:/os/1.0` — no update drift, latest stable). MAC fields
+  are placeholders (00:..:00); PR waits for harvest. All three configs pass
+  the pinned builder's validate.
+- Secrets: #29 MERGED — `fleet/lab0N/amt.sops.yaml` (username/password),
+  generated locally, never printed, metadata check green. SSO needed a fresh
+  `aws sso login` (Josh approved in browser).
+- PiKVM: API alive, default admin/admin credentials WORK — rotate + escrow
+  later (flag). Snapshot + HID key events verified against nas01's console.
+- T01 negative result: TESmart channel switching via PiKVM HID hotkeys
+  (double ScrollLock + digit) does NOT work — video source stayed online
+  across attempts. Explanation: PiKVM USB sits on a TESmart pass-through hub
+  port (host keystrokes work — proven in 008 — but the switch never parses
+  them). Fix options: move PiKVM USB to the console keyboard port, or wire
+  RS232 (documented control path). Front-panel switching for now.
+- nas01 console shows "Some encryption recovery keys have not been retrieved
+  yet!" — reconcile against the 008 escrow during verification.
+- kvm01 input-to-machine mapping is undocumented (T02) — map it during the
+  walk.
+Rack-walk checklist for Josh: (1) power all three MS-02s; (2) note/fix which
+TESmart port PiKVM USB uses; (3) front-panel-switch channels on request so I
+can read BIOS/MEBx screens; MEBx typing (passwords included) can be injected
+by me via HID once the channel shows the right node. MAC harvest: watch gw01
+leases for old-OS DHCP first, BIOS screens as fallback. Then: build 3 images,
+USB dd per node, install, post-boot API join, escrow keys per node.
