@@ -146,3 +146,26 @@ static-mappings from gw01's template (full network:check green), squash-merged,
 deployed via the guarded vyos-sync (pending_save false before and after), and
 live-verified zero lab0N-amt mappings remain. Address-plan doc amendment
 (AMT rows: reservation → static interface address) queued for the wrap docs PR.
+
+## 2026-08-21 12:49 — AMT gateway live on nas01 (step 3 done early)
+Josh's refined sequence accepted: (1) he sets AMT static + reboots per node,
+(2) I verify reachability, (3) AMT tooling, (4) live-Ubuntu boot to harvest
+NIC/drive facts, (5) build seed ISOs, (6) attempt install over AMT USB-R.
+Step 3 executed ahead of step 1:
+- Firewall verified first: MGMT_FORWARD has blanket "Allow management to
+  OOB" — a VLAN 10 gateway reaches AMT with no policy change. (Sandbox was
+  never an option: VLAN 40 → OOB is design-blocked.)
+- Deployed `meshcommander` Incus container on nas01 (images:debian/13,
+  node 20, meshcommander@0.9.5-a npm, systemd unit, restart=always) with an
+  Incus proxy device 0.0.0.0:3000 → container 127.0.0.1:3000. UI verified
+  end-to-end from the laptop browser at http://10.10.10.14:3000/ ("No known
+  computers" landing page, screenshot taken). MeshCommander covers KVM, SOL,
+  power, and USB-R storage redirection — everything steps 2-6 need.
+- Known risks flagged: MeshCommander is archived upstream (MeshCentral is
+  the maintained fallback); the UI is unauthenticated HTTP on VLAN 10 — do
+  NOT save AMT passwords into its computer list; enter per session. Decide
+  keep-vs-teardown at wrap. This is also the first real workload on nas01 —
+  commissioning tooling, placement revisit noted.
+- MEBx checklist addition for Josh: beyond password + static IP
+  (10.10.70.11/12/13, /24, gw 10.10.70.1), enable SOL + storage redirection
+  + KVM, and set User Consent/opt-in to NONE (headless KVM fails otherwise).
