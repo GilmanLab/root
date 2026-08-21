@@ -46,6 +46,9 @@ and runbook lives here.
 
 - [Change the Tailscale policy](runbooks/tailscale-policy-change.md) covers
   changing, verifying, reverting, and emergency-editing the tailnet policy.
+- [Rebuild nas01](runbooks/rebuild-nas01.md) reinstalls IncusOS on `nas01`
+  from git-defined install media and restores it as the cluster bootstrap
+  node.
 - [Deploy the VyOS gateway configuration](runbooks/vyos-gateway-deployment.md)
   covers validation, inspection, guarded deployment, verification, and
   console recovery for `gw01`.
