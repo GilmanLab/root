@@ -156,8 +156,8 @@ port, direction, and owner in the version-controlled gateway policy.
 
 ## Configuration and Deployment
 
-`gw01`, `sw-core01`, and `sw-mgmt01` each have one version-controlled
-configuration source. The authoritative `gw01` source is the tracked
+`gw01` and `sw-core01` each have one version-controlled configuration source.
+The authoritative `gw01` source is the tracked
 configuration template and CoreDNS assets in `GilmanLab/networking`; encrypted
 inputs remain in `GilmanLab/secrets` and are rendered in memory.
 
@@ -171,6 +171,12 @@ snapshot before every apply. Pull-request CI runs only offline `fmt` and
 The [sw-core01 configuration runbook](../runbooks/sw-core01-configuration.md)
 defines the one-time bootstrap, snapshot discipline, adoption cutover, routine
 operator flow, verification, and recovery procedure.
+
+`sw-mgmt01` has no version-controlled device configuration. Its authoritative
+record consists of the desired-state table in the
+[sw-mgmt01 configuration runbook](../runbooks/sw-mgmt01-configuration.md) and
+the encrypted `network/sw-mgmt01/config-backup.sops.yaml` backup in
+`GilmanLab/secrets`.
 
 The `networking_vyos` package owns validation, rendering, locking, asset
 staging, and verification. Its `pyinfra-vyos` 0.1.0 boundary is the `Version`,
