@@ -37,3 +37,24 @@ Research findings (web, 2026-08-20):
   state + scripted config.bin backup; treat as hand-managed appliance.
 
 Next: user to pick direction (likely verify sw-core01 OS first).
+
+## 2026-08-20 17:32 — sw-core01 live inspection (webfig via Chrome DevTools)
+Confirmed: RouterOS 7.16.2 (stable) on CRS309-1G-8S+ (arm), serial HJK0ARX7PE0,
+identity `lab-10g-switch`. Config is untouched v1. Full `/export` captured:
+- Two bridges: defconf `bridge` (192.168.88.1/24, NO vlan filtering) holding
+  ether1 + sfpplus5/6/7 ("LAB0x SAN"); `bridge-lab` (vlan-filtering) holding
+  to-vyos(sfpplus8), spare-port1(sfpplus1), sfpplus2/3/4 ("LAB0x VM"),
+  tagged-only.
+- bridge-lab VLANs 10/30/40/50/60 (v1 names LAB_MGMT/PLATFORM/CLUSTER/
+  SERVICE/STORAGE) all tagged on to-vyos + VM ports. v2 keeps only 10/40.
+- mgmt: STATIC 10.10.10.2/24 on `mgmt-vlan10` (address-plan.md says DHCP
+  reservation — mismatch), DNS + default route via 10.10.10.1.
+- Services: www allowed from 10.10.10.1/32 only; www-ssl enabled, cert
+  `crs309.mgmt.lab.gilman.io` (v1 domain — caused Chrome CN error), allowed
+  from 192.168.1.0/24 + 10.10.0.0/16. REST API therefore already reachable at
+  https://10.10.10.2/rest. Admin user only; no automation account.
+- Hazard: nas01 10G is physically port 7 (= "LAB03 SAN") on the unfiltered
+  defconf bridge with 192.168.88.1/24 — stray L2 touching nas01 storage NIC.
+- Trunk to gw01 (port 8 "to-vyos") tags 10/30/40/50/60; gw01 v2 carries 10/40.
+- Identity/time log noise: cloud time jump Aug/11→Aug/14 2026 (no NTP config
+  in export; RouterOS cloud time active).
