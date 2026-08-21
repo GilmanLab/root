@@ -134,3 +134,34 @@ Open items for follow-up:
 - Candidate upstream report: terraform-routeros ip_service import defect.
 - sw-mgmt01 (TRENDnet) still unconfigured for v2 + on factory address; no
   automation surface exists (session research) — separate effort.
+
+## 2026-08-20 19:45 — gw01 NTP fixed at source and deployed
+Diagnosis: gw01 chrony was healthy (stratum 4 via time.cloudflare.com, allow
+0.0.0.0/0) but `chronyc serverstats` showed 0 NTP packets EVER received;
+tcpdump showed client requests arriving with no reply. Root cause: MGMT_LOCAL
+and OOB_LOCAL input chains only allowed ICMP/SSH/DNS/DHCP — UDP 123 was
+dropped. (The mac's earlier "stratum 0" replies were an sntp timeout artifact,
+not real packets.)
+
+Fix: networking#12 (merged) adds "Allow NTP" udp/123 rule 60 to MGMT_LOCAL and
+OOB_LOCAL. OOB matters most: OOB_FORWARD has no rules, so VLAN 70 devices have
+no internet path and can only get time from gw01. Sandbox/home/tailscale
+intentionally unchanged (internet NTP). Deployed with the guarded
+networking_vyos sync (all stages green, PendingSave=False); the sync also
+carried the sw-core01 DHCP-reservation removal from networking#11.
+
+Preflight detour: gw01 had PendingSave=True from an unsaved manual eth3
+address 192.168.10.5/24 — the documented TEMPORARY operator path to
+sw-mgmt01's factory subnet. Removed it (delete + commit + save) before
+syncing; the authoritative full-config load would have wiped it anyway.
+Re-add with `set interfaces ethernet eth3 address 192.168.10.5/24` when
+sw-mgmt01 factory access is next needed.
+
+Proof: sw-core01 NTP status "synchronized" to 10.10.10.1 (offset 0.955ms);
+gw01 serverstats now counts received NTP packets (13).
+
+New follow-up: `moon run network:vyos-facts` / `vyos-sync` fail with "No
+tasks found" (moon task registration issue for runInCI:false tasks?) while
+vyos-validate works; ran `uv run python -m networking_vyos ...` directly per
+the runbook's described machinery. Runbook commands need this fixed or
+documented.
