@@ -48,3 +48,39 @@ existing-cluster visibility empirically. Add a tracker item at close.
 Next: inventory the lab-node hardware facts (AMT state, NIC MACs, cabling)
 and drive the proven seeded-install procedure per `rebuild-nas01.md`,
 adapted for lab01–03.
+
+## 2026-08-21 11:58 — Recon complete: nodes off, AMT unprovisioned, join path settled
+Facts established (all live-verified or primary-source):
+- Cabling: every lab-node link is installed (PHY-006..017). No new cables.
+- sw-mgmt01 port state via JSON API: gw01 trunk + nas01 at 2.5G; lab AMT
+  ports 3/5/7 and lab02/03 mgmt ports 4/6 show 100M_F standby links; lab01
+  mgmt port 2 no link. Reading: all three MS-02s plugged in but powered OFF
+  (100M = PHY standby). ATX unwired + AMT dead → power-on is physical.
+- AMT at 10.10.70.11-13: no ping, 16992 closed, no DHCP leases on gw01 →
+  AMT unprovisioned (v1-era gw01 reservations + MACs exist but were never
+  live on VLAN 70). MEBx session per node required.
+- AMT virtual media: my stale belief that AMT 16 removed storage redirection
+  is WRONG — USB-R replaced IDE-R in AMT 11 and persists. So AMT-mounted ISO
+  installs are plausible on MS-02 Ultra (vPro), but unproven → keep USB as
+  the install path, test USB-R as T01 follow-up.
+- Join mechanics: incus-os seed has NO cluster type; joining = Incus preseed
+  `cluster` section (token) or post-boot `PUT /1.0/cluster` via API. Chose
+  post-boot API join: no token baked into images, mirrors the proven nas01
+  post-boot flow. Cluster pool `local` (zfs) member source is `local/incus`
+  (OS-created dataset) — expected member_config at join.
+- MS-02 Ultra disks: Patriot P300 128GB (OS) + 990 EVO Plus 2TB (data) →
+  nas01's install.target (NVME, max_size 200GiB) carries over verbatim.
+- Tooling: incus remote to nas01 healthy (database-leader ONLINE);
+  incusos-builder source at ~/code/componere/incusos-builder is exactly the
+  fleet pin 065b9e83.
+- Missing facts: the three 10GbE mgmt NIC MACs (harvest at power-on via DHCP
+  leases from old OS, else BIOS via console); AMT provisioning.
+- Stale lease noticed: 10.10.10.232 "ubuntu-server" bound to nas01's 10GbE
+  MAC (38:05:25:37:8d:7b), from install day. Harmless; expires 22:26 UTC.
+Decision: lab mgmt addresses go static-in-seed like nas01 (not DHCP
+reservations); address-plan sentence claiming seed-DHCP needs amending at
+wrap. AMT stays DHCP with the existing reservations (no added failure
+coupling — gw01 owns VLAN 70 L3 anyway).
+Next: author fleet configs (MAC placeholders), generate + escrow AMT MEBx
+passwords, then the rack walk: power on ×3, harvest MACs, MEBx (possibly
+PiKVM-driven via TESmart hotkey channel switch — untested, T01), USB installs.
