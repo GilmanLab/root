@@ -79,3 +79,58 @@ v1 remnants, six-phase cutover that never modifies the mgmt path, operator
 plan/apply with offline-only CI, docs updates incl. ADR-0004. Five open
 questions pending user rulings (static-vs-reservation D1, ether1 role, winbox,
 NTP, tailnet source check).
+
+## 2026-08-20 18:35 — sw-core01 executed: bootstrapped, adopted, converged, integrated
+Full execution complete. Rulings taken: static mgmt address (docs amended),
+ether1 confirmed no-link -> disabled, winbox kept (LAN+mgmt+CGNAT ACL), NTP
+client -> 10.10.10.1, tailnet source = CGNAT 100.64.0.0/10 (gw01
+--snat-subnet-routes=false, grounded in template).
+
+Bootstrap (live, via webfig terminal + REST):
+- On-box pre-v2 backup + export; plain export archived ~/switch-backups/.
+- tofu-svc group: read,write,api,rest-api — `api` policy REQUIRED for REST
+  (RouterOS REST authenticates internally via api; log-verified).
+- svc-tofu user, address-restricted (mgmt+LAN+CGNAT). Credential in
+  GilmanLab/secrets network/sw-core01/terraform.sops.yaml (secrets#27 merged;
+  new scope network-sw-core01 in .sops.yaml + check script).
+- RouterOS 7.16 cannot self-sign a leaf ("CA not found"): device-local CA
+  sw-core01-ca (10y) signs leaf sw-core01-tls (CN=sw-core01, SAN IP). CA
+  public cert committed as pinned ca_certificate anchor. curl gate: 200.
+
+Cutover (P0-P6 executed):
+- P2/P3 single apply: 12 imports, 0 replacements; identity sw-core01, factory
+  port names + PHY comments, services hardened (www/ftp/telnet/api/api-ssl
+  off; www-ssl/ssh/winbox ACL'd), NTP client on.
+- Provider defect found: routeros_ip_service import broken in v1.99.1
+  (Name-ID importer stores *HEX; name-keyed read can't resolve). Adopted
+  services via create=/set semantics instead. Candidate upstream issue.
+- svc-tofu cannot PATCH /user/group (lacks `policy` — deliberate
+  self-escalation guard): user group left runbook-owned, removed from tofu.
+- P4 via REST (webfig died on cert rebind; deletions provably off mgmt path):
+  removed VLAN rows 30/50/60, defconf bridge + its 4 port rows,
+  192.168.88.1/24, legacy crs309 cert. RouterOS REST rejects %2A-encoded ids —
+  use literal `*`.
+- P5: sfpplus5/6/7 port rows created after purge (deferred around the
+  one-bridge-per-interface constraint). P6: `tofu plan` empty; REST sweep
+  verified identity/ports/vlans/services; mgmt path held throughout.
+
+Integration: networking#11 merged (tofu root routeros/sw-core01, moon
+routeros-check in CI, gw01 template reservation removed), root#19 merged
+(address plan, design doc, runbook sw-core01-configuration.md, ADR-0004,
+strict docs build green). Worktrees removed.
+
+Open items for follow-up:
+- admin password NOT rotated (kept out of agent transcript deliberately);
+  Josh: rotate manually + store as admin_password in the sw-core01 secrets
+  file (runbook step). svc-tofu password DID transit this session's local
+  transcript (accepted; rotate at will via runbook).
+- gw01 NTP answers stratum-0/unsynced (garbage offsets): switch NTP stays
+  "waiting" until gw01 gets a valid upstream. gw01-side fix needed.
+- gw01 sync pending to drop the now-dead sw-core01 DHCP reservation (benign
+  drift until then).
+- v1-era public certs glab-root-ca / glab-intermediate-ca remain on the
+  switch (harmless; Josh to rule keep/remove).
+- Josh's webfig tab needs a fresh cert-interstitial acceptance (new CA).
+- Candidate upstream report: terraform-routeros ip_service import defect.
+- sw-mgmt01 (TRENDnet) still unconfigured for v2 + on factory address; no
+  automation surface exists (session research) — separate effort.
