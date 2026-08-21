@@ -115,3 +115,17 @@ can read BIOS/MEBx screens; MEBx typing (passwords included) can be injected
 by me via HID once the channel shows the right node. MAC harvest: watch gw01
 leases for old-OS DHCP first, BIOS screens as fallback. Then: build 3 images,
 USB dd per node, install, post-boot API join, escrow keys per node.
+
+## 2026-08-21 12:10 — nas01 recovery-key warning reconciled
+The console warning was only the unacknowledged-retrieval flag
+(`state.encryption_recovery_keys_retrieved: false`). Verified BOTH live keys
+against `fleet/nas01/incusos.sops.yaml` by sha256 (LUKS `encryption_recovery_key`
+and `zfs_pool_local_recovery_key`): MATCH. Acknowledged via the dedicated
+`POST /os/1.0/system/security/:retrieved` endpoint (a plain PUT of the state
+field is silently ignored); flag now true. TUI banner redraws lazily — check
+it clears by next boot.
+Exposure note: my redaction slip printed nas01's ZFS pool recovery key into
+the session transcript (LUKS key stayed redacted). Same exposure class 008
+accepted for svc-tofu; rotate at will — requires IncusOS pool-key rotation
+support (not investigated).
+Lease poll 12:10: lab nodes still dark — waiting on the rack walk.
