@@ -66,3 +66,16 @@ Spawned a software-architect agent to propose the architecture: repo/root
 placement, state backend, provider auth + cert strategy, SOPS credential
 flow, resource modeling (incl. defconf adoption/removal), in-band cutover
 safety, operator-vs-CI apply model, and doc impacts.
+
+## 2026-08-20 17:52 — Architecture proposal delivered
+Software-architect agent delivered the sw-core01 OpenTofu architecture; saved
+verbatim as `.journal/008/SW_CORE01_TOFU_ARCH.md`. Headline decisions: root at
+GilmanLab/networking `routeros/sw-core01/` (one root per device), state in the
+existing lab bucket (`networking/routeros/sw-core01.tfstate`), REST over
+www-ssl with re-minted pinned self-signed cert (never insecure=true),
+`svc-tofu` account with creds via SOPS -> ROS_* env vars (never TF vars/state),
+import-block adoption of v2-kept objects + manual Safe-Mode purge of defconf/
+v1 remnants, six-phase cutover that never modifies the mgmt path, operator
+plan/apply with offline-only CI, docs updates incl. ADR-0004. Five open
+questions pending user rulings (static-vs-reservation D1, ether1 role, winbox,
+NTP, tailnet source check).
