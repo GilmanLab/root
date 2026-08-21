@@ -35,6 +35,7 @@ nav:
       - "ADR-0001: Use VyOS for Layer 3 and Dedicated Switches for Layer 2": decisions/0001-use-vyos-for-layer-3-and-switches-for-layer-2.md
       - "ADR-0002: Manage the Tailnet Policy File with GitOps": decisions/0002-manage-tailscale-policy-with-gitops.md
       - "ADR-0003: Use AWS KMS with PGP Recovery for Secrets": decisions/0003-use-kms-with-pgp-recovery-for-secrets.md
+      - "ADR-0004: Manage RouterOS Devices with OpenTofu": decisions/0004-manage-routeros-devices-with-opentofu.md
   - Designs:
       - Lab v2 core network: designs/lab-v2-core-network.md
   - Reference:
@@ -48,6 +49,7 @@ nav:
   - Runbooks:
       - Change the Tailscale policy: runbooks/tailscale-policy-change.md
       - Rebuild nas01: runbooks/rebuild-nas01.md
+      - Manage the sw-core01 configuration: runbooks/sw-core01-configuration.md
       - Deploy the VyOS gateway configuration: runbooks/vyos-gateway-deployment.md
 
 plugins:
