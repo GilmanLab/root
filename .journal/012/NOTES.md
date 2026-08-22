@@ -362,3 +362,49 @@ Surveyed all 23 candidates: 13 adopt unconditionally (`auto_updates true`),
 PC (installed 9.9.10318 vs cask 9.9.10457) and WinBox (4.1.102000 vs 4.3).
 Both lack `auto_updates`, so each needs either a manual update first or a
 one-time `brew install --cask --force`.
+
+
+## 2026-08-22 14:45 — Declared the manual apps; Shadow PC removed; WinBox forced
+
+Prepared but **not yet activated**:
+
+- `configuration.nix` casks 15 → 33. Added the portable apps that were manually
+  installed on one or both machines: adrafinil, balenaetcher, buzz, chatgpt,
+  cleanshot, google-chrome, itermai, itermbrowserplugin, moonlight,
+  nvidia-geforce-now, paseo, podman-desktop, screen-studio, telegram,
+  trezor-suite, winbox, wireshark-app, zoom.
+- `flake.nix` studio module gains a host-local `homebrew.casks` list for desk
+  hardware: elgato-camera-hub, elgato-wave-link, realforce. nix-darwin merges
+  the shared and per-host lists, so the Studio renders 36 casks and the MacBook
+  33.
+- **Camtasia deliberately left undeclared.** The `camtasia` cask tracks 2026.2.0
+  while the Studio runs 2023.3.13, and the cask is `auto_updates true`, so
+  declaring it would adopt silently and any later `--force` or reinstall would
+  pull a three-major-version upgrade with licensing consequences. Josh's call.
+- No cask exists for TurboTax 2025, VMware Fusion, or Claude Code URL Handler,
+  so those stay manual.
+
+Shadow PC removed at Josh's request. It was Studio-only (never on the MacBook)
+and a manual install, not a cask: removed `/Applications/Shadow PC.app` plus
+`~/Library/Preferences/com.electron.shadow.plist`,
+`~/Library/Caches/com.electron.shadow{,.ShipIt}` and
+`~/Library/Logs/ShadowPCDisplay_debug.log`.
+
+WinBox adoption tested end to end, and the predicted failure reproduced exactly:
+
+```
+==> Adopting existing App at '/Applications/WinBox.app'
+Error: The bundle short version of .../Caskroom/winbox/4.3/WinBox.app is
+       4.3.102000 but is 4.1.102000 for /Applications/WinBox.app!
+Error: winbox: It seems the existing App is different from the one being installed.
+```
+
+`brew install --cask --force winbox` then took it over on both machines
+("overwriting", remove, move) — MacBook 4.1.102000 → 4.3.102000, Studio
+4.0.98044 → 4.3.102000, both now registered as cask `winbox 4.3`. The Studio's
+first attempt died on `curl (56) Recv failure` from download.mikrotik.com; a
+plain retry succeeded, so it was transient upstream, not a cask fault.
+
+Shadow PC needed no force handling: it was never a cask, so nothing adopts it
+and `cleanup = "uninstall"` ignores it — manual apps outside Homebrew are
+invisible to the cleanup pass.
