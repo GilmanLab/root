@@ -767,3 +767,32 @@ This is the first genuinely machine-specific piece of configuration, and it
 works because `~/.omp/agent/mcp.json` is deliberately **not** in any Syncthing
 folder. If MCP config ever becomes shared, totem needs either a host guard or
 promotion to an HTTP endpoint over the tailnet.
+
+## 2026-08-22 18:55 — totem is tunnel-only now
+
+Josh's call: keep the OpenAI tunnel bridge, drop totem as an MCP entirely.
+
+Removed:
+
+- `totem` from the Studio's `~/.omp/agent/mcp.json` (it was only added minutes
+  earlier).
+- A **malformed remnant** in the MacBook's `~/.codex/config.toml`. My earlier
+  regex deletion of `[mcp_servers.totem]` had stripped the header and
+  `command`, leaving the `args` value promoted into a bogus table header:
+  `["/Users/josh/tools/totem-whoop/dist/server.js"]` with `cwd`,
+  `startup_timeout_sec` and `tool_timeout_sec` under it. Cleaned properly and
+  verified the file now parses: `tomllib` returns exactly `context7`, `exa`,
+  `chrome-devtools`, `node_repl`, `computer-use`, `agentmail`, `bitwarden`,
+  `1password`.
+- The npm global link `@thebriangao/totem@1.4.4 -> ~/tools/totem-whoop`, which
+  existed only to resolve the MCP binary. The checkout itself is untouched.
+
+Audited every agent config on both machines for `totem`: zero matches in
+`mcp.json`, `config.toml`, `.claude.json`, `.cursor/mcp.json`, and
+`.gemini/settings.json`.
+
+The tunnel keeps running on the Studio: container healthy,
+`restart=unless-stopped`, `/readyz` returns `ready`. It is now a plain
+background service with no agent-facing surface — which also removes the
+machine-specific MCP entry that would have complicated sharing `mcp.json`
+later.
