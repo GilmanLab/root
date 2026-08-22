@@ -248,3 +248,17 @@ default creds rotation; OC spike tracker item; secrets checkout
 consolidation (init.sh + runbook path); kvm01 input map still undocumented
 (T02); AMT+1 MAC pattern + PXE-entry harvest + SB recipe → commissioning
 runbook; sw-core01 SFP+ ports still roleless by design (storage design).
+
+## 2026-08-21 17:22 — Close
+Goal met: four-node cluster ONLINE (nas01 leader, lab01/02 database, lab03
+standby), all smoke-passed, all recovery keys escrowed pre-join. Merged:
+fleet#2, networking#13 (deployed), secrets#29/#30/#31/#32/#33, root#22.
+Local default branches fast-forwarded in all four repos; implementation
+worktrees removed; /tmp images and staged secrets deleted; MeshCommander's
+stored AMT entry deleted (container kept, credential-less — T47).
+Handoff: SUMMARY.md written; INDEX row complete; TECH_NOTES compute-platform
+section rewritten (cluster state, commissioning runbook, AMT facts, MAC
+table, PiKVM caveats). Tracker: T43 resolved, T03 resolved, T01/T06 updated,
+T44–T47 added, bootstrap steps 1–2 marked done. Natural next sessions: NAS
+storage design + Synology drive install (T19), T32 CAPI pivot spike, T44 OC
+spike.

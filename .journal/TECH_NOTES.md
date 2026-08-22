@@ -8,27 +8,44 @@
   [DECIDED]/[PROVISIONAL]/[OPEN]. Handoff plans it references live in
   `.journal/002/`.
 
-## Compute platform (first node live)
+## Compute platform (four-node cluster live)
 
-- `nas01` runs IncusOS (installed 2026-08-20 from `GilmanLab/fleet`
-  `nodes/nas01/config.yaml`): static `10.10.10.14`, hostname `nas01.glab.lol`,
-  Incus cluster member `nas01` (database-leader). Operator access uses the
-  seeded `bootstrap-admin` client cert (private half escrowed at
+- The Incus cluster is four IncusOS nodes (all release-pinned together,
+  installed from `GilmanLab/fleet` `nodes/<name>/config.yaml`): `nas01`
+  `10.10.10.14` (database-leader), `lab01` `.11` + `lab02` `.12` (database
+  voters), `lab03` `.13` (database-standby). Operator access uses the seeded
+  `bootstrap-admin` client cert (private half escrowed at
   `fleet/shared/bootstrap-client` in `GilmanLab/secrets`).
-- Recovery material is escrowed at `fleet/nas01/incusos.sops.yaml` (LUKS
-  recovery key + `local` ZFS pool key). Rebuild procedure:
-  `docs/docs/runbooks/rebuild-nas01.md` — key lessons: clear the fTPM on
-  previously-used hardware, never write install media to an internal drive,
-  never install through Ventoy, escrow recovery keys before any reboot test.
+- Commissioning a lab node is runbooked end to end:
+  `docs/docs/runbooks/commission-lab-node.md` (session 009) — MEBx/AMT,
+  the AMI "Factory Key Provision" Secure Boot recipe, MAC harvest
+  (mgmt MAC = AMT MAC + 1 on the MS-02s, but always verify), USB install,
+  rescue wipe for old-OS remnants, fingerprint check, key escrow + the
+  `:retrieved` acknowledgment, API join with `local/incus` member config.
+- Lab-node OOB is AMT (TLS-only: 16993/16995; consent NONE): static MEBx
+  addresses `10.10.70.11–13`, credentials at `fleet/lab0N/amt.sops.yaml`.
+  AMT clients MUST sit on VLAN 10 (gw01 drops AMT ports on home→OOB);
+  the credential-less `meshcommander` container on nas01
+  (`http://10.10.10.14:3000/`) is the standing gateway (disposition: T47).
+  AMT IDER/USB-R boot is BANNED on the MS-02s — it wedges AMI 2.22.0059
+  pre-boot; install media stays USB.
+- Per-node recovery material is escrowed at `fleet/<name>/incusos.sops.yaml`
+  (LUKS recovery key + `local` ZFS pool key), captured before each join.
+  nas01 rebuild procedure: `docs/docs/runbooks/rebuild-nas01.md` — clear the
+  fTPM on previously-used hardware, never write install media to an internal
+  drive, never install through Ventoy, escrow recovery keys before any
+  reboot test.
 - Private `GilmanLab/fleet` holds bare-metal instance config only (no k8s).
   Install images are built locally with componere's `incusos-builder` (from
   source until released; pin recorded in the fleet README) and are never
   published. Fleet CI validates configs with the pinned builder.
 - nas01 NICs: `38:05:25:37:8d:7a` = RTL8126A 5GbE → `sw-mgmt01` port 8
   (mgmt, links 2.5G, MAC-bound in the seed); `38:05:25:37:8d:7b` = RTL8127A
-  10GbE → `sw-core01` port 7 (links 10G, port on `bridge-lab`, no VLANs
-  assigned yet — role deferred to the storage design). The 128GB RS128 is
-  the OS drive; both 1TB SN7100s are blank pending the storage design.
+  10GbE → `sw-core01` port 7 (role deferred to the storage design). The
+  128GB RS128 is the OS drive; both 1TB SN7100s are blank pending the
+  storage design. Lab-node mgmt NICs (10GbE, MAC-bound): lab01
+  `38:05:25:35:48:87`, lab02 `…:4b:05`, lab03 `…:43:f1`; their SFP+ links
+  and 2TB data drives are similarly roleless/blank pending that design.
 - `sw-mgmt01` (TRENDnet TEG-3102WS, IMG-3.01.347) is fully configured per the
   address plan: static mgmt `10.10.70.2/24` on VLAN 70 (gw 10.10.70.1), VLAN
   10 tagged trunk port 1 + untagged 2/4/6/8, VLAN 70 untagged 3/5/7, VLAN 1
@@ -39,9 +56,12 @@
   credential: `network/sw-mgmt01/admin.sops.yaml`. Factory access requires a
   temporary gw01 `eth3 192.168.10.5/24` address (runbook).
 - PiKVM (`https://10.10.70.20/`): console snapshots (`/api/streamer/snapshot`)
-  and HID text injection (`/api/hid/print`) work through the TESmart and can
-  drive full installs. Mass-storage emulation through the TESmart does NOT
-  work (USB 1.1). The ATX header is not wired — power cycles are physical.
+  and HID injection work through the TESmart and can drive full installs.
+  Mass-storage emulation through the TESmart does NOT work (USB 1.1), and
+  HID-injected TESmart hotkeys do NOT switch channels (PiKVM sits on a
+  pass-through hub port — re-plug or RS232 to fix). Web creds are still
+  default admin/admin (T45). The ATX header is not wired — power cycles are
+  physical or via AMT on the lab nodes.
 
 ## Repository layout
 
