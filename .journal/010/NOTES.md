@@ -84,3 +84,21 @@ cluster/ pyinfra project) + SwCoreVlan30 programmer
 (networking/.wt/feat-sw-core01-vlan30-lags, 3x LACP LAG + VLAN 30 tagged
 bonds+port7; enslave-vs-bridge-port ordering hazard flagged).
 sw-core01 stays tofu (ADR-0004 surface unchanged).
+
+## 2026-08-21 19:30 — Build phase complete
+SwCoreVlan30 done (networking 56590d4): 3x 802.3ad bonds (layer-3-and-4,
+lacp_rate 1sec), bond bridge ports admit-only-tagged, VLAN 30 tagged on
+bonds + port 7 (NOT bridge, NOT port 8). Two-step apply REQUIRED: tofu
+cannot order orphaned bridge-port destroys before bond creates (provider
+DefaultCreate + parallel graph walk) → step 1 targeted destroy of six
+bridge-port rows, step 2 full apply (7 add). Mgmt path untouched.
+FleetCluster agent ran out mid-fix; I finished: incus query has NO stdin
+form (-d/--data is literal; @- not special) → payloads now literal
+QuoteStringed --data argv (non-secret by contract). Hardened: projection
+never includes the `local` OS pool in storage PUTs (omission proven safe
+live); network op refuses full-replace PUT when current config lacks mgmt.
+Storage deploy rephased: all pools+volumes, then all escrow asserts (one
+escrow round-trip). fleet f29b403+cfd2d00: cluster/ pyinfra project, 28
+behavioral tests, ruff/mypy clean, moon fleet-cluster lane in CI,
+SystemSecurity fact strips key material from fact data.
+Next: sw-core01 two-step apply, storage deploy, escrow, network deploy.
