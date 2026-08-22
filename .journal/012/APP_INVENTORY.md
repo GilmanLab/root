@@ -181,3 +181,54 @@ Mac App Store receipt; `os-symlink` is an OS-provided bundle linked from `/Syste
 - Games (Steam/Epic titles) account for a large share of the manual set and are arguably out of
   scope for convergence.
 
+
+## Cask coverage of unmanaged apps — 2026-08-22
+
+Checked all 26 non-game manual apps against the full Homebrew cask index (7,702 casks).
+**23 of 26 have a cask; 3 do not.**
+
+| App | Machine | Cask |
+|---|---|---|
+| Adrafinil | MacBook | `adrafinil` |
+| Buzz | MacBook | `buzz` |
+| Camtasia 2023 | Studio | `camtasia (tracks 2026.2.0)` |
+| ChatGPT | both | `chatgpt` |
+| CleanShot X | MacBook | `cleanshot` |
+| Elgato Camera Hub | Studio | `elgato-camera-hub` |
+| Elgato Wave Link | Studio | `elgato-wave-link` |
+| GeForceNOW | both | `nvidia-geforce-now` |
+| Google Chrome | MacBook | `google-chrome` |
+| Moonlight | both | `moonlight` |
+| Paseo | MacBook | `paseo` |
+| Podman Desktop | both | `podman-desktop` |
+| REALFORCE Connect | Studio | `realforce (pkg artifact)` |
+| Screen Studio | both | `screen-studio` |
+| Shadow PC | Studio | `shadow` |
+| Telegram | both | `telegram` |
+| Trezor Suite | MacBook | `trezor-suite` |
+| WinBox | both | `winbox` |
+| Wireshark | Studio | `wireshark-app` |
+| balenaEtcher | MacBook | `balenaetcher` |
+| iTermAI | MacBook | `itermai` |
+| iTermBrowserPlugin | MacBook | `itermbrowserplugin` |
+| zoom.us | MacBook | `zoom (pkg artifact)` |
+
+### No cask (3)
+
+| App | Machine | Why |
+|---|---|---|
+| TurboTax 2025 | MacBook | only `turbotax-2024` exists; no 2025 cask |
+| VMware Fusion | both | no cask in the index |
+| Claude Code URL Handler | both | not a cask; installed by the `claude-code` CLI (binary artifact) |
+
+### Caveats
+
+- `zoom` and `realforce` are **pkg-artifact** casks with no `app` stanza, so they never match
+  by application name — the same trap that hid Tailscale.
+- `camtasia` tracks 2026.2.0. Adopting it upgrades the Studio's Camtasia 2023, which has
+  licensing consequences.
+- `wireshark-app` is the GUI; plain `wireshark` is the CLI-only formula.
+- `telegram` vs `telegram-desktop` are different builds; the installed bundle id decides which.
+- Games excluded by request: BALL x PIT, BitCraft Online, Escape From Duckov, Necesse,
+  Baldur's Gate 3, Bitburner, Hades II, RimWorld, Roblox, CurseForge.
+
