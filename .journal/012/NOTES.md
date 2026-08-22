@@ -121,3 +121,44 @@ unattended; with it, any process running as `josh` can escalate. Also pending:
 whether to commit/push the `~/.local/nix` changes (his WIP — bun overlay,
 package churn, mise activation — sits in the same working tree, and `master`
 has no upstream tracking configured).
+
+## 2026-08-22 12:20 — SSH working; config committed and pushed
+
+Josh installed the MacBook key on the Studio, so `ssh josh@studio-1.tailda715.ts.net`
+works from the MacBook now. Studio facts from the first remote survey:
+macOS 26.6.2, hostname `studio`, Determinate Nix 3.13.1 (newer than the
+MacBook's 3.4.1), running `darwin-system-26.05` (the MacBook is on 26.11), and
+`~/.local/nix` was two commits behind with a local one-line edit.
+
+`pmset -g` on the Studio explains the disappearances outright:
+`sleep 1` — a **one-minute** idle sleep (currently held off by a powerd
+assertion), `autorestart 0`, `womp 1`.
+
+Committed and pushed to `github.com:jmgilman/nix` in three commits, WIP kept
+separate as Josh asked (flake.nix carried both his and my hunks, so I reverted
+my block, committed his, then restored mine):
+
+- `ae8f37b chore:` his WIP — bun 1.3.14 overlay, package churn, mise in zsh,
+  home-manager `backupFileExtension`.
+- `09ac18c feat(remote):` sshd on both hosts, `studio`/`macbook` MagicDNS host
+  entries, Studio never-sleep + restart-after-power-failure, passwordless sudo
+  for `josh`.
+- `1efc112 fix(studio):` `mfaDevice = "studio-yubikey"`, the Studio's local
+  uncommitted fix, now upstream.
+
+`master` had no upstream tracking on the MacBook; `git push -u` fixed that.
+
+New friction found — **the Studio cannot talk to GitHub headlessly**. Its
+`id_ed25519_studio` (SHA256:KAV0p/+Kfetb0AcQY+WPHSAa5SIIASMQNGmje/Z/lWM, the
+same key the MacBook stores as the misnamed `id_ed25519_studo`) is rejected by
+GitHub, and non-interactive SSH sessions have no agent. Worked around with
+`ssh -A` agent forwarding to pull. Two real fixes needed: register the Studio's
+key on GitHub (my `gh` token lacks `admin:public_key`; `gh auth refresh -h
+github.com -s admin:public_key` is interactive), and add a `github.com`
+matchBlock to `home/ssh.nix` — the existing `github` alias only applies to
+remotes written as `git@github:`, not the real `git@github.com:` remotes.
+
+`nix build .#darwinConfigurations.studio.system` succeeds **on the Studio**, so
+the switch is pre-warmed. Both machines now need one attended
+`sudo darwin-rebuild switch` to install passwordless sudo; after that, agent
+convergence is unattended in both directions.
