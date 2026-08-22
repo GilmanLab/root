@@ -12,3 +12,4 @@
 | 008 | 2026-08-20 | Bring the lab switches under management | complete | Converged `sw-core01` to v2 under a new OpenTofu root, readdressed and escrowed `sw-mgmt01`, and fixed gw01's missing NTP firewall rules at source. |
 | 009 | 2026-08-21 | Bring the lab compute nodes online | complete | Provisioned AMT and installed IncusOS on all three MS-02s, joining them to form the four-node cluster with recovery keys escrowed and the procedure runbooked. |
 | 010 | 2026-08-21 | Configure storage and networking across the cluster | in-progress | Design and implement storage and network configuration for all four Incus nodes, starting with nas01. |
+| 011 | 2026-08-21 | Session opened, goal pending | in-progress | New session primed; awaiting the user's actual request. |
