@@ -102,3 +102,27 @@ escrow round-trip). fleet f29b403+cfd2d00: cluster/ pyinfra project, 28
 behavioral tests, ruff/mypy clean, moon fleet-cluster lane in CI,
 SystemSecurity fact strips key material from fact data.
 Next: sw-core01 two-step apply, storage deploy, escrow, network deploy.
+
+## 2026-08-21 20:40 — Converge: storage DONE, VLAN 30 blocked on RouterOS bug
+Storage converged end-to-end via fleet-cluster deploy: data pools all 4
+nodes (nas01 adopted), incus volumes, keys escrowed (secrets#34, hash-
+verified, no transcript exposure), :retrieved acked x4, cluster pool
+`data` CREATED on all members. Full rerun = 100% no-change (idempotence
+proven). Container smoke on pool data OK.
+sw-core01 applied (two-step: 6 destroy, then 7 add; post-plan clean).
+LACP flapped: hosts send 1 LACPDU/30s (slow) despite research claiming
+IncusOS emits fast → switched bonds to lacp_rate=30secs (e221db2); all 3
+bonds stable, both ports active, partner IDs = host bond MACs.
+Network deploy converged all 4 nodes (fast/fast30, 10G links up,
+addresses correct, confirm flow worked).
+BUT: VLAN 30 data path DEAD through the bonds, both directions. Isolation
+(macvlan containers, switch counters, sniffer, MAC table): nas01 via
+plain port7 works (MAC learned, TX/RX fine); lab frames REACH the switch
+ports (counters) but NEVER bridge — under admit-all, pvid 30, ingress
+filtering off, hw=no, single-link, post-reboot, post-port-bounce.
+LACPDUs process fine. Verdict: RouterOS 7.16.2 bond-as-bridge-port
+datapath defect on 98DX8216; changelogs 7.17-7.19 fix a family of
+98DX bond+bridge bugs (7.19: "multicast packet flow on hw offloaded
+bridge with bonded interfaces"). Diagnostics reverted; switch clean vs
+committed config. Test containers v30a/v30b/vlan30test still on pool
+data for retest. Decision for Josh: upgrade RouterOS vs single-link now.
