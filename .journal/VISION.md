@@ -430,15 +430,13 @@ already exists.)
 **[PROVISIONAL]** Flow (resequenced 2026-08-19 — lab01–03 no longer wait for
 critical services; that ordering was a Tinkerbell artifact):
 
-1. Install IncusOS on `nas01` (USB, seeded IMG from `incusos-builder`) →
-   `incus remote add` → `incus cluster enable`. Prereqs: T13 BIOS check,
-   builder ready, `fleet` repo with nas01's seed (T30), first `fleet`
-   secrets (recovery key, bootstrap client key). Bay drives (T19) NOT
-   required. (T42)
-2. `lab01`–`lab03` join as batch repeats of the proven procedure
-   (`apply_defaults: false`, AMT-mounted seeded ISOs or USB fallback,
-   `incus cluster join`) — any time after step 1 proves out; gated on AMT
-   reachability (T01/T03), not on services.
+1. ~~Install IncusOS on `nas01`~~ **DONE 2026-08-20 (T42)**: seeded USB
+   install, `incus remote add`, `incus cluster enable`.
+2. ~~`lab01`–`lab03` join~~ **DONE 2026-08-21 (T43, session 009)**: MEBx/AMT
+   provisioning + Secure Boot key conversion, seeded USB installs (AMT
+   IDER-boot ruled out — firmware wedge), post-boot API joins. Cluster is
+   4 nodes: 3 database voters + 1 standby. Runbook
+   `commission-lab-node.md`.
 3. Spawn the three Talos management-cluster VMs on `nas01` — mechanism per
    the T32 spike verdict (runs in parallel on `sandbox01`; independent of
    steps 1–2).
@@ -568,12 +566,12 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 
 | ID | Item | Status | Next action / note |
 | --- | --- | --- | --- |
-| T01 | OOB verification pass | open | Partially proven live 2026-08-20: pikvm01 console + HID keyboard through kvm01 work excellently (drove the whole nas01 install); MSD through kvm01 does NOT (USB 1.1 enumeration + resets) — sneakernet stays for install media. Remaining: other KVM inputs, kvm01 channel-switch control, **ATX not wired** (cost a manual power-cycle walk — wire it) |
+| T01 | OOB verification pass | open | Session 009 (2026-08-21): AMT on lab01–03 PROVEN — TLS-only (16993/16995), KVM+SOL+power all work headless (consent NONE), drove installs remotely. AMT IDER/USB-R boot NON-VIABLE (AMI 2.22.0059 wedges pre-boot; reproduced ×2) — install media stays USB. PiKVM HID→TESmart hotkey channel-switch does NOT work (PiKVM sits on a pass-through hub port); fix = re-plug to console keyboard port or RS232. Remaining: **ATX not wired**, kvm01 channel-switch control, AMT client must live on VLAN 10 (home→OOB blocks AMT ports) |
 | T02 | Console cabling reference in docs site (KVM chain is undocumented) | open | Fold into next docs PR |
-| T03 | AMT role vs. KVM chain; switch recovery paths (no KVM inputs) | open | Decide during OOB design |
+| T03 | ~~AMT role vs. KVM chain~~ | resolved | Session 009: AMT is the primary OOB path for lab01–03 (static MEBx addresses 10.10.70.11–13, escrowed creds, power+KVM+SOL); the PiKVM/TESmart chain is the fallback console + nas01/gw01 coverage. Switch recovery stays runbook-documented (factory paths in sw runbooks) |
 | T04 | UPS: connect mgmt card; define monitoring + shutdown ordering | open | Hardware task, then design |
 | T05 | Full-load power draw vs. 700W UPS ceiling | open | Measure once compute runs real load |
-| T06 | Apply canonical names to device identities + chassis labels | open | `sandbox01` ✓ (2026-08-19), `gw01` ✓ (session 006); switches/PiKVM/compute nodes at commissioning; chassis labels pending a label-maker pass |
+| T06 | Apply canonical names to device identities + chassis labels | open | `sandbox01` ✓, `gw01` ✓, `sw-core01`/`sw-mgmt01` ✓ (008), `nas01` ✓, `lab01`–`lab03` ✓ (009 — hostnames + AMT identities live); chassis labels pending a label-maker pass |
 | T07 | `gw01` Port 1 unconnected — reserved purpose? | open | Josh to answer, low stakes |
 | T08 | Cluster template contents (Talos version, CNI, bootstrap, storage class, LB) | open | Design after T14/T20 spikes |
 | T09 | ~~Cluster-creation machinery~~ | resolved | CAPI it is (Josh: CAPI is the EKS mechanism, GitOps-driven); CAPN not-CI-tested risk stands — spike before trusting |
@@ -610,6 +608,11 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T40 | Confirm Tailscale admin-console edit lock ("Prevent edits") is actually enabled — session 003 recorded it pending; session 005 could not confirm | open | One-click operator check in the admin console |
 | T41 | ~~Create `GilmanLab/sandbox`~~ | resolved | Executed by session 007 per `.journal/002/SANDBOX_SETUP_PLAN.md`: repo live with tested reset-button automation (27 behavioral tests), host converged + smoke-passed, `tag:sandbox` + Tailscale SSH primary, LAN break-glass verified, managed sudoers/sshd, OAuth-minted single-use enrollment keys (improvement over stored auth key — reuse this pattern), gw01 health-probe firewall bug fixed at source (root#16, networking#9/#10, secrets#23, sandbox#1/#2). Residual: fresh-image reset documented but unexercised — first real wipe validates it |
 | T42 | ~~nas01 IncusOS install + cluster enable~~ | resolved | Executed live in this session 2026-08-20: seeded USB install to RS128, zero-touch config (static 10.10.10.14, hostname nas01.glab.lol), fingerprint-verified remote add, cluster `nas01` enabled (database-leader, ONLINE), container smoke pass, recovery keys escrowed BEFORE reboot test (secrets#24/#26), reboot survival with TPM auto-unseal. Runbook: docs `runbooks/rebuild-nas01.md` (root#18). Detours absorbed: sw-mgmt01 was factory-default (configured live, escrowed secrets#25), nas01 NIC cables were swapped (fixed physically), glab-era IncusOS install on RS128 wiped with consent, stale fTPM cleared |
+| T43 | lab01–03 IncusOS install + cluster join | resolved | Executed live in session 009 (2026-08-21): all three MS-02s MEBx-provisioned (AMT static 10.10.70.11–13, creds escrowed secrets#29/#30), Secure Boot converted to IncusOS keys (AMI Factory Key Provision recipe), seeded USB installs (fleet#2: verified MACs, force_install for dirty disks), fingerprint-verified, recovery keys escrowed BEFORE join (secrets#31/#32/#33), API joins with local/incus member config. Final: nas01 leader + lab01/02 database + lab03 standby, all ONLINE, smoke-passed. Runbook: `commission-lab-node.md` (root#22). Bootstrap step 2 COMPLETE |
+| T44 | Operations Center evaluation spike | open | Deferred from session 009 (chose proven join path; OC young v0.81, wants to own seeding/updates — collides with fleet/incusos-builder model T25/T26). Spike on sandbox01 or a cluster VM: verify post-install registration (runtime provider switch) + whether it can adopt the existing cluster. Decide before the fleet grows again |
+| T45 | Rotate PiKVM default credentials + escrow | open | pikvm01 web API still admin/admin (found in 009); rotate, escrow under `network/pikvm01/`, update runbook references |
+| T46 | Consolidate the secrets checkout into the meta tree | open | `~/code/glab/secrets` is a v1-era path; add `secrets` to `init.sh`, reclone at `~/code/lab2/secrets`, update the vyos runbook's `GLAB_SECRETS_DIR` guidance. Josh may veto (keeping secrets out of the default clone set is defensible) |
+| T47 | meshcommander container disposition | open | Lives on nas01 as the VLAN-10 AMT gateway (required: home→OOB blocks AMT ports); credential-less (stored entry deleted), unauthenticated HTTP UI. Keep as commissioning tooling, harden, or tear down and redeploy on demand — decide with the workload-placement policy |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
