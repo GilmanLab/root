@@ -408,3 +408,50 @@ plain retry succeeded, so it was transient upstream, not a cask fault.
 Shadow PC needed no force handling: it was never a cask, so nothing adopts it
 and `cleanup = "uninstall"` ignores it — manual apps outside Homebrew are
 invisible to the cleanup pass.
+
+
+## 2026-08-22 15:20 — Cask declarations activated on both machines
+
+Applied `8409826` then `fix(casks)`. Adoption worked exactly as the source
+predicted: already-installed apps kept their existing bundles and versions
+(Chrome 151.0.7922.173, ChatGPT 26.810.41047, CleanShot 4.8.8, Telegram 7.1.0
+all unchanged), while missing apps were installed fresh — one on the MacBook
+(wireshark-app) and seventeen on the Studio.
+
+Final state, and the two machines now differ by exactly the intended two casks:
+
+| | MacBook | Studio |
+|---|---|---|
+| casks | 36 | 38 (+`elgato-camera-hub`, `elgato-wave-link`) |
+| formulae | 67 | 71 |
+| taps | 0 | 0 |
+
+Four problems surfaced during activation, all now fixed:
+
+1. **`realforce` is a disabled cask** (2026-05-28, vendor download 403s). My
+   earlier coverage check read `cask.json` without inspecting the `disabled`
+   field, so I wrongly reported it as available. Dropped from the studio
+   module; REALFORCE Connect stays a manual install.
+2. **`ollama`, `syncthing` and `tailscale` were renamed upstream** to their
+   `-app` tokens and were only resolving through deprecation warnings.
+   Declarations now use the canonical names. Note the CLI comes with the app:
+   `/opt/homebrew/bin/tailscale` is a symlink to
+   `Caskroom/tailscale-app/1.86.4/tailscale.wrapper.sh`.
+3. **Orphaned tap formulae blocked the whole bundle run.** Removing the taps in
+   the previous session left installed formulae whose tap was gone, and
+   `brew bundle` aborts on the first unresolvable one:
+   `Error: No available formula with the name "slp/krun/gvproxy"`, then
+   `takenpilot/cbor/cbor-cli`, then `pulumi/tap` refusing to untap. Cleared with
+   `brew uninstall --ignore-dependencies` (cbor-cli needed `--force` because its
+   tap was already gone). Lesson: untapping and uninstalling must happen in the
+   same pass, or the leftovers wedge every later activation.
+4. **The Studio's Homebrew was too old for the `zoom` cask** — 6.0.6 vs the
+   MacBook's 6.0.18 — failing with `unknown install step: terminate_process`.
+   `brew update` on the Studio fixed it. `onActivation.autoUpdate = false` means
+   Homebrew itself never updates during activation, so this will recur.
+
+Cosmetic leftover: `/opt/homebrew/Caskroom/{ollama,syncthing,tailscale}` still
+hold stale directories from the pre-rename tokens (0.11.10, 1.30.0-1, 1.86.4),
+so `brew list --cask` counts both names. They resolve to the same casks as the
+`-app` tokens, so uninstalling by the old name would remove the live app.
+Leaving them.
