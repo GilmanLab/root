@@ -202,3 +202,27 @@ Two incidental facts worth keeping:
 Lesson for anything declarative touching sshd on a Nix machine: files sshd
 validates under `StrictModes` (`authorized_keys`, host keys) must be copied
 out of the store, never symlinked into it.
+
+## 2026-08-22 13:05 — Both machines converged and symmetric
+
+Josh restored ingress on the Studio. Converged it remotely to `f57fde7`, then
+to `499e368`; both Macs now write `~/.ssh/authorized_keys` as a real 600 file
+containing both workstation keys, and MacBook→Studio SSH works unattended.
+
+One more self-inflicted break, found and fixed in the same pass: the
+`github.com` matchBlock had `identitiesOnly = true`, which also suppresses keys
+offered by a **forwarded** agent — that is what killed `ssh -A`-based pulls on
+the Studio immediately after the previous switch. Dropped it (`499e368`);
+`git ls-remote` over a forwarded agent works again.
+
+Remaining gap, and it is the same root cause for two symptoms: **the Studio's
+`id_ed25519_studio` is passphrase-protected**, exactly like the MacBook's copy.
+So headless Studio→MacBook SSH fails and headless Studio→GitHub fails, while
+the MacBook's `id_ed25519_macbook` (no passphrase) works for both. Until this
+is resolved, the Studio can be driven but cannot drive.
+
+Options put to Josh: strip the passphrase from the existing Studio key (keeps
+every existing authorization on dev/nas/jumpbox/k0s intact, one `ssh-keygen -p`
+he must run because it needs the passphrase), or mint a separate
+passphrase-less automation key (I can do it unattended, but it adds a second
+key per machine and needs registering wherever the Studio must reach).
