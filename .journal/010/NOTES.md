@@ -195,3 +195,13 @@ intel/ice/ddp/ice.pkg, with the observed FEC line and the E810 RX
 consequence. Requests DDP in the image (or a supported vendor-firmware
 load path). Watch for upstream response; fix arrives as a routine
 signed update (stable channel, 6h checks) once shipped.
+
+## 2026-08-22 00:50 — Upstream PR branch prepared
+Interim ruling: mgmt path (2.5G, incusbr0 NAT) serves VM traffic until
+6x 10G SFP+ DACs arrive (~2 days); instances stay OFF VLAN 10 itself.
+Forked lxc/incus-os → jmgilman/incus-os; branch
+fix/ship-ice-ddp-firmware @ 8e9657d5: one-line add of
+firmware-intel-misc to base packages (non-free-firmware component
+already enabled upstream; their build.yml CI validates). Commit
+"base: Ship Intel ice DDP firmware", DCO signed, Fixes #1305.
+Josh opens the upstream PR himself.
