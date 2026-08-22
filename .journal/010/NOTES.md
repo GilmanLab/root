@@ -188,3 +188,10 @@ manual diagnostic pokes reverted; test containers deleted.
 Remediation paths (T48): (a) upstream lxc/incus-os issue — ship
 intel ice DDP firmware; (b) 10G-rated DACs/optics for the six lab
 links. Draft issue text ready; Josh to approve filing.
+
+## 2026-08-22 00:20 — Upstream issue filed
+Josh approved; filed lxc/incus-os#1305: ice Safe Mode from missing
+intel/ice/ddp/ice.pkg, with the observed FEC line and the E810 RX
+consequence. Requests DDP in the image (or a supported vendor-firmware
+load path). Watch for upstream response; fix arrives as a routine
+signed update (stable channel, 6h checks) once shipped.
