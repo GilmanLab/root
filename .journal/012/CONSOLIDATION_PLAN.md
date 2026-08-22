@@ -127,3 +127,82 @@ month.
    `grafana-demo`, `time`) — any worth keeping?
 3. `~/.codex/skills/.system/` vendor skills — keep or drop?
 4. Purge timing: immediately after parity, or after a soak period?
+
+
+---
+
+# REVISED after Josh's review — 2026-08-22
+
+## Decisions
+
+Dropped entirely: `transcriptapi`, `pencil`, `git` (harnesses have their own),
+`github` (uses `gh`), `node_repl`, `computer-use`, and the four per-project
+Claude servers (`excalidraw`, `adk-docs`, `grafana-demo`, `time`).
+Vendor skills under `~/.codex/skills/.system/` are to be deleted.
+Purge soaks before running.
+
+Final keep-set — **10 servers**:
+
+| Server | Transport | Command / URL |
+|---|---|---|
+| `browserless` | http | `mcp.browserless.io/mcp` |
+| `cloudflare-api` | http | `mcp.cloudflare.com/mcp` |
+| `context7` | http | `mcp.context7.com/mcp` |
+| `agentmail` | http | `mcp.agentmail.to/mcp` |
+| `gitnexus` | stdio | `gitnexus mcp` |
+| `bitwarden` | stdio | `bw-mcp` |
+| `1password` | stdio | `/Applications/1Password.app/Contents/MacOS/1password-mcp` |
+| `adrafinil` | stdio | `/Applications/Adrafinil.app/Contents/Helpers/adrafinil mcp` |
+| `exa` | stdio | `bunx exa-mcp-server@3.4.1` |
+| `chrome-devtools` | stdio | `bunx chrome-devtools-mcp@1.7.0` |
+
+## Correction to Phase 3
+
+My earlier draft guessed at per-source skill toggles. The real mechanism is
+`disabledProviders` (`omp://settings.md`), a **single shared array** that gates
+both model providers and *discovery sources*: `native`, `claude`, `codex`,
+`gemini`, `github`, `opencode`, `cursor`, `agents-md`. Disabling a discovery
+source stops it contributing "context files, MCP servers, commands, skills,
+hooks, tools, prompts, or settings" — exactly one switch for both MCP and
+skills.
+
+```yaml
+disabledProviders: [claude, codex, gemini, cursor]
+```
+
+Two consequences that change the ordering:
+
+1. **Skills and MCP are gated together.** Disabling `claude`/`codex` also stops
+   their *skills* being discovered, so `~/.agents/skills` must be populated
+   **before** this flag is set, or 27+ skills vanish at once.
+2. **Arrays replace, they do not append.** `disabledProviders` is currently
+   unset (empty). Any project-level `.omp/config.yml` that sets it would
+   replace the global list wholesale.
+
+Disabling `cursor` in omp does not affect `cursor-agent` — it only stops omp
+importing Cursor's config. Cursor's own MCP set is then free to diverge, which
+is intended.
+
+## Status
+
+- **Phase 1 + 2: DONE.** `~/.omp/agent/mcp.json` now declares all 10 servers on
+  **both** machines, byte-identical. `npx` replaced with `bunx`, versions
+  pinned (`exa-mcp-server@3.4.1`, `chrome-devtools-mcp@1.7.0`) so both machines
+  run the same server builds. Every stdio binary verified present on both:
+  `gitnexus`, `bw-mcp`, `bunx`, `1password-mcp`, `adrafinil`.
+- **Phase 3: waiting on Josh** — one `disabledProviders` edit, after the skills
+  move.
+- **Phase 4 (skills): next.** Reconcile the diverged copies into
+  `meigma/agent-skills`, delete `.system` vendor skills, render
+  `~/.agents/skills` from the repo via home-manager.
+- **Phase 5 (purge): soaking.**
+
+## Carried risk
+
+`exa` previously carried its API key **as a literal value** in
+`~/.claude.json`. The migrated entry uses env-var indirection
+(`"EXA_API_KEY": "EXA_API_KEY"`), so the key must now be present in the
+environment or the server will not authenticate. The literal value is still
+sitting in `~/.claude.json` until the purge, and it was printed to a terminal
+during this session — **treat it as exposed and rotate it**, then store the new
+value in 1Password and switch the entry to `!op read op://…`.
