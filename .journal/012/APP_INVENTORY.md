@@ -100,3 +100,36 @@ All 19 casks declared in `configuration.nix` are present on both machines. Undec
 | MacBook only | `ghd`, `goreleaser-pro`, `monal`, `vagrant` |
 | Studio only | `element`, `hyperkey`, `microsoft-remote-desktop`, `postman`, `signal`, `snagit`, `sunsama`, `vivaldi`, `zoom` |
 | Both (auto-deps) | `multipass`, `ollama-app`, `syncthing-app`, `tailscale-app` |
+
+
+## 2026-08-22 — Cask removal on the Studio
+
+Removed nine undeclared Studio-only casks at Josh's request:
+
+`element`, `hyperkey`, `microsoft-remote-desktop`, `postman`, `signal`,
+`snagit`, `sunsama`, `vivaldi`, `zoom`
+
+Verified: `brew list --cask` on the Studio is now exactly the 19 casks declared
+in `configuration.nix` plus the four auto-dependencies (`multipass`,
+`ollama-app`, `syncthing-app`, `tailscale-app`), and none of the nine apps
+remain in `/Applications`. `microsoft-remote-desktop` removed `Windows App.app`
+(its current name), and the `snagit` uninstall also took `Snagit 2024.app`,
+which was a manual install sharing TechSmith package receipts.
+
+Studio-only applications remaining: Camtasia 2023, Elgato Camera Hub, Elgato
+Wave Link, REALFORCE Connect, Roblox, Wireshark.
+
+### Unrelated concurrent deletions
+
+Six further apps disappeared from the Studio during the same window — Claude,
+Codex, Visual Studio Code, Spark Desktop, Antigravity, Loom. These were **not**
+removed by the cask uninstall: their casks are still registered and installed,
+and their Caskroom staging copies date from 2023–2026-03. The unified log names
+the actual requestor:
+
+```
+12:24:29 sysextd: shouldMoveAppToTrash: file:///Applications/Claude.app/
+                  (requestor: /System/Library/CoreServices/Finder.app)
+```
+
+Finder, i.e. hand-deleted at the machine while the session was running.
