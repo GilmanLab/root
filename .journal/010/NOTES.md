@@ -62,3 +62,25 @@ Research (subagents, cited in agent://IncusOsStorage + agent://IncusOsNetwork):
 Next: create nas01 data mirror → escrow → incus wiring; then sw-core01 tofu
 (VLAN 30 + 3 LAGs); then node network PUTs; labs; WD Red install when Josh
 is at the rack.
+
+## 2026-08-21 18:40 — Course correction: automation-first (Josh)
+Josh interrupted after the ad-hoc nas01 data-pool PUT: all cluster config
+MUST be reproducible via pyinfra-incus (sandbox = the pattern example); no
+ad-hoc commands. Pool stays live; automation adopts it (same spec → no-op).
+Findings: pyinfra-incus==0.2.0 is Josh's own meigma/pyinfra-incus (also
+meigma/pyinfra-vyos, template-pyinfra). Gaps for this work: storage_pool op
+has no cluster --target support; nothing covers /os/1.0 system APIs. Fill
+lab-side in fleet_cluster (package style: fact → validate → diff → noop/CLI),
+promote upstream later per T26 lab-first flow.
+Repo home: Josh challenged new-repo recommendation; revised ruling = FLEET
+(its README already reserved runtime-config ownership, originally imagined
+as tofu roots). Fleet = full lifecycle owner of bare-metal nodes: day-0
+seeds + day-2 pyinfra convergence; avoids seed↔runtime drift across repos.
+Execution model: @local connector, incus CLI against authenticated nas01:
+remote (IncusOS has no SSH). Escrow stays a runbook step; deploys assert
+the retrieved flag (fails convergence until keys escrowed+acked).
+Dispatched: FleetCluster programmer (fleet/.wt/feat-cluster-automation,
+cluster/ pyinfra project) + SwCoreVlan30 programmer
+(networking/.wt/feat-sw-core01-vlan30-lags, 3x LACP LAG + VLAN 30 tagged
+bonds+port7; enslave-vs-bridge-port ordering hazard flagged).
+sw-core01 stays tofu (ADR-0004 surface unchanged).
