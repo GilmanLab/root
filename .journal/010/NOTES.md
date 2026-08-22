@@ -254,3 +254,16 @@ Started hub process hdd-wipe-watch: polls blkdiscard every 10 min;
 on exit runs the storage deploy (creates hdd pool, halts at escrow
 gate by design) and prints pool state. Escrow+ack+rerun+merge fleet#5
 when a human is back.
+
+## 2026-08-22 09:40 — hdd pool live; T19 resolved
+Josh power-cycled nas01 (killed the redundant drive-1 zero). Clean
+recovery: TPM auto-unseal, leader rejoined, local+data ONLINE, all
+four HDDs re-detected. The hdd-wipe-watch process had exited during
+the outage but its deploy fired ~60s post-boot and CREATED the pool
+(accidental but correct); stopped/cleaned the watcher.
+hdd pool: zfs-raidz1, 4x WD6002FFWX, ONLINE, 17.4TB usable.
+Escrow: zfs_pool_hdd_recovery_key → fleet/nas01/incusos.sops.yaml
+(secrets#35, hash-verified), :retrieved acked, full storage deploy
+rerun = 14 ops all no-change. fleet#5 MERGED. T19 resolved (VISION).
+Session remaining: T48 retest when 10G DACs arrive (~2 days);
+upstream #1305/#1306 in review (app-build rework per stgraber).

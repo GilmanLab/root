@@ -598,7 +598,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T16 | Garage / object storage design + critical-data backup story | deferred | Josh deferred entirely |
 | T17 | One-off VM inventory (what bypasses k8s) | deferred | Emerges with usage |
 | T18 | Upstream-of-`rtr01` documentation (WAN/modem) | deferred | Low priority per Josh |
-| T19 | Insert 4x 6TB WD Red Pro (not 5x 3TB — corrected) into `nas01` bays, wipe old RAID, create raidz1 `hdd` pool + escrow | open | Physical install when Josh is at the rack; `:wipe-drive` handles Synology remnants; expand to 5-wide later via raidz expansion |
+| T19 | ~~nas01 bulk HDD pool~~ | resolved | Session 010: 4x 6TB WD Red Pro hot-plugged (N5 Pro bays confirmed hot-swap), full-zeroed via :wipe-drive (blkdiscard -z, ~9h/drive on TRIM-less HDDs — runbook note), `hdd` zfs-raidz1 ONLINE 17.4TB usable via fleet-cluster deploy (fleet#5), key escrowed (secrets#35) + acked. OS-level only until T16. 5th drive later = device append (raidz expansion) |
 | T20 | ~~Tinkerbell's seat~~ | resolved | Dropped (Josh 2026-08-15); critical services are Zitadel, Vault, CAPI. iPXE also rejected — no upstream netboot path; AMT + pikvm01 MSD cover media delivery |
 | T21 | Management-cluster stretch onto lab01–03 (escape single-`nas01` failure domain) | deferred | Josh explicitly not thinking that far ahead |
 | T22 | GitOps engine choice (Flux vs. Argo etc.); Git home effectively GitHub (GHCR publishing implies it) — internet becomes a hard cold-start dependency, accept explicitly | open | Engine + consequence ruling |
