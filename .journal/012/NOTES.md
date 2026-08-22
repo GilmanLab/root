@@ -693,3 +693,17 @@ Options recorded for later:
 
 Not doing anything irreversible while the initial 4.37 GB transfer is still in
 flight.
+
+## 2026-08-22 18:05 — Initial sync complete
+
+`omp-sessions` finished: **7,288/7,288 files, 4.37/4.37 GB**. Whole-tree parity
+confirmed independently of Syncthing's own accounting — `find | wc -l` returns
+7,290 files on both machines, and per-file md5s across all 74 `-code-lab2`
+transcripts match exactly.
+
+A first hash-of-hashes comparison disagreed, then matched on retry: the
+difference was this very session's transcript being appended to mid-check, not
+a sync fault.
+
+Four folders now replicate between the Macs: `omp-sessions`, `paseo-agents`,
+`omp-agents`, `omp-extensions`.
