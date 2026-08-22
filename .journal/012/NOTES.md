@@ -857,3 +857,28 @@ without the Nix configuration.
   run `/mcp list` before and after.
 - **Phase 5** — purge `~/.codex ~/.gemini ~/.claude ~/.claude.json` after the
   soak; tarball first.
+
+## 2026-08-22 19:50 — Skills checkout now self-bootstrapping
+
+Josh spotted the fragility: `mkOutOfStoreSymlink` deliberately points outside
+the Nix store, so Nix names `~/code/agent-skills` but never creates it. On a
+machine without that checkout the symlink dangles.
+
+Closed it in `home/skills.nix` with an `entryBefore ["writeBoundary"]`
+activation step that clones the repository when `~/code/agent-skills/.git` is
+absent. `meigma/agent-skills` is **public**, so the clone uses HTTPS and needs
+no credentials — which matters because the Studio still has no GitHub-authorized
+SSH key. Verified by cloning into a throwaway HOME with no auth: 27 skills.
+
+Properties kept deliberately:
+
+- An existing checkout is never touched — no pull, no reset. Local edits are the
+  whole point of the out-of-store symlink.
+- A failed clone warns instead of breaking activation.
+- If the checkout is missing anyway, omp treats an unreadable skills directory
+  as empty rather than failing.
+
+The existing checkouts keep their `git@github.com:` SSH remotes; only a fresh
+clone uses HTTPS.
+
+Applied to both machines: 27 skills each, activation clean.
