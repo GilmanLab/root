@@ -237,3 +237,20 @@ gpu-support image (i915/nvidia links never created). Link logic tested
 locally against real 20260810 WHENCE: ice.pkg created+resolves, no
 cross-image leakage. Commit retitled "app-build: Ship Intel ice DDP
 firmware", DCO as Josh, force-pushed → PR auto-updated.
+
+## 2026-08-22 08:55 — Wipe status: 3 done, drive 1 re-zeroing; reboot no-op
+Drives 2–4 zeroing COMPLETE (~9h, matches estimate). Drive 1
+(K1JXHD3D): the first client-timed-out wipe request survived
+disconnect, queued on incus-osd's storage lock behind the duplicate,
+and started a REDUNDANT second zero at 14:01 UTC (~7h remaining).
+Lesson: duplicate wipe POSTs queue server-side; never re-POST a
+wipe after a client timeout — check debug/processes first.
+Attempted nas01 :reboot to kill it: NO-OP — node never rebooted
+(kthreadd start Aug21), API blipped ~4 min then recovered; shutdown
+presumably wedged behind the same storage lock. No second attempt:
+nas01 has no AMT and no ATX wiring (physical-only recovery). Cluster
+healthy throughout, nas01 still leader.
+Started hub process hdd-wipe-watch: polls blkdiscard every 10 min;
+on exit runs the storage deploy (creates hdd pool, halts at escrow
+gate by design) and prints pool state. Escrow+ack+rerun+merge fleet#5
+when a human is back.
