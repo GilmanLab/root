@@ -183,3 +183,41 @@ and lands in the same place.
 Awaiting Josh's pick between A and B before writing the `fleet_cluster` code.
 Phase 1 (Route53 records via `GilmanLab/aws`) is unchanged and still blocked on
 `aws sso login --profile lab-admin`.
+
+## 2026-08-22 09:55 — Option A implemented: fleet#6
+Josh picked A (self-signed, escrowed, converged by `fleet_cluster`). Built it in
+`GilmanLab/fleet` worktree `feat/cluster-certificate` → PR
+https://github.com/GilmanLab/fleet/pull/6.
+
+Shape as designed, with one improvement found while writing it: the certificate
+is **public**, so it is committed at `cluster/tls/incus-cluster.crt` and the
+converge diffs it with no secret access at all. Only the private key is escrowed.
+
+- `config.py`: `TLS_CERT_FILE`, `TLS_KEY_SOPS_PATH`/`_FIELD`, `TLS_SUBJECT_CN`,
+  `TLS_DNS_NAMES` (incus/nas01/lab01-03.glab.lol), `TLS_IP_ADDRESSES`
+  (10.10.10.11-.14 + loopback), plus `tls_cert_path()`, `secrets_dir()`
+  (`GLAB_SECRETS_DIR`), `tls_key_sops_path()`.
+- `facts.py`: `IncusServer` → `GET /1.0`.
+- `operations.py`: `certificate_fingerprint` (PEM → DER → sha256; verified it
+  reproduces Incus's `environment.certificate_fingerprint` exactly — live
+  `ea4930…9a0f` recomputed from the cached server cert),
+  `server_certificate_fingerprint`, `offline_members`,
+  `certificate_push_command` (`set -eu; umask 077; mktemp; trap rm; sops -d
+  --extract '["key"]' > $key; incus cluster update-certificate`),
+  `plan_cluster_certificate`, `@operation cluster_certificate`.
+- `deploys/certificate.py`, `cli.py` `certificate` subcommand, runner
+  `run_certificate`, moon task `fleet-cluster:certificate` (`runInCI: false`).
+- `cluster/tls/{incus-cluster.crt,incus-cluster.cnf,README.md}` — cert, the exact
+  openssl recipe, rotation + one-way-risk docs.
+- 13 new tests (42 total pass): fingerprint math and rejections, committed cert
+  covers every declared name/IP (DER byte search — no new dependency), cnf/config
+  drift guard, no-op vs single push, offline-member refusal, empty-member
+  refusal, path quoting. ruff + mypy clean.
+
+Verified both branches by `pyinfra --dry` against the live cluster, zero
+mutation: committed cert → 1 change planned; live cert copied in → 0 changes.
+CI: "Cluster checks" pass.
+
+Not converged. Blocked on (a) escrowing the key at
+`GilmanLab/secrets fleet/cluster/tls.sops.yaml` and (b) `aws sso login` for both
+that and the Phase 1 Route53 records. Converge with AMT/PiKVM available.
