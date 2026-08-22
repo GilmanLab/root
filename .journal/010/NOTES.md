@@ -206,6 +206,26 @@ already enabled upstream; their build.yml CI validates). Commit
 "base: Ship Intel ice DDP firmware", DCO signed, Fixes #1305.
 Josh opens the upstream PR himself.
 
+## 2026-08-22 05:15 — WD Red Pros seated, zeroing overnight
+Josh hot-plugged all four into nas01 (N5 Pro bays are hot-swap; all
+detected immediately): WD6002FFWX 6TB x4, serials K1JXHD3D/K1JXPWVD/
+K1JXR3BD/K1JXR5DD, SMART passed. :wipe-drive on TRIM-less HDDs falls
+back to blkdiscard -z FULL-DEVICE ZERO (ClearBlock: secure discard →
+discard → zero; subprocess ignores request ctx, so client timeouts are
+harmless — verified via debug/processes: exactly one blkdiscard -z per
+drive, running parallel). ~8h ETA. Lesson for the runbook: the wipe
+endpoint zeroes entire HDDs; budget hours, or pre-wipe via rescue
+stick when time matters.
+fleet#5 open (nas01 hdd zfs-raidz1 pool in storage deploy, OS-level
+only, 29 tests green). REMAINING SEQUENCE once zeroing completes:
+1) moon run fleet-cluster:storage (creates hdd; escrow assert fails
+   as designed), 2) escrow zfs_pool_hdd_recovery_key to
+   fleet/nas01/incusos.sops.yaml (secrets PR), 3) POST :retrieved,
+   4) rerun deploy (clean) + verify raidz1 ONLINE ~18TB, 5) merge
+   fleet#5, resolve T19.
+Also this turn: mgmt-path interim ruling journaled earlier; 10G DACs
+arrive ~2 days (T48 retest then).
+
 ## 2026-08-22 — PR #1306 reworked per stgraber review
 stgraber (CHANGES_REQUESTED): firmware ships via app-build/applications.json
 (linux-firmware git pulls), not Debian packages. Reworked branch @ 90956d6e:
