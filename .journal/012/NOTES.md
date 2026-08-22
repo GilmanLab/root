@@ -544,3 +544,56 @@ content**; Paseo delegates to the provider, so syncing omp sessions covers the
 conversations and Paseo's registry is a tiny optional extra.
 `daemon-keypair.json` and `cli-client-id` are machine identity and must not
 travel.
+
+
+## 2026-08-22 17:05 — Syncthing rebuilt as a two-Mac mesh
+
+Purged the old star topology and replaced it with direct peering. Driven
+through both Syncthing REST APIs (keys read from each machine's `config.xml`).
+
+Removed on both machines: folders `p6f3q-wfq4t` (Work → `~/work`) and
+`uqmgt-4j7hk` (Code → `~/code`). Folder definitions only — **no data deleted**.
+Josh wants those reconsidered later.
+
+Peered the Macs directly for the first time:
+
+- MacBook `SPFY23F-G6F6HZL-GP7JFYE-A6F6RRX-JZN5ARQ-2UVMEG3-XGPVDSO-K3M5HA3`
+- Studio `U3DCZMT-NSJAZ54-ZOCU7VE-5LZDRGN-WDCUL3Q-RA2SVMG-OAQ3Y6R-2OJPEQJ`
+
+Connection is direct LAN, not relayed: `192.168.1.10:22000`, `tcp-client`,
+TLS1.3-AES128-GCM.
+
+New folders, `sendreceive` on both sides, fs-watcher on with a 10 s delay,
+hourly rescan, no versioning:
+
+| ID | Path | Size |
+|---|---|---|
+| `omp-sessions` | `~/.omp/agent/sessions` | 4.37 GB / 7,271 files |
+| `paseo-agents` | `~/.paseo/agents` | 98 files, 392 KB |
+
+`*.log` files are **included** at Josh's request, so old tool-output artifacts
+stay reachable via `artifact://`.
+
+Deliberately excluded (still machine-local): `agent.db`, `history.db`,
+`models.db` and their `-wal`/`-shm`, `terminal-sessions/` (breadcrumbs keyed by
+TTY / `TMUX_PANE` / `TERM_SESSION_ID`), `run/`, `cache/`, `ssh-control/`,
+`install-id`, `puppeteer/`, plus Paseo's `daemon-keypair.json` and
+`cli-client-id`.
+
+Verified: `paseo-agents` reached parity at 98/98 files on both machines.
+`omp-sessions` is transferring; a session file that landed on the Studio parses
+as 473 valid JSONL lines with an intact title record, and the bucket names
+(`-code-lab2`, `-code-imgoci-spec`, …) match the MacBook's exactly, which is
+what makes cross-machine `--resume` work.
+
+Throughput is ~560 KB/s (11.2 MB per 20 s measured on the wire), so the initial
+4.3 GB pass needs roughly two hours. No bandwidth limits are configured on
+either side — it is small-file overhead, and the MacBook is on Wi-Fi while the
+Studio is wired. Subsequent syncs are incremental and will be trivial.
+
+Note `~/.omp` did not exist on the Studio at all — Syncthing created the tree.
+`omp` itself is **not installed** there yet, so the sessions will be waiting for
+it rather than immediately usable.
+
+Left in place: the dead `NAS` device (`T4UIVBG`) is still registered on both
+machines but now shares no folders, so it is inert.
