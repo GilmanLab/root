@@ -86,3 +86,38 @@ Proposed shape (pending Josh): keep sshd + never-sleep declarative in
 same, and manage `authorized_keys` for both machines from home-manager so the
 two hosts trust each other symmetrically. One physical touch at the Studio is
 unavoidable for the first rebuild.
+
+## 2026-08-22 11:55 — Studio back from its OS upgrade; nix changes written
+
+Correction to the previous entry: the Studio was mid-OS-upgrade, not
+misconfigured. Now that it is booted and logged in, `sshd` **is** listening
+(22 and 5900 open from the MacBook, tailnet shows it online). The earlier
+all-ports-closed reading was dark wake, not disabled sharing.
+
+Remaining gap is authorization only: every local key
+(`id_ed25519_macbook`, `id_ed25519_studo`, `id_ed25519_claude`, `id_rsa`,
+`id_ed25519_rk`) gets `Permission denied (publickey,password,
+keyboard-interactive)`, so no MacBook key is in the Studio's
+`authorized_keys` and password auth is still enabled.
+
+Changes written in `~/.local/nix` (not committed — Josh's WIP is in the same
+tree):
+
+- `configuration.nix`: `services.openssh.enable = true;` for both hosts.
+- `flake.nix`: Studio module gains `power.sleep.computer = "never"` and
+  `power.restartAfterPowerFailure = true` so it stops falling off the tailnet.
+- `home/ssh.nix`: `studio` → `studio-1.tailda715.ts.net` and `macbook` →
+  `macbook-pro.tailda715.ts.net`, both with the host's own key.
+
+Verified: `nix build .#darwinConfigurations.{studio,jmgilman-mbp}.system` both
+succeed, and the generated `hm_.sshconfig` contains the two new host blocks.
+Not yet applied — `darwin-rebuild switch` needs sudo and there is no
+`pam_tid` line in `/etc/pam.d/sudo_local`, so sudo is password-only, including
+over SSH.
+
+Open question raised with Josh: whether to allow passwordless sudo for `josh`
+on both machines. Without it, no agent can converge either machine over SSH
+unattended; with it, any process running as `josh` can escalate. Also pending:
+whether to commit/push the `~/.local/nix` changes (his WIP — bun overlay,
+package churn, mise activation — sits in the same working tree, and `master`
+has no upstream tracking configured).
