@@ -133,3 +133,51 @@ the actual requestor:
 ```
 
 Finder, i.e. hand-deleted at the machine while the session was running.
+# Managed vs manual applications — 2026-08-22 (post-cleanup)
+
+Classification of every `.app` in `/Applications` and `~/Applications`, by how it got there.
+`cask:` means Homebrew installed it from a cask declared in `configuration.nix`; `mas` means
+Mac App Store receipt; `os-symlink` is an OS-provided bundle linked from `/System/Cryptexes`;
+`manual` means nothing manages it.
+
+| Source | MacBook | Studio |
+|---|---|---|
+| cask (Nix-declared) | 14 | 14 |
+| Mac App Store | 7 | 5 |
+| OS symlink | 1 | 1 |
+| **manual** | **29** | **21** |
+| total | 51 | 41 |
+
+## Nix-managed (identical on both, 14)
+
+   1Password `1password`, Arc `arc`, Caffeine `caffeine`, Cursor `cursor`, Discord `discord`, Ollama `ollama-app`, OrbStack `orbstack`, Raycast `raycast`, Slack `slack`, Spotify `spotify`, Steam `steam`, Syncthing `syncthing-app`, Tailscale `tailscale-app`, iTerm `iterm2`
+
+## Mac App Store
+
+- Both: GarageBand, Keynote, Numbers, Pages, iMovie
+- MacBook only: Windows App, Xcode
+
+## Manual — nothing manages these
+
+### On both (14)
+
+   BALL x PIT, BitCraft Online, ChatGPT, Claude Code URL Handler, CurseForge, Escape From Duckov, GeForceNOW, Moonlight, Necesse, Podman Desktop, Screen Studio, Telegram, VMware Fusion, WinBox
+
+### MacBook only (15)
+
+   Adrafinil, Baldur's Gate 3, Bitburner, Buzz, CleanShot X, Google Chrome, Hades II, Paseo, RimWorld, Trezor Suite, TurboTax 2025, balenaEtcher, iTermAI, iTermBrowserPlugin, zoom.us
+
+### Studio only (7)
+
+   Camtasia 2023, Elgato Camera Hub, Elgato Wave Link, REALFORCE Connect, Roblox, Shadow PC, Wireshark
+
+## Notes
+
+- `Tailscale`, `Ollama` and `Syncthing` are cask-managed but arrive through `pkg`/`-app`
+  artifacts rather than plain `app` artifacts, so naive name matching misreports them as
+  manual. Tailscale's receipt is `com.tailscale.ipn.macsys` with
+  `location: Applications/Tailscale.app`.
+- `/Applications/Nix Apps` exists but is empty: no GUI application currently comes from nixpkgs.
+- Games (Steam/Epic titles) account for a large share of the manual set and are arguably out of
+  scope for convergence.
+
