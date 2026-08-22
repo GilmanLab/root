@@ -48,6 +48,7 @@ nav:
           - Tailscale policy: reference/networking/tailscale-policy.md
   - Runbooks:
       - Change the Tailscale policy: runbooks/tailscale-policy-change.md
+      - Commission a lab compute node: runbooks/commission-lab-node.md
       - Rebuild nas01: runbooks/rebuild-nas01.md
       - Manage the sw-core01 configuration: runbooks/sw-core01-configuration.md
       - Manage the sw-mgmt01 configuration: runbooks/sw-mgmt01-configuration.md
