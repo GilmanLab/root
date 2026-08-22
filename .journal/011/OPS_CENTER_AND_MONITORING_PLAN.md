@@ -1,26 +1,81 @@
-# Operations Center vs. cluster monitoring — plan (session 011)
+# Operations Center, the Incus web UI, and monitoring — plan (session 011)
 
 Status: proposal. Nothing deployed. Live evidence gathered 2026-08-21 against the
-running 4-node cluster; Track A step A0 was executed as a throwaway spike (see
-"Evidence").
+running 4-node cluster; Track A step A0 and the UI check were executed as
+throwaway spikes (see "Evidence").
 
 ## Headline
 
-**Operations Center is not a monitoring system, and it cannot adopt this
-cluster today. But the cluster is already fully scrapeable — monitoring needs
-no node-side change at all.**
+Clarified intent (2026-08-21): the ask was a **Proxmox-style GUI over Incus**,
+not time-series monitoring.
 
-Two separable pieces of work fell out of the research, and they should not be
-coupled:
+**That GUI already exists and is already running on the cluster** — the built-in
+**Incus web UI at `https://<member>:8443/ui/`** (version `7.3-ui-0.21`, shipped
+by the IncusOS `incus` application). Verified live: instance list, cluster
+members with roles and memory, networking/ACLs/IPAM, storage pools/volumes/
+buckets/custom ISOs, images, profiles, projects, operations, warnings, server
+settings, usage, "Create instance", and a per-node **Incus OS** panel
+(Overview / Applications / Debug / Services / System) for IncusOS itself.
+Nothing needs deploying; it needs a browser credential and a DNS name.
 
-- **Track A — monitoring** (what the ask actually wants): Prometheus + Grafana
+**Operations Center is a different layer and cannot replace it.** OC's instance
+data is read-only inventory: the v0.8.1 API exposes only `GET
+/1.0/inventory/instances[/{uuid}]` plus `POST …/:resync`. There is **no create,
+edit, start/stop, console, snapshot or migrate operation for instances**. OC
+mutates *servers and clusters* (power, evacuate, factory-reset, update channel,
+BMC, cluster create/add/remove members, tokens, seeds). It is a fleet/datacenter
+manager, not a hypervisor GUI.
+
+So there are three separable pieces of work, and they should not be coupled:
+
+- **Track 0 — use the GUI you already have** (below): browser credential + DNS.
+  Hours, not days.
+- **Track A — monitoring** (history, dashboards, alerts): Prometheus + Grafana
   against each member's existing `/1.0/metrics`. Zero IncusOS changes needed.
-- **Track B — Operations Center** (T44): a fleet *control plane* — inventory,
-  provisioning, update orchestration, BMC. Valuable, unrelated to dashboards,
-  and currently gated on a one-way door.
+- **Track B — Operations Center** (T44): fleet control plane — multi-cluster
+  inventory, token provisioning, update orchestration, BMC. Valuable later,
+  currently gated on a one-way door.
 
-## Why Operations Center is the wrong tool for this ask
+## Track 0 — make the built-in UI usable (do this first)
 
+Two small gaps, both real:
+
+1. **Browser authentication.** The UI authenticates with a TLS client
+   certificate (or OIDC). The `bootstrap-admin` key already sits on the
+   workstation at `~/.config/incus/client.{crt,key}`; export it as PKCS#12 and
+   import into the macOS keychain, and Safari/Chrome will offer it to
+   `:8443`. Longer term the right answer is **OIDC via Zitadel** (T36) so
+   browser access stops depending on a copied admin key — and so revocation is
+   possible.
+2. **DNS/TLS name.** All four members present one shared cluster certificate
+   whose only SAN is `DNS:nas01.glab.lol` — there is no IP SAN, and
+   `nas01.glab.lol` **does not currently resolve** (the mirrored `glab.lol` zone
+   has no A records for any lab host). Browsing by IP therefore always warns.
+   Fix at source: add A records for `nas01` (and `lab01`-`lab03`, `gw01`) to the
+   Route53 private zone in `GilmanLab/aws`; gw01's CoreDNS mirrors that zone
+   automatically. Then `https://nas01.glab.lol:8443/ui/` is warning-free, and
+   the same name is what a Prometheus scraper needs for `server_name`.
+
+What the UI does **not** give, and why Track A still matters: no history beyond
+the live view, no dashboards over time, no alerting, and no host-level
+CPU/memory/disk/temperature trend. It answers "what is the cluster doing right
+now", not "what happened at 03:00" or "tell me when a pool degrades".
+
+A convenience trap worth naming: for verification I ran a local reverse proxy
+(`/tmp/monspike/uiproxy.ts`, port 8099) that attaches the client cert so any
+browser can load the UI. That is an unauthenticated bypass of Incus's auth on
+localhost — fine as a throwaway, never a lab service.
+
+## Why Operations Center is neither the GUI nor the monitor
+
+- **Instances are read-only inventory.** Enumerating every `swagger:operation`
+  in v0.8.1 `internal/api/*.go`: instances/networks/profiles/projects/storage/
+  images expose only `GET …` and `POST …/:resync`. Mutating operations exist
+  only for *servers* (`:reboot`, `:poweroff`, `:evacuate`, `:factory-reset`,
+  `system/update`, `bmc/:server-power-on|off|restart`, `system/network`,
+  `system/storage`), *clusters* (`POST`, `:add-servers`, `:remove-servers`,
+  `:update`, `:bulk-update`), channels, updates, tokens and seeds. No instance
+  create/start/stop/console/snapshot/migrate anywhere in the API.
 - OC v0.8.1 (2026-08-07, pre-1.0, 40 open issues) is inventory + provisioning +
   update channels + a warning ledger. Server state is refreshed by a **5-minute
   reachability/version poll**. No time series, no utilization history, no alert
@@ -206,6 +261,9 @@ Do not switch any production node's provider until step 3 has an answer.
 
 ## Open questions for Josh
 
+0. UI credential: export the existing `bootstrap-admin` key as PKCS#12 into the
+   keychain now, or wait for Zitadel/OIDC (T36) and live with the proxy shim in
+   the meantime?
 1. Monitoring placement: `mon01` on the cluster (keeps VLAN 40 isolation) vs.
    `sandbox01` (survives cluster loss, needs one firewall rule)?
 2. Is a system container acceptable for `mon01`, or does the "VM isolation
@@ -216,6 +274,10 @@ Do not switch any production node's provider until step 3 has an answer.
 
 ## Immediate next actions
 
+- [ ] Track 0: add `nas01` (+ `lab01`-`lab03`, `gw01`) A records to the Route53
+      private zone in `GilmanLab/aws`; confirm gw01's CoreDNS mirror picks them up.
+- [ ] Track 0: import a browser client credential, then open
+      `https://nas01.glab.lol:8443/ui/` and stop using the localhost proxy.
 - [ ] Decide whether A1 ships dashboard 1860 + a hand-built IncusOS/ZFS panel set
       (19727 adds little until real workloads exist).
 - [ ] Decide placement (question 1) and alert target (question 3).
@@ -236,6 +298,10 @@ incus query nas01:/os/1.0/system/logging       -> syslog address "" (unset)
 incus query nas01:/os/1.0/system/storage       -> pools data=ONLINE (2 devices), local=ONLINE (1)
 incus info nas01:                              -> Incus 7.3, IncusOS 202608201218, 4 members
 curl --cert/--key .../1.0/metrics on .11-.14   -> 200; 3286-3301 node_* series each
+curl .../ui/                                   -> 200, "Incus UI", version 7.3-ui-0.21
+dig nas01.glab.lol @10.10.10.1                 -> NXDOMAIN-equivalent (zone has no lab A records)
+openssl s_client 10.10.10.11/.14:8443          -> one shared cert, SAN DNS:nas01.glab.lol only
+OC v0.8.1 swagger:operation enumeration        -> inventory = GET + :resync only
 ```
 
 Throwaway Prometheus (Docker, `/tmp/monspike`, port 9099), scraping all four

@@ -75,3 +75,35 @@ until upstream answers adoption/observation-only registration).
 Awaiting Josh's rulings on: scraper placement (`mon01` on-cluster vs. `sandbox01`
 plus one firewall rule), container vs. VM for `mon01`, alert delivery target, and
 whether the OC spike happens now or after the Talos mgmt cluster.
+
+## 2026-08-21 23:05 — Correction: the ask was a GUI, and it already exists
+Josh clarified: he wanted a Proxmox-style GUI over Incus, not time-series
+monitoring. That changes the answer, not the research.
+
+- The **built-in Incus web UI is already running on the cluster**:
+  `https://10.10.10.14:8443/ui/` returns 200, version `7.3-ui-0.21`, served by
+  the IncusOS `incus` application. Verified in a real browser (via a throwaway
+  localhost cert-attaching proxy, `/tmp/monspike/uiproxy.ts:8099`): instance list
+  (meshcommander/Container/nas01/Running), Cluster members page showing all four
+  ONLINE with roles + memory (nas01 4.0/29.8 GiB, labs 2.7/64 GiB), Networking/
+  ACLs/IPAM, Storage pools/volumes/buckets/custom ISOs, Images, Profiles,
+  Operations, Warnings, Settings, Usage, "Create instance", and a per-node
+  **Incus OS** panel (Overview/Applications/Debug/Services/System).
+- **OC cannot be that GUI.** Enumerated every `swagger:operation` in v0.8.1:
+  inventory (instances, networks, profiles, projects, storage, images) is
+  `GET` + `POST …/:resync` only. Mutation exists only for servers (reboot,
+  poweroff, evacuate, factory-reset, update, BMC power, system network/storage),
+  clusters (create, add/remove servers, update, bulk-update), channels, updates,
+  tokens, seeds. No instance create/start/stop/console/snapshot/migrate.
+- Two real gaps before the UI is pleasant: (1) browser auth — needs the
+  `bootstrap-admin` key as PKCS#12 in the keychain, or OIDC via Zitadel (T36);
+  (2) DNS/TLS — the four members share one cert whose only SAN is
+  `DNS:nas01.glab.lol`, and that name **does not resolve**: the mirrored
+  `glab.lol` zone (Route53 private zone → gw01 CoreDNS) has no A records for any
+  lab host. Fix at source in `GilmanLab/aws`.
+- The localhost proxy I used for verification is an auth bypass; throwaway only,
+  never a lab service.
+
+Plan doc restructured into Track 0 (use the UI you already have) / Track A
+(monitoring: history + alerts, still wanted) / Track B (OC as fleet control
+plane, T44, unchanged).
