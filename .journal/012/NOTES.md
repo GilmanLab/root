@@ -322,3 +322,43 @@ decision to make before schema 2 lands.
 Unrelated observation while testing: the MacBook's `incus` has no `nas01`
 remote configured — only `local` and a stale `incusos-spike`
 (`172.16.140.134`). Lab CLI access from this machine is not set up.
+
+
+## 2026-08-22 14:20 — How Homebrew takes over a manually installed app
+
+Answered from Homebrew's source rather than folklore
+(`/opt/homebrew/Library/Homebrew/cask/artifact/moved.rb`,
+`/opt/homebrew/Library/Homebrew/bundle/cask.rb`).
+
+For `app`-artifact casks, when the target path already exists:
+
+- Plain `brew install --cask X` → hard error, install aborts:
+  *"It seems there is already an App at '/Applications/X.app'."*
+- `--force` → warns *"overwriting"*, trashes the existing bundle, moves the
+  downloaded one in.
+- `--adopt` → adopts the existing bundle in place, but only if it is identical:
+  Homebrew compares `CFBundleShortVersionString` **and** `CFBundleVersion` from
+  the staged download's `Info.plist` against the installed app's. Any mismatch
+  raises *"It seems the existing App is different from the one being
+  installed."* If neither plist parses it falls back to `diff --recursive
+  --brief`. On success the download is deleted, the app stays put, and the
+  Caskroom receipt now owns it.
+- **Exception:** if the cask declares `auto_updates true`, the version check is
+  skipped entirely and adoption always succeeds — Homebrew assumes the app
+  updates itself out from under the cask.
+
+Critically, `brew bundle` — which is what nix-darwin activation runs — always
+appends `--adopt` unless `--force` is present (`bundle/cask.rb:90`). So
+declaring an already-installed app is normally a no-op takeover, not a
+reinstall.
+
+`pkg`-artifact casks (zoom, realforce, elgato-camera-hub, wireshark-app,
+tailscale-app) have no `Moved` artifact at all: they run the vendor installer,
+which replaces the bundle in place. No conflict is possible, and the pkgutil
+receipt is what Homebrew later uninstalls.
+
+Surveyed all 23 candidates: 13 adopt unconditionally (`auto_updates true`),
+5 are pkg-based, 5 match on version today, and **only 2 would fail** — Shadow
+PC (installed 9.9.10318 vs cask 9.9.10457) and WinBox (4.1.102000 vs 4.3).
+Both lack `auto_updates`, so each needs either a manual update first or a
+one-time `brew install --cask --force`.
