@@ -223,3 +223,28 @@ Remaining: lab02/03 MEBx (Josh) → AMT verify → remote power-on → Fedora
 lease harvest → config MACs → build raw images → USB per node (with the
 SB recipe) → escrow+join each. PiKVM note: Josh re-seated the lab01 KVM
 input; earlier stale-frame confusion explained by the disconnected cable.
+
+## 2026-08-21 17:08 — GOAL MET: 4-node cluster ONLINE
+lab02: MEBx by Josh, AMT digest-auth verified, Fedora lease harvest gave mgmt
+MAC 38:05:25:35:4b:05 (AMT+1 pattern held), image f7788214…, install clean,
+fingerprint 11bc96d6…8744e72 console=API, keys escrowed (secrets#32),
+acked, joined, smoke passed.
+lab03: NO old OS on disk → lease harvest unavailable. New harvest method:
+enable BIOS Network Stack → PXE boot entries expose per-NIC MACs; Josh read
+10GbE = 38:05:25:35:43:f1 — AMT+1 prediction CONFIRMED, prebuilt image
+e2eaf9b9… was already correct. Install detour: old Proxmox remnants made
+installer fail `mkfs.vfat /dev/nvme1n1p1 … contains a mounted filesystem`;
+fixed by the runbook rescue-wipe path (wipefs -af + sgdisk --zap-all on the
+128GB only). Then: fingerprint 239424d7…a173b2e8 verified, keys escrowed
+(secrets#33), acked, joined, smoke passed.
+Cluster final: nas01 database-leader, lab01+lab02 database, lab03
+database-standby — the intended 3-voters+1-standby topology. All ONLINE,
+`local` zfs pool CREATED cluster-wide, all retrieval flags true. fleet#2
+MERGED (all three configs with verified MACs, raw media, force_install,
+SB/IDER comments).
+Loose ends for wrap/tracker: MeshCommander container holds lab01's AMT
+password in its saved device entry (delete entry or container); PiKVM
+default creds rotation; OC spike tracker item; secrets checkout
+consolidation (init.sh + runbook path); kvm01 input map still undocumented
+(T02); AMT+1 MAC pattern + PXE-entry harvest + SB recipe → commissioning
+runbook; sw-core01 SFP+ ports still roleless by design (storage design).
