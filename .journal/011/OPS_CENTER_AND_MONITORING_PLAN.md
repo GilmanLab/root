@@ -38,23 +38,125 @@ So there are three separable pieces of work, and they should not be coupled:
 
 ## Track 0 — make the built-in UI usable (do this first)
 
-Two small gaps, both real:
+Two gaps, both real, both fixable in one sitting:
 
-1. **Browser authentication.** The UI authenticates with a TLS client
-   certificate (or OIDC). The `bootstrap-admin` key already sits on the
-   workstation at `~/.config/incus/client.{crt,key}`; export it as PKCS#12 and
-   import into the macOS keychain, and Safari/Chrome will offer it to
-   `:8443`. Longer term the right answer is **OIDC via Zitadel** (T36) so
-   browser access stops depending on a copied admin key — and so revocation is
-   possible.
-2. **DNS/TLS name.** All four members present one shared cluster certificate
-   whose only SAN is `DNS:nas01.glab.lol` — there is no IP SAN, and
-   `nas01.glab.lol` **does not currently resolve** (the mirrored `glab.lol` zone
-   has no A records for any lab host). Browsing by IP therefore always warns.
-   Fix at source: add A records for `nas01` (and `lab01`-`lab03`, `gw01`) to the
-   Route53 private zone in `GilmanLab/aws`; gw01's CoreDNS mirrors that zone
-   automatically. Then `https://nas01.glab.lol:8443/ui/` is warning-free, and
-   the same name is what a Prometheus scraper needs for `server_name`.
+1. **No DNS.** The mirrored `glab.lol` zone has no A record for any lab host
+   (`dig nas01.glab.lol @10.10.10.1` returns nothing; the zone's SOA is AWS).
+   Records must be authored in the Route53 **private** zone in `GilmanLab/aws`
+   (sole writer); gw01 re-fetches the zone every 1 min and CoreDNS reloads
+   every 30 s, so changes land in the lab in ≤90 s.
+2. **Certificate names.** All four members present ONE shared certificate
+   (`cluster.crt`) whose only SAN is `DNS:nas01.glab.lol` — no IP SANs, no
+   lab0N names. So browsing by IP always warns, and even after DNS exists only
+   `nas01` would validate. Fix: mint a new shared cert with every name + IP and
+   push it with `incus cluster update-certificate`, which fans it to all
+   members and live-swaps the API/cluster/metrics listeners without a restart.
+3. **Browser credential.** The UI itself generates one — no copying of the
+   `bootstrap-admin` key. Its "Set up TLS login → Generate" page creates an
+   RSA-2048 / 1000-day cert in a web worker and hands back `incus-ui.crt` plus a
+   password-protected `incus-ui.pfx` (3DES, specifically so macOS Keychain will
+   import it). Enrollment uses a trust token.
+
+### Runbook
+
+**Phase 1 — DNS (`GilmanLab/aws`, PR).** Blocked on `aws sso login --profile
+lab-admin` (the token is currently expired).
+
+```sh
+cd aws && git fetch origin --prune
+wt switch --create --base origin/master --no-cd --format=json feat/lab-host-dns
+```
+
+In `aws/lab-foundation`, add a `lab_host_records` map plus a `for_each`
+`aws_route53_record` in the private zone (the zone's owner root; `aws/keycloak`
+is the precedent for a root creating its own A record):
+
+| Name | Value |
+| --- | --- |
+| `nas01.glab.lol` | 10.10.10.14 |
+| `lab01.glab.lol` | 10.10.10.11 |
+| `lab02.glab.lol` | 10.10.10.12 |
+| `lab03.glab.lol` | 10.10.10.13 |
+| `incus.glab.lol` | all four (round-robin cluster entry point) |
+
+TTL 300. Optional extras: `gw01` 10.10.10.1, `sw-core01` 10.10.10.2,
+`sw-mgmt01` 10.10.70.2. Plan must be adds-only, then squash-merge and apply.
+Verify: `dig +short nas01.glab.lol @10.10.10.1` inside 90 s.
+
+**Phase 2 — cluster certificate (live cluster, gated).**
+
+Preflight, all verified 2026-08-21:
+
+- `incus cluster list nas01:` → all four ONLINE (**required**: a new private key
+  is refused unless every member is reachable).
+- `incus admin os system fallback-listener show nas01:` → `bootstrap-admin` is
+  trusted, `active: false`. Recovery path intact.
+- Current fingerprint `ea493033…9a0f`, SAN `DNS:nas01.glab.lol` only.
+
+**One-way risk, stated plainly:** the current cert's private key lives only on
+the nodes and cannot be exported, so there is no rollback to it. Incus does a
+best-effort rollback if fan-out fails mid-flight; if that fails the recovery is
+console-level (IncusOS lost-certificate emergency procedure: recovery key,
+Secure Boot off, `patch.global.sql`). Do this with AMT/PiKVM to hand.
+
+Candidate cert already generated at `/tmp/monspike/incus-cluster.{crt,key}`
+(P-384, 10 years, `CN=incus.glab.lol`, SANs = the five names + `10.10.10.11-.14`
++ loopback, `CA:TRUE`, serverAuth+clientAuth, fingerprint
+`27:86:A3:A9:E0:1E:ED:62:…:E0:10`). Config kept at
+`/tmp/monspike/incus-cluster.cnf` for reproducibility.
+
+```sh
+# 1. Escrow the key FIRST — it is durable generated recovery material (ADR-0003).
+#    GilmanLab/secrets: fleet/cluster/tls.sops.yaml, scope fleet.
+# 2. Push (fans out to all members, live-swaps listeners, no restart):
+incus cluster update-certificate nas01: incus-cluster.crt incus-cluster.key
+# 3. Verify every member by name and by IP:
+for h in incus nas01 lab01 lab02 lab03; do
+  curl -sf --cacert incus-cluster.crt "https://$h.glab.lol:8443/1.0" >/dev/null && echo "$h ok"
+done
+incus cluster list nas01:            # still all ONLINE
+incus info nas01: | head -5          # remote's pinned cert was rewritten by the CLI
+# 4. Trust it once on the workstation:
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain incus-cluster.crt
+```
+
+Then update the monitoring spike: `ca_file` → `incus-cluster.crt` and **drop**
+`server_name` (IP SANs now cover scraping by IP). Re-check all four targets up.
+
+**Phase 3 — browser identity (no admin key in the browser).**
+
+1. `https://incus.glab.lol:8443/ui/` → **Set up TLS login → Generate**, give a
+   **non-empty** password (empty-password PFX import fails on macOS), download
+   `incus-ui.crt` + `incus-ui.pfx`.
+2. Keychain Access → **login** keychain → File → Import Items → `incus-ui.pfx`;
+   restart the browser. Do **not** mark the client cert "Always Trust" — Incus
+   trusts its fingerprint, not a chain.
+3. From a terminal still authenticated as `bootstrap-admin`:
+   `incus config trust add nas01: incus-ui` → prints a token. In Incus 7.3 the
+   name is positional, the token is single-use, and `core.remote_token_expiry`
+   defaults to no time expiry. Omit `--restricted` for full UI admin.
+4. UI → `/ui/login/certificate-add` → select **Incus UI** → paste token → Import.
+5. `incus config trust list nas01: -c nftrep` and record both fingerprints.
+   Keep `bootstrap-admin` as break-glass; the browser identity can be revoked
+   alone with `incus config trust remove nas01: <fingerprint>`.
+
+### Deliberately not doing (yet)
+
+- **Public ACME.** Incus 7.3 does support it (`acme.domain`, `acme.email`,
+  `acme.challenge=DNS-01`, `acme.provider`, `acme.provider.environment`; lego is
+  shipped whole, so Route53/Cloudflare providers are available, and the lab
+  already delegates `acme.glab.lol` for DNS-01). Rejected for now: a public CA
+  cannot sign private-IP SANs (breaks IP-based `incus remote` and scraping), lab
+  hostnames would land in Certificate Transparency logs, and cloud credentials
+  would sit in replicated cluster config. Issuance/renewal is leader-only, daily,
+  renewing under 30 days.
+- **Lab CA issuance.** The eventual right answer (root CA already exists in
+  `GilmanLab/aws`), but no intermediate/issuance path is built — the same parked
+  question as ADR-0004's pinned device CA. Migration later is a re-run of
+  `incus cluster update-certificate` with a leaf + chain.
+- **OIDC.** Once Zitadel serves (T36): `oidc.issuer`, `oidc.client.id`,
+  `oidc.claim`. Caveat: OIDC alone grants **every** authenticated IdP user full
+  access; restricting it needs OpenFGA plus `authorization.client.oidc=openfga`.
 
 What the UI does **not** give, and why Track A still matters: no history beyond
 the live view, no dashboards over time, no alerting, and no host-level

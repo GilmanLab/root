@@ -107,3 +107,43 @@ monitoring. That changes the answer, not the research.
 Plan doc restructured into Track 0 (use the UI you already have) / Track A
 (monitoring: history + alerts, still wanted) / Track B (OC as fleet control
 plane, T44, unchanged).
+
+## 2026-08-21 23:40 — DNS + certificate steps researched, cert candidate staged
+Question: what does it take to get DNS and certs working for the four nodes.
+Two more researchers (`history://ClusterCertOps`, `history://BrowserAuthFlow`).
+
+Mechanics that matter:
+- In a cluster, `cluster.crt`/`cluster.key` is what gets presented on
+  `core.https_address`; `server.crt` is only the member's *client* identity.
+  `incus cluster update-certificate <remote>: <crt> <key>` → `PUT
+  /1.0/cluster/certificate`, may target any member (not leader-only), fans out to
+  all members, live-swaps API/cluster/metrics/bucket/vsock listeners with **no
+  daemon restart**. A *new private key* requires every member online.
+- Trust store (client certs) and cluster membership are untouched, so
+  `bootstrap-admin` keeps working. The CLI rewrites the targeted remote's pinned
+  cert automatically.
+- **No rollback**: the current cert's key exists only on the nodes. Failure mode
+  is the IncusOS lost-certificate console procedure (recovery key, Secure Boot
+  off, `patch.global.sql`). Preflight verified: all four ONLINE, fallback
+  listener trusts `bootstrap-admin` (`active: false`).
+- Browser credential: the UI generates its own (RSA-2048, 1000-day, PKCS#12 with
+  3DES for macOS Keychain) and enrolls with a single-use trust token from
+  `incus config trust add nas01: incus-ui`. No PKCS#12 export of the admin key.
+  Positional name in 7.3; `core.remote_token_expiry` defaults to no time expiry.
+- ACME is real in 7.3 (lego shipped whole, DNS-01, Route53/Cloudflare available,
+  lab already delegates `acme.glab.lol`) but rejected for now: public CAs can't
+  sign private-IP SANs, CT-log exposure, cloud creds in replicated cluster
+  config. Lab-CA issuance is the eventual answer; no pipeline exists yet.
+
+Staged (not pushed): `/tmp/monspike/incus-cluster.{cnf,crt,key}` — P-384,
+10 years, `CN=incus.glab.lol`, SANs `incus/nas01/lab01/lab02/lab03.glab.lol` +
+`10.10.10.11-.14` + loopback, fingerprint `27:86:A3:A9:…:E0:10`.
+
+DNS: records must go in the Route53 **private** zone via `GilmanLab/aws`
+(`aws/lab-foundation` owns the zone; `aws/keycloak` is the precedent for a root
+authoring its own A record). gw01 re-fetches the zone every 1 min (VyOS
+task-scheduler `dns-mirror-fetch-glab-lol`) and CoreDNS reloads every 30 s →
+≤90 s propagation. Blocked on `aws sso login --profile lab-admin` (token expired).
+
+Runbook written into the plan doc as Track 0 Phases 1-3. Nothing executed against
+the cluster or AWS.
