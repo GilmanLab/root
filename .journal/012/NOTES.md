@@ -162,3 +162,43 @@ remotes written as `git@github:`, not the real `git@github.com:` remotes.
 the switch is pre-warmed. Both machines now need one attended
 `sudo darwin-rebuild switch` to install passwordless sudo; after that, agent
 convergence is unattended in both directions.
+
+## 2026-08-22 12:45 — Both machines converged; one self-inflicted lockout
+
+Josh ran both attended switches. Verified: passwordless sudo works on both,
+both run `darwin-system-26.11.15abb8c`, MacBook `sshd` is loaded, and the
+Studio now reports `sleep 0` with `autorestart 1` — the one-minute sleep is
+gone.
+
+Then made trust symmetric and pushed `b7a36b5`: each Mac carries both public
+keys in `authorized_keys`, and the GitHub identity is bound to the `github.com`
+hostname. Applied it to the MacBook unattended, then to the Studio unattended
+over SSH (`git pull` still needed `ssh -A`).
+
+**That broke public-key auth on both machines and locked me out of the
+Studio.** Root cause: I wrote `authorized_keys` with `home.file`, which is a
+symlink into `/nix/store`, and the store directory is group-writable
+(`drwxrwxr-t root:nixbld`), so sshd's `StrictModes yes` refuses the file. No
+log line says so — the connection just falls through to
+`Permission denied (publickey,...)`.
+
+Fix in `f57fde7`: keep the key list in `pkgs.writeText`, then a home-manager
+activation entry (`entryAfter ["writeBoundary"]`) removes any stale symlink and
+`install -m 600` copies the content into `$HOME/.ssh/authorized_keys` as a real
+user-owned file. Applied on the MacBook and proven by loopback SSH with the
+MacBook key. The Studio still carries the broken symlink, so it needs one local
+command from Josh to restore ingress before I can converge it remotely.
+
+Two incidental facts worth keeping:
+
+- `~/.ssh/id_ed25519_studo` on the MacBook is **passphrase-protected**, so it
+  can never authenticate in a `BatchMode` agentless session. My earlier
+  "every key is rejected" reading over-attributed the failure to the server.
+- The Studio has no working GitHub credential at all: `id_ed25519_studio`,
+  `id_ed25519_devos`, `id_ed25519_bootstrap` and `vyos-gateway` are all
+  rejected by GitHub, there is no 1Password SSH agent, and its `gh` token is
+  invalid. Adding the key to the local agent fixes interactive sessions only.
+
+Lesson for anything declarative touching sshd on a Nix machine: files sshd
+validates under `StrictModes` (`authorized_keys`, host keys) must be copied
+out of the store, never symlinked into it.
