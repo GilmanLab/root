@@ -495,3 +495,52 @@ deletions and producing `.sync-conflict` files across 153 repos.
 
 Re-establishing a NAS peer is blocked anyway: nas01's `hdd` pool is OS-level
 only and Incus wiring waits on the object-storage design (T16).
+
+
+## 2026-08-22 16:30 — Conversation continuity: correcting the SQLite claim
+
+Josh's real requirement is conversation continuity between the two Macs. I
+previously said "don't sync `~/.omp`" because of SQLite. That was too broad —
+checked the actual layout and the docs
+(`omp://session-switching-and-recent-listing.md`, `omp://session-operations-*`).
+
+**omp sessions are plain files, not a database.**
+
+- Layout: `~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`, with a
+  sibling `<timestamp>_<uuid>/` directory holding that session's artifacts.
+- `<encoded-cwd>` is the path-encoded canonical cwd — `-code-lab2`,
+  `-code-ovh`, and so on. **Both machines are `/Users/josh`, so bucket names
+  match exactly.**
+- Listing and resume scan the filesystem: `getRecentSessions` reads a 4 KiB
+  prefix per file, `SessionManager.list/listAll` read a 4 KiB prefix plus a
+  32 KiB tail, sorted by mtime. `--resume <id>` matches on filename/id prefix.
+  **No database is consulted to find or open a session.**
+- `history.db` only augments the picker's *search* with prompt history. Losing
+  it degrades search, not resume.
+
+Composition of the 4.1 GB: 1,248 `.jsonl` transcripts (1.9 GB) and 4,342
+`.log` artifacts (2.2 GB), plus md/txt/go/py artifacts. The SQLite files
+(`agent.db`, `history.db`, `models.db` and their `-wal`/`-shm`) all sit at the
+top of `~/.omp/agent/`, **outside** `sessions/`.
+
+So a Syncthing folder scoped to `~/.omp/agent/sessions/` is viable and is the
+one place in this whole session where Syncthing is the right tool: append-heavy
+plain files, written on one machine at a time.
+
+Must stay machine-local: `agent.db`, `history.db`, `models.db`,
+`terminal-sessions/` (breadcrumbs keyed by TTY/`TMUX_PANE`/`TERM_SESSION_ID`),
+`run/`, `cache/`, `ssh-control/`, `install-id`, `puppeteer/`.
+
+Known write hazard: sessions are not purely append-only. The title slot is
+fixed-width and rewritten in place, compaction rewrites entries, and the docs
+mention an EPERM atomic-rewrite fallback that leaves `.bak` files which
+directory scans repair. Sequential use is fine; simultaneous use of the same
+session on both machines would produce `.sync-conflict` files.
+
+Paseo, for comparison: `~/.paseo/agents/<encoded-cwd>/<uuid>.json`, 98 files,
+392 KB total. Each is workspace metadata only — `id`, `provider` (`omp`),
+`cwd`, `workspaceId`, `title`, `lastStatus`, timestamps. **No conversation
+content**; Paseo delegates to the provider, so syncing omp sessions covers the
+conversations and Paseo's registry is a tiny optional extra.
+`daemon-keypair.json` and `cli-client-id` are machine identity and must not
+travel.
