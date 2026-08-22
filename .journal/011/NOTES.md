@@ -221,3 +221,37 @@ CI: "Cluster checks" pass.
 Not converged. Blocked on (a) escrowing the key at
 `GilmanLab/secrets fleet/cluster/tls.sops.yaml` and (b) `aws sso login` for both
 that and the Phase 1 Route53 records. Converge with AMT/PiKVM available.
+
+## 2026-08-22 10:30 — Upstream reuse audit (Josh: was this already in pyinfra-incus?)
+Fair challenge; I should have checked `~/code/meigma/pyinfra-incus` before
+writing code. Audit of 0.2.0 (the pinned dependency):
+
+Already there, and I duplicated it:
+- `facts.Server` — `incus query /1.0` (optional `?target=`), normalized +
+  redacted. My `IncusServer` fact is the same read.
+- `_control_plane.certificate_fingerprint` — `ssl.PEM_cert_to_DER_cert` +
+  sha256, and it rejects private-key material. My version hand-rolled PEM regex
+  + base64. **Fixed**: refactored to the stdlib technique with the same
+  private-key guard (fleet#6 commit b347605), keeping only a DER-SEQUENCE sanity
+  check because `PEM_cert_to_DER_cert` decodes base64 leniently.
+- `facts.{ClusterMembers,StoragePools,TrustedCertificates,Warnings,...}` and
+  `operations.{server_config,trusted_certificate,storage_pool,network,...}` —
+  fleet_cluster already duplicates several of these for the same reason below.
+
+Genuinely absent upstream:
+- Any support for `incus cluster update-certificate` / `cluster.crt`.
+  `operations.trusted_certificate` is the *trust store* (client/metrics certs),
+  a different object entirely.
+
+The structural reason fleet can't just call upstream: upstream's execution model
+runs `incus` **on the target host** through that host's connector against the
+local unix socket with sudo (`incus_command` builds bare `incus …`, no remote).
+IncusOS has no SSH and no shell, so fleet_cluster runs on the operator machine
+and prefixes every command with `nas01:` via its own `_cli.py`.
+
+New finding worth promoting: **`INCUS_REMOTE=nas01 incus query /1.0` works**
+(verified live, also with `?target=lab01` and `incus cluster list`). So a
+`remote=` argument or env-based default upstream would make the whole upstream
+library usable from the operator box, after which fleet_cluster could delete
+`_cli.py` and its duplicated facts. Recorded in T49 along with the two
+certificate gaps (cluster-cert operation; make `certificate_fingerprint` public).
