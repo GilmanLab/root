@@ -226,3 +226,41 @@ every existing authorization on dev/nas/jumpbox/k0s intact, one `ssh-keygen -p`
 he must run because it needs the passphrase), or mint a separate
 passphrase-less automation key (I can do it unattended, but it adds a second
 key per machine and needs registering wherever the Studio must reach).
+
+## 2026-08-22 13:25 — Correction: it was never the passphrases
+
+Josh pushed back on my claim that the MacBook's key has no passphrase. He was
+right: `id_ed25519_macbook` is `aes256-ctr` encrypted, same as the Studio's
+key. My loopback test "proved" otherwise only because ssh silently used the
+**agent's** unlocked copy despite `-i`, so the test never touched the file.
+
+That single bad inference had produced two wrong conclusions, both now
+retracted:
+
+- "The Studio's key is not registered on GitHub." It is. Every earlier
+  agentless `-i ~/.ssh/id_ed25519_studio -o IdentitiesOnly=yes` probe failed
+  because BatchMode cannot prompt for the passphrase, not because GitHub
+  refused the key.
+- "Strip the passphrase / mint an automation key." Neither is needed.
+
+Actual root cause: **macOS rotates the per-user ssh-agent socket path on every
+login (`/var/run/com.apple.launchd.<random>/Listeners`) and an inbound SSH
+session never inherits `SSH_AUTH_SOCK`.** Both machines' launchd agents already
+hold their unlocked keys (MacBook `zBsbRxkw…`, Studio `KAV0p/+K…`); a machine
+reached over SSH simply had no way to find its own agent.
+
+Fix (`a1667cd`): a home-manager launchd login agent publishes a stable symlink
+`~/.ssh/agent.sock` → the live socket, and `Host *` sets
+`IdentityAgent ~/.ssh/agent.sock`. Darwin-only; the Linux home configuration is
+untouched.
+
+Verified after converging both machines, with no agent forwarding anywhere:
+
+- MacBook → Studio with `SSH_AUTH_SOCK` unset: works.
+- Studio → MacBook: works (`REVERSE_OK`).
+- Studio → GitHub: `Hi jmgilman!`, and `git ls-remote` succeeds.
+- Studio → MacBook `sudo -n`: works, so either machine can now converge the
+  other unattended.
+
+Both Macs are now genuinely symmetric for remote access. `ssh -A` is no longer
+needed for anything.
