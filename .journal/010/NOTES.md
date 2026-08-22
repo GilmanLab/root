@@ -33,3 +33,32 @@ Live survey (via nas01: remote, bootstrap-admin):
   membership comes with the compute-network design = this session).
 Next: put design options to Josh (nas01 pool layout, WD Reds/T19 timing,
 LACP vs single link, L2-only cluster/storage VLAN).
+
+## 2026-08-21 18:05 — Design settled (Josh rulings + research)
+Josh ruled: SN7100s = zfs mirror; LACP bond both lab SFP+; VLAN 30
+10.10.30.0/24 L2-only; HDD reality = 4x 6TB WD Red Pro waiting (5th later)
+— VISION's "5x 3TB" is stale, fix at close.
+Research (subagents, cited in agent://IncusOsStorage + agent://IncusOsNetwork):
+- Storage: PUT /os/1.0/system/storage (full config replace; keep
+  scrub_schedule). Types zfs-raid0/1/10/raidz1/2/3. raidz1 4→5 expansion
+  SUPPORTED (one device per resilver; ZFS 2.4.3). :wipe-drive endpoint for
+  dirty disks. Per-pool recovery keys in GET /system/security
+  state.pool_recovery_keys; global retrieved flag resets on pool create →
+  re-escrow + POST :retrieved. Incus consumption: :create-volume use=incus,
+  then per-member incus storage create --target M data zfs source=<pool>/incus
+  + final untargeted create. Cluster pools MUST exist on every member →
+  nas01-only HDD Incus pool unsupported; HDD stays OS-level until T16.
+- Network: bonds[] mode 802.3ad (LACP fast, layer3+4 hash); vlans[] object
+  with parent=bond/iface name, id, addresses. PUT is FULL REPLACE — include
+  mgmt verbatim + dns/time/proxy; always set confirmation_timeout, then POST
+  /system/network/:confirm. Roles today: storage=no-op, cluster=OVN encap
+  default only. Incus cluster.https_address CANNOT move live (offline
+  admin cluster edit on all members, appliance entry point UNVERIFIED).
+- DECISION: keep cluster raft/API/migration on VLAN 10; VLAN 30 = storage +
+  future instance traffic on bonds/10G. No gw01 changes. MTU 1500 (no jumbo).
+- DECISION: HDD pool = raidz1 4-wide (~18TB), expand to 5 when drive arrives.
+- Pools named: `data` (per-node NVMe), `hdd` (nas01 bulk). Incus cluster pool
+  `data` across all 4 members.
+Next: create nas01 data mirror → escrow → incus wiring; then sw-core01 tofu
+(VLAN 30 + 3 LAGs); then node network PUTs; labs; WD Red install when Josh
+is at the rack.
