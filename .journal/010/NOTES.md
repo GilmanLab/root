@@ -267,3 +267,14 @@ Escrow: zfs_pool_hdd_recovery_key → fleet/nas01/incusos.sops.yaml
 rerun = 14 ops all no-change. fleet#5 MERGED. T19 resolved (VISION).
 Session remaining: T48 retest when 10G DACs arrive (~2 days);
 upstream #1305/#1306 in review (app-build rework per stgraber).
+
+## 2026-08-22 10:00 — Close
+All PRs merged and local defaults fast-forwarded: fleet#3/#4/#5,
+networking#14/#15, secrets#34/#35, root#23. Upstream: incus-os#1306
+MERGED (app-build ice DDP, per stgraber; issue #1305) — waiting on the
+next IncusOS release. HANDOFF: 6x 10G SFP+ DACs arrive ~2026-08-24;
+swap sw-core01 ports 1–6 links, verify 10G/no-FEC link, retest VLAN 30
+(cross-node macvlan pings on fast30), rerun fleet-cluster deploys
+(expect no-change), then close T48. Either the DACs or the IncusOS
+release may independently fix the datapath — verify which. SUMMARY.md
+written; TECH_NOTES updated; session closed.

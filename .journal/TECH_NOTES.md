@@ -35,17 +35,47 @@
   fTPM on previously-used hardware, never write install media to an internal
   drive, never install through Ventoy, escrow recovery keys before any
   reboot test.
-- Private `GilmanLab/fleet` holds bare-metal instance config only (no k8s).
-  Install images are built locally with componere's `incusos-builder` (from
-  source until released; pin recorded in the fleet README) and are never
-  published. Fleet CI validates configs with the pinned builder.
+- Private `GilmanLab/fleet` holds bare-metal instance config (no k8s):
+  day-0 seeds (`nodes/<name>/config.yaml`) AND day-2 cluster convergence —
+  the `cluster/` pyinfra project (session 010) owns storage pools and the
+  fast/storage network via `CI= moon run fleet-cluster:storage|network`
+  (@local connector, authenticated `nas01:` remote required; ALL cluster
+  config flows through it, no ad-hoc commands). Deploys assert the
+  recovery-key `:retrieved` flag: convergence fails until keys are
+  escrowed + acked (escrow itself stays a runbook step). Seeds mirror
+  runtime network state for reinstalls. Install images are built locally
+  with componere's `incusos-builder` (pin in the fleet README) and never
+  published; fleet CI validates seeds with the pinned builder + runs the
+  cluster project checks.
+- Storage (session 010): every node has an encrypted `data` zpool (nas01 =
+  mirror of the 2x 1TB SN7100s, ~928GB; labs = single 2TB 990 EVO) backing
+  the cluster-wide Incus pool `data` (`source=data/incus`). nas01 also has
+  `hdd` (zfs-raidz1, 4x 6TB WD Red Pro, 17.4TB usable) — OS-level only:
+  nas01-only Incus cluster pools are unsupported; Incus wiring waits for
+  the object-storage design (T16). 5th-drive expansion = device append
+  (raidz expansion, one device per resilver). Pool recovery keys:
+  `fleet/<node>/incusos.sops.yaml` (`zfs_pool_<name>_recovery_key`).
+  CAUTION: `:wipe-drive` full-zeroes TRIM-less HDDs (~9h/6TB) synchronously;
+  duplicate wipe POSTs queue behind a storage lock and survive client
+  disconnects (the same lock wedges `:reboot`) — check `debug/processes`
+  before re-POSTing. nas01 N5 Pro bays hot-swap cleanly.
+- Storage network VLAN 30 (`10.10.30.0/24`, L2-only, no gateway, not on the
+  gw01 trunk): nodes have `fast`/`fast30` (labs = active-backup bond over
+  the SFP+ pair — LACP is non-viable, see T48; nas01 = plain 10GbE) with
+  addresses mirroring mgmt last octets. `vlan_tags` on the fast parent is
+  REQUIRED (IncusOS interfaces are internal VLAN-filtering bridges).
+  Incus cluster raft/API deliberately stays on VLAN 10 (address move =
+  offline all-member edit; bulk traffic rides instance VLANs later).
+  T48 BLOCKER: lab datapath dead switch→host — IncusOS ships no ice DDP
+  (E810 Safe Mode) and the 25G DACs at 10G mis-negotiate FEC. Upstream fix
+  MERGED (lxc/incus-os#1306); 6x 10G DACs arrive ~2026-08-24. Retest:
+  cross-node macvlan pings on fast30, then deploy reruns.
 - nas01 NICs: `38:05:25:37:8d:7a` = RTL8126A 5GbE → `sw-mgmt01` port 8
   (mgmt, links 2.5G, MAC-bound in the seed); `38:05:25:37:8d:7b` = RTL8127A
-  10GbE → `sw-core01` port 7 (role deferred to the storage design). The
-  128GB RS128 is the OS drive; both 1TB SN7100s are blank pending the
-  storage design. Lab-node mgmt NICs (10GbE, MAC-bound): lab01
-  `38:05:25:35:48:87`, lab02 `…:4b:05`, lab03 `…:43:f1`; their SFP+ links
-  and 2TB data drives are similarly roleless/blank pending that design.
+  10GbE `fast` → `sw-core01` port 7 (10G optic — the proven link pattern).
+  Lab-node mgmt NICs (10GbE, MAC-bound): lab01 `38:05:25:35:48:87`, lab02
+  `…:4b:05`, lab03 `…:43:f1`; lab SFP+ pairs (E810-XXV) → sw-core01
+  ports 1–6, VLAN 30 tagged.
 - `sw-mgmt01` (TRENDnet TEG-3102WS, IMG-3.01.347) is fully configured per the
   address plan: static mgmt `10.10.70.2/24` on VLAN 70 (gw 10.10.70.1), VLAN
   10 tagged trunk port 1 + untagged 2/4/6/8, VLAN 70 untagged 3/5/7, VLAN 1
@@ -124,7 +154,8 @@
   (`10.10.70.0/24`). VLAN 20 and BGP are retired.
 - The former UM760 cluster node is `sandbox01` on VP6630 `eth3`, untagged VLAN
   40, with DHCP reservation `10.10.40.10`.
-- `sw-core01` (MikroTik CRS309, RouterOS 7.16.2, static `10.10.10.2` on VLAN
+- `sw-core01` (MikroTik CRS309, RouterOS 7.24 since session 010, static
+  `10.10.10.2` on VLAN
   10) carries core Layer 2 VLAN traffic and is OpenTofu-managed: root
   `routeros/sw-core01/` in `GilmanLab/networking`, state key
   `networking/routeros/sw-core01.tfstate` in the lab bucket, REST over
