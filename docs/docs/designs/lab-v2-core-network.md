@@ -70,7 +70,7 @@ flowchart LR
     HOME[Home networks] --> RTR[rtr01]
     RTR -->|10.0.0.0/30 transit| GW[gw01]
     GW -->|VLAN 10 and 40 trunk| CORE[sw-core01]
-    CORE -->|SFP+ links, roles assigned later| HOSTS[lab01–03 and nas01]
+    CORE -->|VLAN 30 storage: SFP+ LAGs and 10GbE| HOSTS[lab01–03 and nas01]
     GW -->|VLAN 10 and 70 trunk| MGMT[sw-mgmt01]
     MGMT -->|10GbE RJ45 management| NODES[lab01–03]
     MGMT -->|2.5GbE RJ45 AMT| AMT[lab01–03 AMT]
@@ -85,10 +85,11 @@ untagged access to the upper 10GbE RJ45 port on each MS-02 and VLAN 70 as
 untagged access to the lower 2.5GbE vPro/AMT port. Both VLANs use a tagged
 uplink to `gw01`.
 
-The two MS-02 SFP+ interfaces and the `nas01` 10GbE interface remain physically
-connected to `sw-core01`. Their instance, cluster, storage, and aggregation
-roles are deferred. Initial IncusOS installation and management do not depend
-on those links.
+The two MS-02 SFP+ interfaces form an 802.3ad LAG per node on `sw-core01`, and
+the `nas01` 10GbE interface connects to port 7. These links carry the
+non-routed VLAN 30 storage network (session 010); instance and aggregation
+VLANs join them when their first consumer arrives. Initial IncusOS
+installation and management do not depend on those links.
 
 ## Device Responsibilities
 
@@ -96,7 +97,7 @@ on those links.
 | --- | --- |
 | `rtr01` | Home routing, internet edge, upstream transit endpoint, and route to `10.10.0.0/16` |
 | `gw01` | Lab gateways, static routing, firewall policy, DHCP, DNS forwarding, Tailscale subnet routing, source NAT, and local `glab.lol` mirror |
-| `sw-core01` | Layer 2 transport for management and future compute-facing VLANs |
+| `sw-core01` | Layer 2 transport for management, the storage VLAN, and future compute-facing VLANs |
 | `sw-mgmt01` | Layer 2 separation of host management and AMT/OOB traffic |
 | `sandbox01` | General-purpose tests and spikes on the isolated sandbox/workload VLAN |
 
@@ -160,6 +161,13 @@ port, direction, and owner in the version-controlled gateway policy.
 The authoritative `gw01` source is the tracked
 configuration template and CoreDNS assets in `GilmanLab/networking`; encrypted
 inputs remain in `GilmanLab/secrets` and are rendered in memory.
+
+The storage-network configuration on the IncusOS nodes (bonds, VLAN 30
+addresses, and storage pools) has its authoritative source in the
+[`cluster/`](https://github.com/GilmanLab/fleet/tree/master/cluster) pyinfra
+project in `GilmanLab/fleet`, which converges the nodes through the Incus and
+IncusOS APIs; the node seeds mirror the converged network state for
+reinstalls.
 
 The authoritative `sw-core01` source is the
 [`routeros/sw-core01/`](https://github.com/GilmanLab/networking/tree/master/routeros/sw-core01)

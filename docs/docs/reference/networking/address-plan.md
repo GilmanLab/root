@@ -34,6 +34,7 @@ addresses.
 | VLAN | Name | Prefix | Gateway | Use |
 | --- | --- | --- | --- | --- |
 | `10` | Management | `10.10.10.0/24` | `10.10.10.1` | IncusOS management, network-device management, and `nas01` management |
+| `30` | Storage | `10.10.30.0/24` | None (not routed) | Incus node storage network on the compute-facing `sw-core01` links |
 | `40` | Sandbox/workload | `10.10.40.0/24` | `10.10.40.1` | `sandbox01` and future explicitly attached workload endpoints |
 | `70` | OOB | `10.10.70.0/24` | `10.10.70.1` | MS-02 AMT, `pikvm01`, `kvm01`, and management-switch administration |
 
@@ -43,6 +44,11 @@ Tinkerbell provisioning network.
 The management and OOB VLANs remain separate. The sandbox/workload VLAN cannot
 initiate connections to management or OOB endpoints. Firewall policy permits
 required administration flows explicitly and permits established replies.
+
+The storage VLAN is Layer 2 only. It has no gateway interface, is not carried
+on the `gw01` trunk, and is therefore unreachable from every routed network by
+construction. Its addresses are static IncusOS runtime configuration converged
+by the `GilmanLab/fleet` `cluster/` project and mirrored in each node's seed.
 
 ## Address allocations
 
@@ -59,15 +65,15 @@ required administration flows explicitly and permits established replies.
 
 ### Hosts
 
-| Device | Management | OOB | Notes |
-| --- | --- | --- | --- |
-| `lab01` | `10.10.10.11` | `10.10.70.11` | 10GbE RJ45 management; 2.5GbE RJ45 AMT |
-| `lab02` | `10.10.10.12` | `10.10.70.12` | 10GbE RJ45 management; 2.5GbE RJ45 AMT |
-| `lab03` | `10.10.10.13` | `10.10.70.13` | 10GbE RJ45 management; 2.5GbE RJ45 AMT |
-| `nas01` | `10.10.10.14` | — | 5GbE RJ45 management link through `sw-mgmt01` |
-| `sandbox01` | `10.10.40.10` | — | Direct untagged sandbox/workload attachment to `gw01` |
-| `pikvm01` | — | `10.10.70.20` | Direct untagged attachment to `gw01` |
-| `kvm01` | — | `10.10.70.21` | Direct untagged attachment to `gw01` |
+| Device | Management | Storage | OOB | Notes |
+| --- | --- | --- | --- | --- |
+| `lab01` | `10.10.10.11` | `10.10.30.11` | `10.10.70.11` | 10GbE RJ45 management; SFP+ LAG storage; 2.5GbE RJ45 AMT |
+| `lab02` | `10.10.10.12` | `10.10.30.12` | `10.10.70.12` | 10GbE RJ45 management; SFP+ LAG storage; 2.5GbE RJ45 AMT |
+| `lab03` | `10.10.10.13` | `10.10.30.13` | `10.10.70.13` | 10GbE RJ45 management; SFP+ LAG storage; 2.5GbE RJ45 AMT |
+| `nas01` | `10.10.10.14` | `10.10.30.14` | — | 5GbE RJ45 management link through `sw-mgmt01`; 10GbE storage |
+| `sandbox01` | `10.10.40.10` | — | — | Direct untagged sandbox/workload attachment to `gw01` |
+| `pikvm01` | — | — | `10.10.70.20` | Direct untagged attachment to `gw01` |
+| `kvm01` | — | — | `10.10.70.21` | Direct untagged attachment to `gw01` |
 
 `gw01` supplies DHCP on every client VLAN. Dynamic clients use `.200` through
 `.250` within each client VLAN. DHCP-served named hosts (`sandbox01`,
@@ -78,9 +84,11 @@ configuration.
 Infrastructure endpoints do not depend on DHCP: gateway and managed-switch
 interface addresses and the local DNS mirror address are static interface
 configuration, IncusOS node management addresses are static in each node's
-seed (bound to the management NIC's hardware MAC in `GilmanLab/fleet`), and
-lab-node AMT addresses are static in MEBx so out-of-band access survives a
-gateway outage. The AMT interfaces have no DHCP reservations.
+seed (bound to the management NIC's hardware MAC in `GilmanLab/fleet`),
+storage-network addresses are static IncusOS runtime configuration (converged
+by the fleet `cluster/` project and mirrored in the seeds), and lab-node AMT
+addresses are static in MEBx so out-of-band access survives a gateway outage.
+The AMT interfaces have no DHCP reservations.
 
 ## Gateway interface mapping
 
@@ -117,11 +125,13 @@ the `nas01` 5GbE NIC therefore negotiate no faster than 2.5Gbps on this switch.
 ### `sw-core01`
 
 Port 8 is the 802.1Q trunk to `gw01` and carries VLANs 10 and 40. VLAN 10
-provides the switch management path. Ports 1 through 6 connect the two SFP+
-interfaces from each MS-02, and port 7 connects the `nas01` 10GbE interface.
-Those compute-facing links receive instance, cluster, or storage VLAN
-membership only after the compute-network design assigns their roles; they are
-not required for initial IncusOS management boot.
+provides the switch management path. Ports 1 through 6 form three 802.3ad
+LAGs, one per MS-02 SFP+ pair: `bond-lab01` (ports 1–2), `bond-lab02` (ports
+3–4), and `bond-lab03` (ports 5–6). Port 7 connects the `nas01` 10GbE
+interface. VLAN 30 is tagged on the three LAGs and port 7; those links carry
+no other VLAN membership yet and are not required for IncusOS management
+boot. Instance/workload VLANs join these links when their first consumer
+arrives.
 
 ## DHCP and DNS ownership
 
