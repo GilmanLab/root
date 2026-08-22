@@ -264,3 +264,61 @@ Verified after converging both machines, with no agent forwarding anywhere:
 
 Both Macs are now genuinely symmetric for remote access. `ssh -A` is no longer
 needed for anything.
+
+## 2026-08-22 13:45 — Homebrew handed over to Nix
+
+Applied `dd93c7d` to both machines. `homebrew.onActivation.cleanup = "uninstall"`
+is live, so Nix is now authoritative: undeclared casks and formulae are removed
+on every activation instead of accumulating.
+
+Moved to `home/packages.nix` (16): age, bitwarden-cli, cilium-cli, container,
+flyctl, helmfile, hubble, iperf3, k3d, lima, mise, qemu, shellcheck, skopeo,
+tree, worktrunk. Already there and now de-duplicated from Homebrew: ripgrep,
+sops, kubernetes-helm; plus gnupg (systemPackages) and direnv
+(`programs.direnv`).
+
+Kept on Homebrew deliberately, with the reason recorded inline in
+`configuration.nix`: ansible (nixpkgs ships `ansible-core` without the
+community collections — Josh's call), ffmpeg (nixpkgs 8.1 vs 9.0), pandoc
+(3.7 vs 3.10), pinentry-mac (1.1 vs 1.3), incus (**nixpkgs marks it
+linux-only and there is no darwin client — Homebrew is the only source**),
+and the version managers (goenv/nodenv/pyenv/pipx/poetry/rustup/cdktf/dagger/
+mockery).
+
+Casks dropped: claude, logseq, readdle-spark, visual-studio-code.
+
+Result — MacBook formulae 150 → 76, Studio → 73; casks on both are exactly the
+15 declared plus three cask-level auto-deps (`ollama-app`, `syncthing-app`,
+`tailscale-app`).
+
+Verified on both machines: `wt`, `mise`, `sops`, `age`, `rg`, `helm`, `skopeo`,
+`lima`, `qemu-img` resolve to `~/.nix-profile/bin`; `gpg` to
+`/run/current-system/sw/bin`; `incus`, `ansible`, `pandoc`, `tree` to
+`/opt/homebrew/bin`.
+
+Three findings worth keeping:
+
+- **`go` was never a manual install.** `brew uses --installed go` returns only
+  `golangci-lint`, whose sole dependency is `go`. Homebrew retains dependencies
+  of declared packages, so declaring `golangci-lint` would keep `go` for free.
+  Neither is declared, so both were removed; `goenv` is unaffected because it
+  builds its own toolchains under `~/.goenv`.
+- **`tree` survives from Homebrew on both machines** even though Nix provides
+  it — it is a dependency of `ansible`, which we kept. Harmless, but it means
+  `/opt/homebrew/bin/tree` shadows nothing: the Nix profile resolves first.
+- **The Studio's first activation failed**: `brew bundle` could not link
+  `python@3.14` because the cleanup pass removed it in the same run that
+  `ansible` needed it back. `brew link --overwrite python@3.14` plus a second
+  `darwin-rebuild switch` converged cleanly. Expect this class of ordering
+  failure whenever cleanup and install touch the same dependency.
+
+**`wt` jumped 0.37.1 → 0.71.0** (34 releases). `wt list --format=json` still
+works and its JSON is still clean on stdout, but 0.71 prints a schema warning
+to stderr: *"JSON output is schema 1; a future release switches the default to
+schema 2"*. The `worktrunk` skill is documented as verified against 0.37.1 and
+now needs re-grounding; the json-schema pin (`[list] json-schema = 1`) is the
+decision to make before schema 2 lands.
+
+Unrelated observation while testing: the MacBook's `incus` has no `nas01`
+remote configured — only `local` and a stale `incusos-spike`
+(`172.16.140.134`). Lab CLI access from this machine is not set up.
