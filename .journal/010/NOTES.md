@@ -142,3 +142,49 @@ Remaining: T48 ruling from Josh (RouterOS upgrade vs single-link), WD Red
 physical install (blocked on rack access). Test containers
 v30a/v30b/vlan30test parked on nas01/lab01 pool `data` for the T48 retest
 — delete after verification.
+
+## 2026-08-21 22:30 — ROOT CAUSE: LACP mux never converges (E810 ↔ RouterOS)
+Josh ruled: upgrade. Done — RouterOS 7.16.2 → 7.24 + RouterBOOT 7.24
+(snapshot escrandowed locally /tmp/sw-core01-pre-upgrade-7162.rsc; post-
+upgrade tofu plan clean; bonds re-formed). Datapath STILL dead.
+Further isolation: lab01 NIC member rx = 0 during nas01-side floods
+(switch never distributes); STP forwarding; CPU path dead on 7.24 too;
+switch-chip port layer clean. monitor-slaves is the smoking gun:
+switch actor flags A-GS---- (Sync, never Collecting/Distributing);
+host partner-flags ATG---F- (DEFAULTED — host receives NO switch
+LACPDUs; requests fast). Both muxes correctly refuse to open the data
+path per 802.3ad. Summary "active-ports" display was misleading.
+Matches known ice/E810 LACP pathologies (Talos #12586 class).
+DECISION: drop LACP; lab bonds → active-backup (host-side failover,
+bond MAC on active port), switch → six plain tagged bridge ports, no
+LAG. Keeps link redundancy, removes the LACP dependency entirely.
+RouterOS 7.24 upgrade stands (wanted the bug-fix window regardless;
+release notes fixes + current stable).
+
+## 2026-08-21 23:55 — TRUE root cause: E810 Safe Mode + FEC mismatch
+Correction to 22:30 entry: RouterOS was EXONERATED. Post-upgrade (7.24)
+bonds aggregated cleanly but datapath stayed dead. Active-backup pivot
+(no LACP) + plain tagged switch ports let host TX flow (all four host
+MACs learned on VID 30) but host RX stayed dead. Chased through: IncusOS
+internal-bridge architecture discovery (nft.go: _p/_i/_v/_b devices) →
+added vlan_tags=[30] to fast parents (correct + kept, but insufficient).
+tcpdump via macvlan taps in containers proved lab01→nas01 ARP arrives;
+switch tx counters proved switch transmits toward labs; lab NIC rx_bytes
+ZERO — frames die below the MAC, ports in promisc. FEC knobs on switch
+(fec74/fec91/off, autoneg off): no effect, link never bounced (likely
+unsupported at 10G on 98DX8216).
+/os/1.0/debug/log delivered the verdict: ice "DDP package file was not
+found... Entering Safe Mode" (IncusOS base image ships NO firmware
+packages at all — checked mkosi.conf.d) and "Requested FEC: RS-FEC,
+Negotiated FEC: NONE, Autoneg Negotiated: False" on the 25G DACs forced
+to 10G. nas01 works because port 7 is a 10G optic (no FEC/autoneg
+games) and Realtek. This one fault explains EVERYTHING back to the
+first LACP flap (hosts never received a single switch LACPDU).
+debug/:run-script requires S/MIME signing with the upstream image key —
+no host-side ethtool confirmation possible.
+Merged: networking#15 (drop LAGs, plain tagged ports 1–7),
+fleet#4 (active-backup + vlan_tags + seeds). Switch/tofu converged;
+manual diagnostic pokes reverted; test containers deleted.
+Remediation paths (T48): (a) upstream lxc/incus-os issue — ship
+intel ice DDP firmware; (b) 10G-rated DACs/optics for the six lab
+links. Draft issue text ready; Josh to approve filing.
