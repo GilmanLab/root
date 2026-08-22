@@ -255,3 +255,30 @@ New finding worth promoting: **`INCUS_REMOTE=nas01 incus query /1.0` works**
 library usable from the operator box, after which fleet_cluster could delete
 `_cli.py` and its duplicated facts. Recorded in T49 along with the two
 certificate gaps (cluster-cert operation; make `certificate_fingerprint` public).
+
+## 2026-08-22 10:50 — Upstream issues filed
+- [meigma/pyinfra-incus#20](https://github.com/meigma/pyinfra-incus/issues/20)
+  "Support IncusOS targets: run the CLI on the controller against a named
+  remote" — evidence: `_cli.py:75`/`:100` builds bare `["incus", *args]`;
+  README lines 16-25 require the `incus` CLI + root on the target, which
+  IncusOS structurally cannot provide. Proposes opt-in `remote=` threaded
+  through facts/ops (prefix preferred over `INCUS_REMOTE` so it cannot leak),
+  composing with the existing `?target=` member scoping in `facts.py:92`;
+  keeps current behaviour default; asks the argv-quoting contract to cover the
+  remote value. Flags `/os/1.0` facts/ops as the natural follow-up and records
+  the `incus query` constraint (no stdin form → literal `--data`, needs an
+  explicit carve-out in the "nothing secret in argv" contract).
+- [meigma/pyinfra-incus#21](https://github.com/meigma/pyinfra-incus/issues/21)
+  "Missing cluster certificate support" — trust store vs `cluster.crt` table;
+  asks for `operations.cluster_certificate` with fingerprint-diff idempotency
+  against `facts.Server`'s `environment.certificate_fingerprint`, the
+  all-members-Online precondition, explicit no-rollback docs, no-restart
+  behaviour, and a file-path key contract (the CLI takes paths, so the stdin
+  contract cannot apply) with the SOPS→`mktemp`→`trap rm` pattern as the
+  recommended shape. Also asks to make `_control_plane.certificate_fingerprint`
+  public, with the two findings from reusing it: lenient base64 decoding needs a
+  `0x30 0x82` DER guard, and fingerprints should be colon-stripped/lowercased
+  before comparison.
+
+Both labelled `enhancement`; #21 notes it depends on #20 for IncusOS fleets but
+is independently useful for SSH-managed clusters. T49 updated with both links.
