@@ -69,14 +69,18 @@ required administration flows explicitly and permits established replies.
 | `pikvm01` | — | `10.10.70.20` | Direct untagged attachment to `gw01` |
 | `kvm01` | — | `10.10.70.21` | Direct untagged attachment to `gw01` |
 
-`gw01` supplies DHCP on every client VLAN. Named hosts use DHCP reservations.
-Gateway and managed-switch interface addresses and the local DNS mirror address
-are static. Dynamic clients use `.200` through `.250` within each client VLAN.
-Reservations use each endpoint's permanent hardware MAC address as recorded in
-the version-controlled gateway configuration.
+`gw01` supplies DHCP on every client VLAN. Dynamic clients use `.200` through
+`.250` within each client VLAN. DHCP-served named hosts (`sandbox01`,
+`pikvm01`, `kvm01`) use reservations keyed on each endpoint's permanent
+hardware MAC address as recorded in the version-controlled gateway
+configuration.
 
-IncusOS seed data enables DHCP on the 10GbE management interface. The 2.5GbE
-vPro interface receives its OOB reservation independently from AMT firmware.
+Infrastructure endpoints do not depend on DHCP: gateway and managed-switch
+interface addresses and the local DNS mirror address are static interface
+configuration, IncusOS node management addresses are static in each node's
+seed (bound to the management NIC's hardware MAC in `GilmanLab/fleet`), and
+lab-node AMT addresses are static in MEBx so out-of-band access survives a
+gateway outage. The AMT interfaces have no DHCP reservations.
 
 ## Gateway interface mapping
 
