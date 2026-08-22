@@ -25,3 +25,53 @@ Current state of the world:
 Plan: wait for the user's actual request, then scope the work, load any
 task-relevant skills, and follow the sub-repository branch/worktree + PR rules
 from `AGENTS.md`.
+
+## 2026-08-21 22:45 — Operations Center / monitoring research + plan
+Request: plan how to deploy Operations Center to monitor the lab cluster (T44).
+
+Headline finding: **OC is not a monitoring system and cannot adopt this
+cluster.** Two parallel researchers (`history://OpsCenterCaps`,
+`history://IncusObservability`) plus local primary sources:
+- OC v0.8.1 (2026-08-07, pre-1.0, 40 open issues) = inventory + provisioning +
+  update channels + warning ledger; 5-minute reachability poll. No time series,
+  no alerting; the released OpenAPI has no metrics surface and the daemon wires
+  no `/metrics` handler (confirmed in the local module cache — the
+  `*_prometheus_gen.go` middleware is dead code).
+- Registration is one-way: `provider_operations_center.go:201` returns
+  `ErrDeregistrationUnsupported`. It also transfers OS/app/Secure-Boot update
+  resolution to OC, colliding with the pinned-seed model (T25/T26). No
+  documented import/adopt path for an already-formed cluster.
+- OC deployment itself is easy when wanted: it is an IncusOS *application*
+  (one primary app per machine → dedicated appliance), and `incusos-builder`
+  already supports the `operations-center` seed section with e2e tests.
+
+Monitoring turned out to be nearly free and needed no node-side change:
+- IncusOS ships `prometheus-node-exporter` (localhost:9100) and Incus 7.3 merges
+  it into `/1.0/metrics`. Verified live on all four members with the existing
+  `bootstrap-admin` cert: HTTP 200, ~3300 `node_*` + ~98 `incus_*` series,
+  including `node_zfs_zpool_state`, hwmon temps, disks, systemd, filesystems.
+  `core.metrics_address` is NOT required — the existing `core.https_address`
+  listener serves it.
+- All members present the shared cluster cert (SAN `DNS:nas01.glab.lol` only),
+  so scrapers must pin `server_name: nas01.glab.lol` + cluster cert as CA.
+- Ran step A0 for real: Docker Prometheus (:9099) + Grafana (:3009) on the
+  workstation, config in `/tmp/monspike`. All four targets up; Grafana dashboard
+  1860 renders with zero "No data" (nas01: CPU 13.4%, RAM 11.7%/29GiB, 24 cores,
+  uptime 1.2d, per-pool filesystems, per-NIC mgmt/fast/fast30). Official Incus
+  dashboard 19727 also renders but is instance-centric and thin with one
+  container. Gotchas recorded: 19727's datasource placeholder is `${DS_INCUS}`;
+  never relabel `instance` (breaks community dashboards).
+- Gaps that need a future `/os/1.0` poller: pending-update/`needs_reboot`, SMART
+  and degraded-vdev detail, Secure Boot/TPM state, LACP/LLDP link state. Remote
+  syslog (`/os/1.0/system/logging`) is unset on all nodes.
+
+Plan written to `.journal/011/OPS_CENTER_AND_MONITORING_PLAN.md`: Track A
+(monitoring, start now: A0 done → `mon01` on the cluster via tofu in `fleet` +
+metrics-scoped cert via `fleet_cluster` → alerting with an external dead-man's
+switch → logs → coverage gaps) and Track B (OC spike, decoupled, run entirely on
+`sandbox01` with throwaway IncusOS VMs; never switch a production node's provider
+until upstream answers adoption/observation-only registration).
+
+Awaiting Josh's rulings on: scraper placement (`mon01` on-cluster vs. `sandbox01`
+plus one firewall rule), container vs. VM for `mon01`, alert delivery target, and
+whether the OC spike happens now or after the Talos mgmt cluster.
