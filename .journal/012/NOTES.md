@@ -796,3 +796,64 @@ The tunnel keeps running on the Studio: container healthy,
 background service with no agent-facing surface — which also removes the
 machine-specific MCP entry that would have complicated sharing `mcp.json`
 later.
+
+
+## 2026-08-22 19:30 — exa dropped; Phase 4 (skills) complete
+
+`exa` removed from `mcp.json` on both machines — Josh has not seen agents use it
+and the account is likely out of credits. Keep-set is now **9 servers**:
+browserless, cloudflare-api, context7, agentmail, gitnexus, bitwarden,
+1password, adrafinil, chrome-devtools. The exposed `EXA_API_KEY` is therefore
+moot, though it still sits in `~/.claude.json` until the purge.
+
+### Skills reconciled
+
+Three-way comparison came out cleaner than expected: `~/code/agent-skills` is
+**byte-identical** to `~/.claude/skills` for all 25 shared skills, so the
+earlier "`cli/SKILL.md` differs" divergence was the **codex** copy being stale,
+not the claude one. Two skills existed only in the materialized copy
+(`language-style`, `tmux-interactive`) and two more were untracked working-tree
+directories (`cue`, `new-repo-go`).
+
+Promoted all four into the repo (`ccf337b`), so it now holds 27 skills and is
+the complete source of truth. The Studio's checkout had the same two untracked
+directories with identical hashes; verified, removed, pulled. Both checkouts now
+sit at the same commit, and both had **no upstream tracking configured** —
+fixed.
+
+Discovered the repo already carried its own materialization mechanism:
+`sync.sh <dest>` plus a justfile with `claude` and `codex` targets that rsync
+`--delete` into each tool's directory. That is exactly how the copies drifted —
+each target was last run at a different time.
+
+### Rendering
+
+New `home/skills.nix` points `~/.agents/skills` at the live checkout using
+`config.lib.file.mkOutOfStoreSymlink`, rather than copying into the Nix store:
+
+- omp's `agents` provider treats `~/.agents/skills` as the canonical
+  user-level root, with an `enableAgentsUser` toggle independent of the
+  claude/codex providers — so it survives Phase 3.
+- An out-of-store symlink means editing a skill takes effect immediately: no
+  rebuild, no rsync. Verified live — a probe file created in the checkout
+  appeared instantly under `~/.agents/skills`.
+- omp enumerates one level deep for `<name>/SKILL.md`, so the repo's
+  `README.md`, `justfile`, `sync.sh`, `LICENSE-*` and `.git` are ignored rather
+  than mistaken for skills.
+
+Applied to both machines: 27 skills each, directory lists identical.
+
+Deleted `~/.codex/skills/.system/` (the 6 vendor skills: `skill-creator`,
+`review-agent`, `imagegen`, `openai-docs`, `plugin-creator`,
+`skill-installer`) per Josh's decision.
+
+Added a `just omp` target to the skills repo as a fallback for any machine
+without the Nix configuration.
+
+### Remaining
+
+- **Phase 3** — set `disabledProviders: [claude, codex, gemini, cursor]`. Now
+  unblocked, since `~/.agents/skills` is populated on both machines. Josh should
+  run `/mcp list` before and after.
+- **Phase 5** — purge `~/.codex ~/.gemini ~/.claude ~/.claude.json` after the
+  soak; tarball first.
