@@ -638,3 +638,58 @@ Auth stays machine-local by design: omp credentials live in `agent.db`, so the
 Studio needs its own sign-in.
 
 Sync progress at this point: 4,107 of 7,287 files, 1.17 of 4.37 GB.
+
+
+## 2026-08-22 17:55 — Agents and roles: they were not synced; now mostly are
+
+Josh asked whether omp's agents and role configuration travel. They did not —
+the first pass only covered `sessions/`.
+
+What each thing actually is, per `omp://task-agent-discovery.md`:
+
+- **User task agents**: `~/.omp/agent/agents/*.md` — 17 definitions
+  (`planner`, `programmer`, `reviewer`, `security-reviewer`,
+  `complexity-reviewer`, `qa`, …), 72 KB. Discovery order is project
+  `.omp/agents` → user `~/.omp/agent/agents` → extension roots → Claude plugin
+  roots → bundled, first-wins by exact name. **Absent on the Studio.**
+- **Roles**: `modelRoles` and `task.agentModelOverrides` in
+  `~/.omp/agent/config.yml`. Agent frontmatter refers to roles as `@review`,
+  `@fast_worker`; the concrete selector lives in `modelRoles`, so an agent file
+  without its role mapping resolves differently or not at all. Task model
+  precedence is `task.agentModelOverrides[name]` → frontmatter `model` list →
+  parent's model.
+- **Extensions**: `~/.omp/agent/extensions/gitnexus-steering.ts`, 8 KB.
+  Extension roots also contribute their own `agents/` directories.
+
+Added two more Syncthing folders — siblings of `sessions/`, so no nesting
+conflict:
+
+| ID | Path | Files |
+|---|---|---|
+| `omp-agents` | `~/.omp/agent/agents` | 17 |
+| `omp-extensions` | `~/.omp/agent/extensions` | 1 |
+
+Both reached parity within seconds. Verified the Studio's agent list is
+byte-identical to the MacBook's.
+
+**`config.yml` remains the one unsynced piece.** It is a file, not a directory,
+so it cannot be a Syncthing folder root, and it sits beside the SQLite files so
+its parent cannot be one either. Right now both machines match
+(md5 `0de0324f…`) only because I copied it by hand.
+
+Options recorded for later:
+
+1. Move the real file into a synced directory and symlink
+   `~/.omp/agent/config.yml` at it. Works only if omp appends/rewrites in place;
+   if it writes a temp file and renames over the path, the rename replaces the
+   symlink with a regular file and parity silently stops. The presence of
+   `config.yml.lock` hints at locked writes but does not settle the question.
+2. Re-root the sync at `~/.omp/agent` with an allowlist ignore file
+   (`!/agents/**`, `!/extensions/**`, `!/config.yml`, `!/sessions/**`, then
+   `*`), replacing the three folders with one. Cleanest long term; costs a
+   re-scan of 4.37 GB, though Syncthing would match the existing files by hash
+   rather than re-download them.
+3. Leave it manual. It changes rarely — model role edits and theme changes.
+
+Not doing anything irreversible while the initial 4.37 GB transfer is still in
+flight.
