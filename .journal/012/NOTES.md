@@ -455,3 +455,43 @@ hold stale directories from the pre-rename tokens (0.11.10, 1.30.0-1, 1.86.4),
 so `brew list --cask` counts both names. They resolve to the same casks as the
 `-app` tokens, so uninstalling by the old name would remove the live app.
 Leaving them.
+
+
+## 2026-08-22 15:50 — Syncthing: current state and whether the star topology is needed
+
+Surveyed before answering.
+
+Both Macs still run Syncthing 2.x (MacBook 2.1.2-1, Studio 2.0.14-1) with two
+folders each, **shared only with the dead NAS**, never with each other:
+
+| Folder ID | Label | Path | MacBook | Studio |
+|---|---|---|---|---|
+| `p6f3q-wfq4t` | Work | `~/work` | 137 GB | 123 GB |
+| `uqmgt-4j7hk` | Code | `~/code` | 63 GB | 46 GB |
+
+Devices: MacBook `SPFY23F`, Studio `U3DCZMT`, NAS `T4UIVBG`. The old NAS
+(`192.168.2.30`) is **down** — no ICMP, no SSH — so nothing has synced for some
+time and the two Macs cannot reach each other at all: they have never been
+introduced.
+
+Content profile, which is the decisive fact:
+
+- `~/code`: 76 git repos, **61 Worktrunk `.wt` worktrees**.
+- `~/work`: 77 git repos, 71 GB in `catalyst-world` alone, plus 60
+  `node_modules`, 49 `build`, 45 `dist`, 19 `.venv`, 16 `.terraform`, 10
+  `target` directories.
+
+So ~200 GB across ~153 git repositories and their build output — almost
+entirely reproducible or already replicated by git remotes.
+
+Conclusions given to Josh: the star was never required (Syncthing is
+peer-to-peer; the hub existed only because the Macs were never peered), the
+always-on role the NAS played is now filled by the never-sleeping Studio, and
+Syncthing is the wrong mechanism for git trees — `.git` has no transactional
+guarantee under file-level sync, and Worktrunk worktrees embed absolute paths
+into `.git` files that are machine-specific. Also flagged that simply peering
+the two Macs now would union-merge two divergent 130 GB trees, resurrecting
+deletions and producing `.sync-conflict` files across 153 repos.
+
+Re-establishing a NAS peer is blocked anyway: nas01's `hdd` pool is OS-level
+only and Incus wiring waits on the object-storage design (T16).
