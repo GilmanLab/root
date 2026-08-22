@@ -126,3 +126,19 @@ datapath defect on 98DX8216; changelogs 7.17-7.19 fix a family of
 bridge with bonded interfaces"). Diagnostics reverted; switch clean vs
 committed config. Test containers v30a/v30b/vlan30test still on pool
 data for retest. Decision for Josh: upgrade RouterOS vs single-link now.
+
+## 2026-08-21 21:20 — PRs merged, docs and tracker updated
+Merged: fleet#3 (cluster/ project + seed sync — seeds now mirror runtime
+fast/fast30; CI green incl. new Cluster checks lane + pinned-builder seed
+validation), networking#14 (VLAN 30 + LAGs + lacp_rate fix), root#23
+(address plan VLAN 30 + hosts storage column + sw-core01 LAG port roles;
+design doc amended: LAGs, storage VLAN, fleet cluster/ as config source;
+strict build clean). secrets#34 merged earlier. All worktrees removed.
+VISION updated: storage section implementation status + corrected WD Red
+inventory (4x 6TB Pro), T12 resolved, T19 rewritten (raidz1 ruling), new
+T48 (RouterOS bond-bridge defect decision) + T49 (upstream pyinfra-incus
+promotion).
+Remaining: T48 ruling from Josh (RouterOS upgrade vs single-link), WD Red
+physical install (blocked on rack access). Test containers
+v30a/v30b/vlan30test parked on nas01/lab01 pool `data` for the T48 retest
+— delete after verification.

@@ -501,15 +501,29 @@ Full brief: `IncusSeedResearch` (session 002 notes). Load-bearing facts:
 
 **[DECIDED]** Storage philosophy: no hyperconverged storage.
 
-- Each node's non-OS NVMe is its local Incus storage pool.
+- Each node's non-OS NVMe is its local Incus storage pool. **Implemented
+  (session 010):** encrypted `data` zpools on all four nodes (nas01 = mirror
+  of the 2x 1TB SN7100s, labs = single 2TB device), keys escrowed
+  (secrets#34), cluster-wide Incus pool `data` (`source=data/incus`).
+  Converged by the `GilmanLab/fleet` `cluster/` pyinfra project (fleet#3) —
+  all cluster day-2 config flows through it, no ad-hoc commands.
 - In-cluster data reliability comes from k8s-layer replication
   (Longhorn-style PVC replication across node boundaries).
 - `nas01`'s job: run storage-centric services. `nas01` is accepted as more
   critical than `lab01`–`lab03` (something must host critical services; the
   compute nodes stay expendable).
-- Bulk capacity plan: 5x ~3TB WD Red drives from Josh's old Synology NAS will
-  move into `nas01`'s five bays; the old RAID gets wiped at that point.
-  Timing: when we're ready, not yet scheduled. [PROVISIONAL]
+- Bulk capacity plan (corrected session 010): 4x 6TB WD Red Pro are on hand
+  awaiting insertion into `nas01`'s bays; a 5th comes later. Ruled: zfs-raidz1
+  4-wide (~18TB), expanded to 5-wide via raidz expansion (supported by the
+  shipped ZFS 2.4.3 + IncusOS single-device attach). OS-level pool + escrow
+  only; Incus wiring waits for T16 (nas01-only cluster pools are unsupported
+  in Incus — pool must exist on every member).
+- Storage network: non-routed VLAN 30 (`10.10.30.0/24`) on the fast links —
+  lab SFP+ pairs as 802.3ad LAGs, nas01 10GbE on port 7. Host side converged
+  and links up at 10G; datapath currently blocked by T48. Incus cluster
+  raft/API/migration deliberately stays on VLAN 10: moving
+  `cluster.https_address` requires an offline all-member edit, and bulk
+  future traffic rides instance VLANs anyway (session 010 research).
 - Object storage (Garage) and the critical-data durability/backup story:
   **deferred** — deliberately undesigned for now.
 
@@ -577,14 +591,14 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T09 | ~~Cluster-creation machinery~~ | resolved | CAPI it is (Josh: CAPI is the EKS mechanism, GitOps-driven); CAPN not-CI-tested risk stands — spike before trusting |
 | T10 | IPAM for ephemeral clusters (workload supernet + LB advertisement to `gw01`) | open | Session 006 deployed gw01 WITHOUT BGP (rejected sans consumer) — first cluster LB consumer must bring the BGP/L2 design with it |
 | T11 | Talos VM attachment: bridged VLANs now; OVN needs external DB (revisit when IncusOS hosts OVN central) | resolved-for-now | Bridged VLANs |
-| T12 | Disk roles per node: seed `install.target` (bus/id/min/max_size/sort_order) selects install disk deterministically — encode small-NVMe target in seed | open | Encode in seed templates |
+| T12 | ~~Disk roles per node~~ | resolved | Session 010: seeds pin `install.target` to the small NVMe (009); data-disk roles now converged by fleet `cluster/` (per-node `data` zpools, by-id device lists in `config.py`) |
 | T13 | ~~`nas01` TPM 2.0 + Secure Boot~~ | resolved | Verified live 2026-08-20 from a live session: TPM 2.0 (`/dev/tpm0`), Secure Boot enabled. Caveat learned: stale fTPM state from the glab era blocked first unseal — fTPM clear in BIOS fixed it (now in the rebuild runbook) |
 | T14 | ~~IncusOS seeding/bootstrap deep-dive~~ | resolved | Research done; facts in Seeding & install mechanics. Next deliverable: bootstrap design draft |
 | T15 | ~~Secrets custody model~~ | resolved | Superseded 2026-08-18 by the SOPS model (see Secrets section): non-generated secrets → `GilmanLab/secrets`; residue questions moved to T33 |
 | T16 | Garage / object storage design + critical-data backup story | deferred | Josh deferred entirely |
 | T17 | One-off VM inventory (what bypasses k8s) | deferred | Emerges with usage |
 | T18 | Upstream-of-`rtr01` documentation (WAN/modem) | deferred | Low priority per Josh |
-| T19 | Move 5x 3TB WD Red from old Synology into `nas01` bays, wipe old RAID | open | When storage design is ready |
+| T19 | Insert 4x 6TB WD Red Pro (not 5x 3TB — corrected) into `nas01` bays, wipe old RAID, create raidz1 `hdd` pool + escrow | open | Physical install when Josh is at the rack; `:wipe-drive` handles Synology remnants; expand to 5-wide later via raidz expansion |
 | T20 | ~~Tinkerbell's seat~~ | resolved | Dropped (Josh 2026-08-15); critical services are Zitadel, Vault, CAPI. iPXE also rejected — no upstream netboot path; AMT + pikvm01 MSD cover media delivery |
 | T21 | Management-cluster stretch onto lab01–03 (escape single-`nas01` failure domain) | deferred | Josh explicitly not thinking that far ahead |
 | T22 | GitOps engine choice (Flux vs. Argo etc.); Git home effectively GitHub (GHCR publishing implies it) — internet becomes a hard cold-start dependency, accept explicitly | open | Engine + consequence ruling |
@@ -613,6 +627,8 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T45 | Rotate PiKVM default credentials + escrow | open | pikvm01 web API still admin/admin (found in 009); rotate, escrow under `network/pikvm01/`, update runbook references |
 | T46 | Consolidate the secrets checkout into the meta tree | open | `~/code/glab/secrets` is a v1-era path; add `secrets` to `init.sh`, reclone at `~/code/lab2/secrets`, update the vyos runbook's `GLAB_SECRETS_DIR` guidance. Josh may veto (keeping secrets out of the default clone set is defensible) |
 | T47 | meshcommander container disposition | open | Lives on nas01 as the VLAN-10 AMT gateway (required: home→OOB blocks AMT ports); credential-less (stored entry deleted), unauthenticated HTTP UI. Keep as commissioning tooling, harden, or tear down and redeploy on demand — decide with the workload-placement policy |
+| T48 | sw-core01 RouterOS 7.16.2 bond-bridge datapath defect blocks VLAN 30 through the lab LAGs | open | Frames reach the switch ports but never bridge (verified: counters yes, MAC learning no — under every acceptance config, hw/CPU path, single/dual link, post-reboot); nas01's plain port 7 works. 7.17–7.19 changelogs fix this 98DX bond+bridge family (7.19: multicast flow on hw-offloaded bridge with bonds). Decide: upgrade RouterOS (recommended) vs single-link fallback. Test containers v30a/v30b/vlan30test parked on pool `data` for the retest |
+| T49 | Promote fleet_cluster ops upstream to meigma/pyinfra-incus | open | Lab-proven gaps per T26 flow: cluster `--target` storage_pool (pending-per-member + final create), /os/1.0 system storage/network/security facts+ops (full-replace PUT + confirmation-timeout confirm), literal `--data` payload handling (no stdin form for `incus query`) |
 
 Resolved history: UM760 = shelf spare · NAS 5GbE = `sw-mgmt01` port 8
 (PHY-019, PR #8) · naming registry (PR #8) · 4-node quorum non-issue
