@@ -282,3 +282,42 @@ certificate gaps (cluster-cert operation; make `certificate_fingerprint` public)
 
 Both labelled `enhancement`; #21 notes it depends on #20 for IncusOS fleets but
 is independently useful for SSH-managed clusters. T49 updated with both links.
+
+## 2026-08-22 11:20 — pyinfra-incus 0.2.1 audit and adoption
+0.2.1 was released today (tag `v0.2.1`, PyPI, commits #22/#24/#25/#26 + docs
+#28) and lands named-remote support — the core of the issue I filed hours
+earlier (#20).
+
+What it has: `validate_remote` / `remote_ref` / `remote_positional` in `_cli.py`
+(the package owns the `remote:` delimiter and rejects `:` in remote names), plus
+a `remote=` keyword threaded through every fact and operation. `_query_command`
+composes it with the existing `?target=` member scoping. `ClusterMembers` keeps
+`status` through `normalize_cluster_member`, and its clustering guard works over
+a remote.
+
+What it still lacks, checked at tag `v0.2.1`:
+- No `cluster_certificate` / `incus cluster update-certificate` (#21 stands).
+- `certificate_fingerprint` is still private (`_control_plane.py:201`); not in
+  `__init__.__all__`.
+- **No `/os/1.0` support at all** — grep for `os/1.0` in `src/` at v0.2.1 is
+  empty. This is the bigger gap for us: the storage and network deploys are
+  entirely `/os/1.0`, so remote support alone does not let fleet drop its
+  `_cli.py`.
+- `_query_command` is GET-only; no `-X`/`--data`, and `incus query` has no stdin
+  form, so `/os/1.0` full-replace PUTs still need literal `--data`.
+
+Adopted what is usable (fleet#6 commit 5a1fd1f): bumped to `==0.2.1` and deleted
+fleet's duplicated `IncusServer` and `IncusClusterMembers` facts in favour of
+`pyinfra_incus.facts.{Server,ClusterMembers}` with `remote=REMOTE`. Kept local:
+the three `OsSystem*` facts, `IncusStoragePools`, `IncusStoragePoolMember` (its
+per-member `config.source` view has no upstream equivalent), and the certificate
+operation.
+
+Verified live from `@local`, zero mutation: certificate deploy dry-run loads
+`pyinfra_incus.facts.Server (remote=nas01)` + `ClusterMembers (remote=nas01)` and
+still plans 1 change; storage and network dry-runs still report all-noop with the
+upstream member fact in place. 43 tests, ruff, mypy clean.
+
+Commented on #20 with the verification plus the two remaining asks (`/os/1.0`
+facts/ops; request bodies through `incus query`), so it does not close on `/1.0`
+coverage alone.
