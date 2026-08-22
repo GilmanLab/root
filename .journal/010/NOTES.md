@@ -205,3 +205,15 @@ firmware-intel-misc to base packages (non-free-firmware component
 already enabled upstream; their build.yml CI validates). Commit
 "base: Ship Intel ice DDP firmware", DCO signed, Fixes #1305.
 Josh opens the upstream PR himself.
+
+## 2026-08-22 — PR #1306 reworked per stgraber review
+stgraber (CHANGES_REQUESTED): firmware ships via app-build/applications.json
+(linux-firmware git pulls), not Debian packages. Reworked branch @ 90956d6e:
+add intel/ice/ddp to linux-firmware-base install/clean targets, plus
+build-applications.py materializes WHENCE "Link:" entries for installed
+dirs (git tree has no real symlinks; ice driver requests unversioned
+ice.pkg which exists only as a WHENCE link). Same latent bug affected
+gpu-support image (i915/nvidia links never created). Link logic tested
+locally against real 20260810 WHENCE: ice.pkg created+resolves, no
+cross-image leakage. Commit retitled "app-build: Ship Intel ice DDP
+firmware", DCO as Josh, force-pushed → PR auto-updated.
