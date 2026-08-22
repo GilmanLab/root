@@ -147,3 +147,39 @@ task-scheduler `dns-mirror-fetch-glab-lol`) and CoreDNS reloads every 30 s →
 
 Runbook written into the plan doc as Track 0 Phases 1-3. Nothing executed against
 the cluster or AWS.
+
+## 2026-08-22 00:05 — GitOps path for the cluster certificate
+Josh: skip Phase 3 (auth) for now; and the hand-run `incus cluster
+update-certificate` violates the GitOps/reproducibility motto — can it be
+avoided?
+
+Checked and ruled out two mechanisms:
+- **Seed cannot carry it.** The IncusOS `incus` seed is only
+  `incusapi.InitPreseed` (`incus-osd/api/seed/incus.go`); the app reads its cert
+  from its own data dir (`app_incus.go:203` `GetServerCertificate` → `cluster`
+  then `server`). So a rebuilt node cannot boot already presenting the cert.
+- **No tofu resource.** `terraform-provider-incus` has `incus_certificate`
+  (trust store, `client`/`metrics`) and `incus_server` (config keys only).
+  Neither writes `cluster.crt`.
+
+So the answer is the lab's existing bare-metal GitOps shape: declare in git,
+converge with the re-runnable idempotent tool that already owns cluster day-2
+state — `fleet/cluster/` (`fleet_cluster`). Planned shape: `IncusServerCertificate`
+fact (`environment.certificate_fingerprint`, live `ea493033…9a0f`),
+`cluster_certificate` operation (fingerprint diff → no-op or one
+`incus cluster update-certificate`, refusing unless all members ONLINE),
+`deploys/certificate.py`, SAN list in `config.py`, plus tests.
+
+Two sources, same convergence code: (A) self-signed 10-year cert escrowed at
+`fleet/cluster/tls.sops.yaml` — no external dependency, keeps IP SANs, rotation
+is a file swap + converge; (B) ACME DNS-01 via `acme.*` config — Incus renews
+itself daily, nothing escrowed, but no private-IP SANs (everything moves to
+names), five hostnames into CT logs, a static Route53 credential inside
+replicated cluster config, and a manual `_acme-challenge.<host>` CNAME per name
+at Cloudflare (no Cloudflare provider in the stack; `aws/keycloak` did this by
+hand once). Recommended A now, B later; lab-CA issuance is the eventual target
+and lands in the same place.
+
+Awaiting Josh's pick between A and B before writing the `fleet_cluster` code.
+Phase 1 (Route53 records via `GilmanLab/aws`) is unchanged and still blocked on
+`aws sso login --profile lab-admin`.

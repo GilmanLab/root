@@ -99,31 +99,85 @@ best-effort rollback if fan-out fails mid-flight; if that fails the recovery is
 console-level (IncusOS lost-certificate emergency procedure: recovery key,
 Secure Boot off, `patch.global.sql`). Do this with AMT/PiKVM to hand.
 
-Candidate cert already generated at `/tmp/monspike/incus-cluster.{crt,key}`
-(P-384, 10 years, `CN=incus.glab.lol`, SANs = the five names + `10.10.10.11-.14`
-+ loopback, `CA:TRUE`, serverAuth+clientAuth, fingerprint
-`27:86:A3:A9:E0:1E:ED:62:…:E0:10`). Config kept at
-`/tmp/monspike/incus-cluster.cnf` for reproducibility.
+### Making Phase 2 GitOps rather than a hand command
 
-```sh
-# 1. Escrow the key FIRST — it is durable generated recovery material (ADR-0003).
-#    GilmanLab/secrets: fleet/cluster/tls.sops.yaml, scope fleet.
-# 2. Push (fans out to all members, live-swaps listeners, no restart):
-incus cluster update-certificate nas01: incus-cluster.crt incus-cluster.key
-# 3. Verify every member by name and by IP:
-for h in incus nas01 lab01 lab02 lab03; do
-  curl -sf --cacert incus-cluster.crt "https://$h.glab.lol:8443/1.0" >/dev/null && echo "$h ok"
-done
-incus cluster list nas01:            # still all ONLINE
-incus info nas01: | head -5          # remote's pinned cert was rewritten by the CLI
-# 4. Trust it once on the workstation:
-sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain incus-cluster.crt
-```
+Two mechanisms do **not** exist, so they are off the table (both checked):
 
-Then update the monitoring spike: `ca_file` → `incus-cluster.crt` and **drop**
-`server_name` (IP SANs now cover scraping by IP). Re-check all four targets up.
+- **No IncusOS seed field for the server certificate.** The `incus` seed carries
+  only `incusapi.InitPreseed` (`incus-osd/api/seed/incus.go`), and
+  `GetServerCertificate` reads `cluster` then `server` from the app's own data
+  dir (`app_incus.go:203`). The cert cannot be baked into the image recipe, so a
+  rebuilt node cannot come up already presenting it.
+- **No OpenTofu resource for it.** `terraform-provider-incus` ships
+  `incus_certificate` (trust store: `client`/`metrics` types) and `incus_server`
+  (server *config keys*). Neither touches `cluster.crt`. So there is no
+  `tofu apply` path for the certificate itself.
 
-**Phase 3 — browser identity (no admin key in the browser).**
+What is left is the lab's existing bare-metal GitOps shape: **declare it in git,
+converge it with a re-runnable idempotent tool**. That tool already exists and
+already owns cluster day-2 state — `fleet/cluster/` (`fleet_cluster`, pyinfra,
+facts → diff → `incus` commands, `moon`-invoked, unit-tested). Adding the
+certificate there keeps the rule from session 010 intact: *all cluster day-2
+config flows through `fleet_cluster`, no ad-hoc commands.*
+
+Shape of the change (mirrors the existing storage/network trio):
+
+- `facts.py`: `IncusServerCertificate` — read `environment.certificate_fingerprint`
+  from `incus query <remote>:/1.0` (live value today: `ea493033…9a0f`).
+- `operations.py`: `cluster_certificate(...)` — compute the SHA-256 fingerprint
+  of the desired PEM, no-op when it matches, otherwise emit
+  `incus cluster update-certificate <remote>: <crt> <key>`. Guard: refuse to run
+  unless every member is ONLINE (the API rejects a new key otherwise), reusing
+  the existing `IncusClusterMembers` fact.
+- `deploys/certificate.py`: declares the desired cert for `REMOTE`.
+- `config.py`: the SAN list — `incus`, `nas01`, `lab01`-`lab03` under
+  `glab.lol`, plus `10.10.10.11-.14` and loopback — so the names live in git and
+  adding a node is a git diff.
+- Tests alongside `test_operations.py`: fingerprint match → no-op; mismatch →
+  exactly one command; member offline → refuse.
+
+Two candidate sources for the certificate material, same convergence code:
+
+**Option A — self-signed, escrowed (recommended now).** Cert + key generated
+once (already staged at `/tmp/monspike/incus-cluster.{cnf,crt,key}`: P-384, 10
+years, `CN=incus.glab.lol`, the five SAN names + `10.10.10.11-.14` + loopback,
+fingerprint `27:86:A3:A9:…:E0:10`), escrowed in `GilmanLab/secrets` as
+`fleet/cluster/tls.sops.yaml` (durable generated recovery material, the ADR-0003
+exception), and read by `fleet_cluster` at converge time exactly as the pyinfra
+projects already read SOPS material. Reproducible: rebuild a node, re-run the
+converge, same cert. No external dependency, no credential in cluster config,
+keeps the IP SANs that IP-based scraping and `incus remote` rely on. Cost:
+rotation is a file swap plus a converge run, not automatic.
+
+**Option B — ACME, fully declarative (target state).** `incus_server` (tofu) or
+`fleet_cluster` sets `acme.agree_tos`, `acme.email`, `acme.domain`,
+`acme.challenge=DNS-01`, `acme.provider=route53`, `acme.provider.environment`.
+The leader then issues and renews on its own — daily check, renew under 30 days
+— and fans the result to all members. Git holds intent only; no cert or key is
+ever escrowed or pushed by hand. Costs, all real: a public CA cannot sign
+private-IP SANs (everything must move to names — `incus remote`, Prometheus
+targets, `fleet_cluster`'s `REMOTE` address); the five hostnames land in
+Certificate Transparency logs; a static AWS credential scoped to the delegated
+`acme.glab.lol` zone has to live in replicated Incus cluster config; and each
+name needs its own `_acme-challenge.<host>.glab.lol` CNAME at Cloudflare, which
+is a manual step today because no Cloudflare provider is in the stack (the
+`aws/keycloak` precedent did exactly this once, by hand).
+
+Recommendation: **A now, B when the CNAME delegation and credential story are
+worth automating** — the convergence code is identical, so B is a config swap
+plus deleting the escrowed material. A third path, issuing from the lab's own
+root CA, remains the eventual best answer and lands in the same place.
+
+Whichever source: after convergence, update the monitoring spike's `ca_file`
+(and drop `server_name` under option A, since IP SANs then cover IP scraping).
+
+The one irreducibly manual step is client-side, not lab state: trusting the new
+cert once on the workstation —
+`sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain incus-cluster.crt`
+(not needed at all under option B).
+
+**Phase 3 — browser identity. DEFERRED** (Josh, 2026-08-21: certs/DNS first,
+auth later). Recorded for when it comes back up:
 
 1. `https://incus.glab.lol:8443/ui/` → **Set up TLS login → Generate**, give a
    **non-empty** password (empty-password PFX import fails on macOS), download
