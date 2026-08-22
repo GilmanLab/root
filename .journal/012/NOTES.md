@@ -597,3 +597,44 @@ it rather than immediately usable.
 
 Left in place: the dead `NAS` device (`T4UIVBG`) is still registered on both
 machines but now shares no folders, so it is inert.
+
+
+## 2026-08-22 17:35 — omp and Paseo on the Studio
+
+Josh was half right. The application catalog only walked `/Applications` and
+`~/Applications`, so it never covered CLIs.
+
+**Paseo was already fixed.** `Paseo.app` 0.4.0 is on the Studio because the
+cask work earlier today declared `paseo`, and the cask ships the CLI too:
+`/opt/homebrew/bin/paseo` exists on both machines. What was missing was only
+`~/.paseo` state, which Syncthing now carries.
+
+**omp genuinely was missing**, and the catalog could never have caught it: it
+is a bun global, not an application and not a Homebrew package —
+`~/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent`, linked as
+`~/.bun/bin/omp`. Installed 17.3.4 on the Studio to match the MacBook exactly.
+Both machines block the same two postinstalls (`onnxruntime-node`,
+`protobufjs`), so that is parity rather than a defect.
+
+Made it declarative in `6f9c828` — new `home/omp.nix`:
+
+- Installs `@oh-my-pi/pi-coding-agent` during home-manager activation **only
+  when `~/.bun/bin/omp` is missing**. Presence check rather than a pinned
+  version, because omp releases often and Nix should not fight manual upgrades.
+- A failed install prints guidance instead of aborting the switch, so a machine
+  without network still activates.
+- Darwin-only; the Linux home configuration does not run agents.
+- `bun` itself already comes from nixpkgs (1.3.14 on both) and `~/.bun/bin` is
+  already on `PATH` from `home/shell.nix`, so the only missing piece was the
+  package.
+
+Also copied `~/.omp/agent/config.yml` (model roles, theme, task agent
+overrides) to the Studio by hand. It sits beside the SQLite files, outside the
+synced `sessions/` folder, so it is not covered by Syncthing. It is small and
+declarative but omp rewrites it at runtime (`setupVersion`, theme), so a
+read-only Nix store symlink would break it — left as a manual copy for now.
+
+Auth stays machine-local by design: omp credentials live in `agent.db`, so the
+Studio needs its own sign-in.
+
+Sync progress at this point: 4,107 of 7,287 files, 1.17 of 4.37 GB.
