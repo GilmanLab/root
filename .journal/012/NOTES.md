@@ -882,3 +882,56 @@ The existing checkouts keep their `git@github.com:` SSH remotes; only a fresh
 clone uses HTTPS.
 
 Applied to both machines: 27 skills each, activation clean.
+
+## 2026-08-22 20:20 — Phase 3 applied
+
+Josh's call: `agent-skills` stays inside the future `~/code` sync, not excluded.
+
+### The near-miss
+
+Before flipping `disabledProviders` I checked what else the `codex` provider was
+supplying, and found `~/.codex/AGENTS.md` — 1,068 bytes of Josh's standing
+"prefer agile, avoid waterfall, don't be pedantic" guidance. Per
+`omp://context-files.md`, **only one user-scope context file survives across all
+providers**, and with no native file present the `codex` one (priority 70) was
+it. Disabling `codex` would have silently dropped that guidance from every
+session.
+
+Copied it to `~/.omp/agent/AGENTS.md` (native, priority 100 — shadows every
+other user-level candidate) on both machines, md5 `10e33f2a` each. Verified
+after the change that omp injects it: a headless probe quoted
+`/Users/josh/.omp/agent/AGENTS.md` back.
+
+Other user-scope candidates were all absent or empty: `~/.claude/CLAUDE.md`
+(absent), `~/.gemini/GEMINI.md` (0 bytes), opencode, `~/.agent{,s}/AGENTS.md`.
+
+### Applied
+
+```yaml
+disabledProviders: [claude, codex, gemini, cursor]
+```
+
+Both machines. Verified `omp config get disabledProviders` returns the array.
+
+### Verification
+
+Headless probe on the MacBook after the change:
+
+- **8 MCP servers**: adrafinil, bitwarden, browserless, chrome-devtools,
+  cloudflare-api, context7, gitnexus, 1password.
+- **27 skills** — matching `~/.agents/skills` exactly.
+- User context file loading from the native path.
+
+`agentmail` is the ninth declared server and does **not** connect. Probed the
+endpoint directly: `POST https://mcp.agentmail.to/mcp` returns
+`{"error":"Unauthorized"}`, and a bare GET returns 405. It needs an OAuth
+credential that this profile never held — so it was already dead before Phase 3,
+not a regression. Either `/mcp reauth agentmail` or drop it.
+
+The Studio's config is identical (same `mcp.json`, same `config.yml`, 27 skills)
+but omp cannot run there yet: no provider credentials. That is the expected
+machine-local auth boundary — credentials live in `agent.db`, which is
+deliberately unsynced. It needs a one-time sign-in before functional parity can
+be confirmed.
+
+Remaining: Phase 5 purge (soaking), then the `~/code` / `~/work` sync.
