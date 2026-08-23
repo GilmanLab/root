@@ -1054,3 +1054,38 @@ initial pass is expected to take hours; `~/code` alone is ~24,000 directories.
 Next: let the scans finish, then decide per folder whether to revert the
 Studio's local changes (making it a true mirror) before flipping both sides to
 `sendreceive` for two-way operation.
+
+## 2026-08-22 21:35 — Watcher for the reconcile pass
+
+Answer to Josh's question: there was no watcher — I had been polling by hand.
+There is one now.
+
+`~/.local/bin/st-sync-watch` polls both Syncthing REST APIs (local for the
+MacBook, over SSH for the Studio) every 60 s and prints one status line per
+cycle covering all four folders. It exits 0 after printing `ALL_IDLE` once every
+folder reports `state: idle` with `needFiles: 0`.
+
+Deliberate detail: the completion test **ignores** `receiveOnlyChangedFiles`.
+That counter is the Studio's extra content parked behind the revert gate, not
+outstanding work, and it will stay non-zero until the revert decision is made.
+Waiting on it would never finish.
+
+Running under the process hub as `st-sync-watch`, started **detached** so it
+outlives this omp session and any broker restart — the initial pass is expected
+to take hours and the notification is worthless if it dies with the terminal.
+
+Check it with `hub logs st-sync-watch`, or block on it with
+`hub wait --name st-sync-watch --pattern ALL_IDLE`.
+
+Progress at launch:
+
+```
+mbp/code    scanning  76,988f   5.9GB  need=0
+mbp/work    scanning   8,178f   1.0GB  need=0
+studio/code syncing  110,331f  15.0GB  need=56,816  chg=90,159
+studio/work scanning 218,592f  12.1GB  need=8,178   chg=218,592
+```
+
+The MacBook side is still indexing, so its totals are not final. The Studio's
+`work` locally-changed count is already 218,592 files — the deleted
+`catalyst-world` tree and everything else the MacBook no longer has.
