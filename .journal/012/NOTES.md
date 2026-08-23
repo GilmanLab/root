@@ -1005,3 +1005,52 @@ exposed in a terminal today — still worth rotating at the Exa account.
 Consolidation complete: 5 config files in 4 formats with ~20 servers, several
 broken, reduced to one 8-server file identical on both machines, plus a single
 skills root rendered from one git repo.
+
+## 2026-08-22 21:20 — ~/code and ~/work sync configured
+
+Josh removed `catalyst-world` (70+ GB), so `~/work` on the MacBook is now 26 GB.
+Current disk state:
+
+| | MacBook (authoritative) | Studio |
+|---|---|---|
+| `~/code` | 60 GB | 46 GB |
+| `~/work` | 26 GB | 123 GB |
+
+### Authority via folder type, not trust
+
+MacBook folders are **`sendonly`**, Studio folders **`receiveonly`**. That makes
+"MacBook is authoritative" a structural property rather than a discipline: the
+Studio cannot propagate anything upstream, and its extra content is recorded as
+locally-changed rather than pushed. Nothing on the Studio is deleted until an
+explicit *Revert local changes*, which is the deliberate gate — `~/work` there
+holds ~97 GB the MacBook does not, most of it the deleted `catalyst-world`.
+
+Staggered versioning (30 days) on both sides, so a revert archives into
+`.stversions` instead of destroying.
+
+### Ignore list
+
+Identical `.stignore` in all four folder roots (md5 `32e72022`), using `**/name`
+form with the `(?d)` deletable prefix. Excludes `.wt` worktrees first and
+foremost — 59 of them in `~/code`, each carrying absolute `gitdir` paths that
+would make the two machines disagree about which worktrees exist — then
+`node_modules`, `target`, `dist`, `build`, `.venv`, `__pycache__`,
+`.terraform`, `.direnv`, `result`, plus disk images and editor noise.
+
+**It works:** the MacBook's `~/code` indexed 4.5 GB against 60 GB on disk, and
+39,133 files against a tree that holds far more. `ignorePatterns: true` is
+reported on the folder, confirming Syncthing loaded the file.
+
+### First observation of the reconcile problem, quantified
+
+The Studio's `code` folder immediately reported **92,872 locally-changed files
+totalling 12.9 GB** — content it has that the MacBook does not. That is exactly
+the union-merge hazard the design flagged, and it is now parked behind the
+receive-only gate instead of silently resurrecting on the MacBook.
+
+Scans are still running (both `work` folders had not started indexing yet). The
+initial pass is expected to take hours; `~/code` alone is ~24,000 directories.
+
+Next: let the scans finish, then decide per folder whether to revert the
+Studio's local changes (making it a true mirror) before flipping both sides to
+`sendreceive` for two-way operation.
