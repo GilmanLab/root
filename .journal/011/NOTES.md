@@ -354,3 +354,43 @@ presence), so that is its own change with its own dry-run evidence.
 Commented on #20 (delivered, with the live fact evidence; offered to split the
 cluster-storage-pool `--target` gap into its own issue) and #21 (unchanged at
 0.2.2; noted the semantics are now lab-validated).
+
+## 2026-08-23 — pyinfra-incus 0.2.3: local cert implementation deleted
+0.2.3 ships `operations.cluster_certificate` (#36) and exports
+`certificate_fingerprint`. Both asks in issue #21 delivered, so fleet's local
+implementation is gone (fleet#6 commit 1c783bd).
+
+Upstream's version is better than the one I wrote:
+- public PEM goes on **stdin** into an execution-host `mktemp` file with
+  `trap 'rm -f "$cert"' EXIT INT TERM`, so neither cert nor key touches argv;
+- `validate_cluster_key_path` rejects PEM-looking paths (guards against passing
+  key *contents* where a path belongs);
+- it also checks `environment.server_clustered is True` — a case I missed: on a
+  non-clustered server `cluster.crt` is not what gets presented.
+- same fingerprint diff and every-member-Online precondition as ours.
+
+API shape difference that drove the refactor: upstream takes `certificate` as an
+inline PEM string and `key_path` as an execution-host path, so key custody has to
+live outside the operation. New `fleet_cluster/tls.py`: `cluster_key_file()`
+context manager runs `sops -d --extract '["key"]'` with stdout bound to a
+`mkstemp` fd (plaintext never enters Python), yields the path, and unlinks in
+`finally`. `pyinfra_runner.run_certificate` wraps the deploy in it and exports
+`FLEET_CLUSTER_TLS_KEY_PATH`; `config.tls_key_path()` reads it back.
+
+Deleted from fleet: `certificate_fingerprint`, `server_certificate_fingerprint`,
+`offline_members`, `certificate_push_command`, `plan_cluster_certificate`, the
+local `cluster_certificate` operation, and the `ssl`/`hashlib`/`Path` imports
+they needed. Kept: the SAN list in `config.py`, the committed cert + openssl
+recipe, the rotation runbook.
+
+Tests rewritten (40 pass): cert-content invariants (SAN/name coverage, cnf-vs-
+config drift, public-material-only) now assert against upstream
+`certificate_fingerprint`; new tests cover `decrypt_argv`, the key file's 0600
+mode, removal on success AND on exception, sops-failure and empty-key errors,
+and the three `tls_key_path()` paths. Verified live from `@local`, both branches:
+committed cert → 1 change; live cert copied in → `noop: Incus cluster
+certificate is unchanged`.
+
+Commented on #21 confirming closure. T49's certificate items are now resolved
+upstream; what remains there is the cluster-scoped storage pool `--target` /
+per-member view gap, still unfiled.
