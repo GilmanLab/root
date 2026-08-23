@@ -489,3 +489,44 @@ Still outstanding for the certificate to actually converge (all operator-side):
 `fleet/cluster/tls.sops.yaml` (matching cert fingerprint `27:86:A3:A9:…:E0:10`,
 staged at `/tmp/monspike/incus-cluster.key`), the Route53 A-record PR, then
 `CI= moon run fleet-cluster:certificate` with AMT/PiKVM to hand.
+
+## 2026-08-23 — steps 1-3 done: key escrowed, DNS PR, path fix
+AWS SSO live (`186067932323`, `AWSReservedSSO_LabAccountAdmin`).
+
+**Key escrow — GilmanLab/secrets#36** `fleet/shared/cluster-tls.sops.yaml`
+(fields `key`, `certificate_fingerprint`). Chose `fleet/shared/` over the
+`fleet/cluster/` I originally coded: the secrets README already defines
+`fleet/shared/` as "fleet-wide bootstrap and recovery material", and inventing a
+third fleet subdomain bought nothing. No `.sops.yaml` change needed —
+`^fleet/[^/]+/.*\.sops\.ya?ml$` already maps to `Scope: fleet`.
+Verified: `check_sops_metadata.py` passes all 20 files; decrypt round-trip's key
+public half hashes `57e0cedb…ef77`, identical to the committed certificate's
+public key, so the escrow demonstrably pairs with it. Plaintext temp files
+shredded.
+
+**Toolchain trap worth remembering:** `sops -e` failed with
+`gpg: 51098F…A0979C!: skipped: Unusable public key`. Keyring is fine (cv25519
+[E] subkey, ultimate trust, expires 2027-10-02) — **gpg 2.4.9 (nix,
+/run/current-system/sw/bin/gpg) rejects a `<fp>!` recipient**, while the same
+fp without `!` encrypts to the same subkey (`keyid 858A466C85A0979C`, algo 18,
+confirmed via `--list-packets`). Worked around with a `SOPS_GPG_EXEC` shim
+(`/tmp/escrow/gpg-nobang`) that strips the trailing `!` before calling gpg;
+SOPS still writes `fp: …A0979C!` into metadata, which is what
+`check_sops_metadata.py` asserts. Did NOT relax `.sops.yaml` — ADR-0003 added
+the `!` deliberately. If this recurs, pin gpg or report upstream.
+
+**Path companion — fleet#8** `TLS_KEY_SOPS_PATH` → `fleet/shared/cluster-tls.sops.yaml`,
+docs + tests updated; 31 tests, ruff, mypy clean; `tls_key_sops_path()` resolved
+against the real secrets worktree. CI green.
+
+**DNS — GilmanLab/aws#4** `aws/lab-foundation`: `lab_host_records` map variable
+(+ IPv4 and non-empty validations) and a `for_each` `aws_route53_record`.
+Records: `incus` (round-robin .14/.11/.12/.13), `nas01` .14, `lab01` .11,
+`lab02` .12, `lab03` .13, TTL 300. `./scripts/check.sh` 3 passed with five new
+assertions; `tofu plan` **5 to add, 0 change, 0 destroy** in
+`Z009084217D5KKVQERJY3`. All six OpenTofu CI jobs pass.
+
+Not done, deliberately: apply + converge. Apply order matters — merge and apply
+aws#4 first (records land in the lab ≤90s later via the 1-min mirror + 30s
+CoreDNS reload), merge fleet#8, then `CI= moon run fleet-cluster:certificate`
+with AMT/PiKVM to hand, since the certificate swap has no rollback.
