@@ -935,3 +935,30 @@ deliberately unsynced. It needs a one-time sign-in before functional parity can
 be confirmed.
 
 Remaining: Phase 5 purge (soaking), then the `~/code` / `~/work` sync.
+
+## 2026-08-22 20:30 — agentmail removed; declared set now equals connected set
+
+Dropped `agentmail` from `~/.omp/agent/mcp.json` on both machines. It had no
+usable OAuth credential and returned `{"error":"Unauthorized"}`.
+
+Final MCP set — **8 servers, and for the first time the declared count matches
+the connected count exactly**:
+
+| Server | Transport | Resolution |
+|---|---|---|
+| `browserless` | http | `mcp.browserless.io/mcp` |
+| `cloudflare-api` | http | `mcp.cloudflare.com/mcp` |
+| `context7` | http | `mcp.context7.com/mcp` |
+| `gitnexus` | stdio | `gitnexus mcp` (bun global, PATH) |
+| `bitwarden` | stdio | `bw-mcp` (nix-generated wrapper, PATH) |
+| `1password` | stdio | in-bundle binary from the declared cask |
+| `adrafinil` | stdio | in-bundle helper from the declared cask |
+| `chrome-devtools` | stdio | `bunx chrome-devtools-mcp@1.7.0` |
+
+Verified live: 8 servers visible, 27 skills, native user context loading. No
+absolute machine-specific paths remain, no `npx`, no unpinned `@latest`, and
+every stdio binary exists on both machines.
+
+Net effect of the consolidation: from ~20 servers spread across five config
+files in four formats — several of them broken or Codex-only — down to 8 working
+servers in one file that is identical on both workstations.
