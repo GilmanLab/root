@@ -394,3 +394,31 @@ certificate is unchanged`.
 Commented on #21 confirming closure. T49's certificate items are now resolved
 upstream; what remains there is the cluster-scoped storage pool `--target` /
 per-member view gap, still unfiled.
+
+## 2026-08-23 — filed meigma/pyinfra-incus#38 (cluster-scoped storage)
+Last of the three upstream gaps:
+[#38](https://github.com/meigma/pyinfra-incus/issues/38) — `storage_pool`,
+`storage_volume`, `StoragePools` and `StorageVolumes` are all server-global at
+v0.2.3, so a clustered pool cannot be created, adopted, or verified.
+
+Evidence in the issue:
+- Incus requires a two-step flow (per-member `--target` define carrying only
+  `source`/`size`/`zfs.pool_name`/`lvm.thinpool_name`/`lvm.vg_name`, then an
+  unscoped create to instantiate; `status: "Pending"` in between) —
+  cited from the cluster storage how-to.
+- Live proof that the member view is the only place member config exists:
+  `incus query nas01:/1.0/storage-pools/data` → `config:{}` while
+  `?target=lab01` → `source=data/incus`, `zfs.pool_name=data/incus`; and
+  `incus storage list --format json` (what upstream's fact parses) also shows
+  `config:{}`. So a fact built on `storage list` cannot answer "is lab01's
+  source what I declared", which is exactly the adoption check.
+- Volumes have the same gap (non-Ceph volumes are member-local; `--target` is
+  required once more than one member holds the name).
+- Proposed both shapes (`target=` on `storage_pool` with `target=None` as the
+  instantiate step, or a dedicated `cluster_storage_pool` taking per-member
+  config), a member-scoped pool fact, and the adoption semantics (refuse
+  reshape; treat `Pending` as "step 2 outstanding" so a re-run finishes).
+
+Status of the set: #20 closed 2026-08-22, #21 closed 2026-08-23, #38 open.
+Commented on #20 pointing at #38 so it could close cleanly. T49 moved to
+`in-progress` with the full outcome.
