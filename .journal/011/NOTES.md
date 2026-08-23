@@ -422,3 +422,40 @@ Evidence in the issue:
 Status of the set: #20 closed 2026-08-22, #21 closed 2026-08-23, #38 open.
 Commented on #20 pointing at #38 so it could close cleanly. T49 moved to
 `in-progress` with the full outcome.
+
+## 2026-08-23 — 0.2.4 and the full cutover (fleet#7)
+0.2.4 shipped `cluster_storage_pool` + `StoragePoolMember` (#39, closing #38),
+the last gap. Checked feasibility before writing anything: a throwaway probe ran
+every candidate upstream operation against the live cluster —
+`incus_os_storage_pool`, `incus_os_storage_volume`, `cluster_storage_pool`
+(per-member `source`), `incus_os_network` — and **all reported unchanged**, so
+0.2.4 can adopt existing state rather than needing a rebuild. That made the
+migration mechanical.
+
+Upstream's `cluster_storage_pool` is more thorough than fleet's was: exact
+member-set match against `ClusterMembers`, `Pending`/`Created` status handling
+(so a half-finished pool resumes), location checks, and per-member config
+validation through `StoragePoolMember`.
+
+fleet#6 bumped to `==0.2.4` (commit 3c6c958 → then 0.2.4). New branch
+`feat/upstream-cluster-ops` → **fleet#7**, stacked on #6:
+- storage deploy → `incus_os_storage_pool`, `incus_os_storage_volume`, upstream
+  `cluster_storage_pool` (via new `config.cluster_member_config()`);
+- network deploy → `incus_os_network`, with `desired_network_config` still local
+  because upserting `fast`/`fast30` onto a live document and refusing a PUT that
+  would drop `mgmt` is lab policy;
+- **deleted `_cli.py` and `facts.py` outright**, plus every plan/command
+  function and their tests: −824 net lines.
+- kept as read-only assertions: `os_security_retrieved` (escrow) and new
+  `os_scrub_schedule` — upstream preserves `scrub_schedule` but does not manage
+  it, so git stays the declaration of record and drift surfaces instead of being
+  silently accepted. Live value `0 4 * * 0` on all four members.
+
+Verification: 31 tests, ruff, mypy clean; `--dry` against the live cluster shows
+**all 18 operations no-op** (4 pools, 4 volumes, hdd pool, 4 escrow asserts,
+4 scrub asserts, cluster pool, 4 network) — operation-for-operation identical to
+the pre-migration output. No CI on #7 yet: the workflow only triggers on PRs
+targeting `master`, and #7 targets the cert branch until #6 merges.
+
+Commented on #38 confirming, including the `scrub_schedule` gap (offered to file
+separately if they want it modelled on `incus_os_storage`). T49 → resolved.
