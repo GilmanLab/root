@@ -321,3 +321,36 @@ upstream member fact in place. 43 tests, ruff, mypy clean.
 Commented on #20 with the verification plus the two remaining asks (`/os/1.0`
 facts/ops; request bodies through `incus query`), so it does not close on `/1.0`
 coverage alone.
+
+## 2026-08-23 — pyinfra-incus 0.2.2 audit
+0.2.2 (tag `v0.2.2`, 2026-08-23) is the IncusOS release: `/os/1.0` facts
+`IncusOSStorage` / `IncusOSNetwork` / `IncusOSSecurity` / `IncusOSUpdate` /
+`IncusOSProvider` and operations `incus_os_storage_pool`,
+`incus_os_storage_volume`, `incus_os_network` (full-replace PUT with a
+`confirmation_timeout`), `incus_os_update`, `incus_os_provider` — all
+`remote=` + `target=` aware. Exercised all five facts against the live cluster
+from `@local`: each returns `{config, state}` for an explicit target.
+
+Still absent at v0.2.2, verified by grep and by the `__all__` list:
+- no `cluster_certificate` / `incus cluster update-certificate` — our operation
+  stays local, #21 unchanged;
+- `certificate_fingerprint` still private;
+- cluster-scoped storage pool still server-global only: no pending-per-member
+  `--target` create and no per-member pool view (normalized `StoragePools` drops
+  the member-local `config.source`). That is the last thing keeping fleet's
+  `_cli.py`, `IncusStoragePools` and `IncusStoragePoolMember` alive.
+
+Bumped fleet#6 to `==0.2.2` (commit 3c6c958) with no code change — the
+certificate path already uses upstream `Server`/`ClusterMembers`. 43 tests pass;
+certificate dry-run still plans exactly 1 change; storage (14 ops) and network
+(4 ops) dry-runs still all-noop.
+
+Deliberately did NOT migrate the storage/network deploys onto the new
+`incus_os_*` operations in this PR: they are live-proven convergence with
+different semantics (fleet's pool op refuses reshape rather than offering
+present/absent; the network op builds desired config and guards `mgmt`
+presence), so that is its own change with its own dry-run evidence.
+
+Commented on #20 (delivered, with the live fact evidence; offered to split the
+cluster-storage-pool `--target` gap into its own issue) and #21 (unchanged at
+0.2.2; noted the semantics are now lab-validated).
