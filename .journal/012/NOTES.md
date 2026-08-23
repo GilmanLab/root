@@ -1089,3 +1089,44 @@ studio/work scanning 218,592f  12.1GB  need=8,178   chg=218,592
 The MacBook side is still indexing, so its totals are not final. The Studio's
 `work` locally-changed count is already 218,592 files — the deleted
 `catalyst-world` tree and everything else the MacBook no longer has.
+
+## 2026-08-22 22:40 — Status: indexing, not transferring
+
+Watcher has been running ~4.5 hours. Neither folder has reached `ALL_IDLE`.
+
+```
+mbp/code    scanning  121,853f   6.7GB  need=0
+mbp/work    scanning   75,002f   4.0GB  need=0
+studio/code syncing   112,728f  15.1GB  need=99,279  chg=90,154
+studio/work syncing   219,829f  12.2GB  need=73,765  chg=218,592
+```
+
+Measured over a 60 s window: **0.01 MB/s on the wire, ~36 files/min combined.**
+A naive extrapolation says months — but that extrapolation is invalid, because
+neither side has finished building its index yet.
+
+The bottleneck is identified and it is **not** the network:
+
+- MacBook Syncthing: 0.3% CPU, 1.7 GB RSS, still `scanning`.
+- Studio Syncthing: **269% CPU** — three cores saturated.
+
+The Studio is hashing its own trees to learn what it has: 46 GB under `~/code`
+and 123 GB under `~/work`, i.e. 332,557 local files against a global index that
+is still only partially populated (`global` 6.7 GB for `code` while `local` is
+15.1 GB). Until both indexes are complete, pulls crawl and the observed rate
+says nothing about steady-state throughput.
+
+Note the asymmetry in the numbers: `studio/code` local 15.1 GB vs global 6.7 GB.
+The global figure grows as the MacBook keeps scanning, which is also why
+`needFiles` has been *rising* (56,816 → 99,279) rather than falling — the sender
+keeps discovering more to send.
+
+Tuning applied: `maxFolderConcurrency: 1` on both machines, so the two large
+folders index and sync one at a time instead of thrashing the same disk. Nothing
+else changed; no folder types touched.
+
+**Explicitly not doing yet:** reverting the Studio's local changes. A revert
+deletes what is absent from the *global* index, and that index is still
+incomplete — reverting now could delete files that exist on the MacBook but have
+not been indexed and announced. The revert has to wait for the MacBook scans to
+finish, which is exactly what the watcher is for.
