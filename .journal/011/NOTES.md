@@ -459,3 +459,33 @@ targeting `master`, and #7 targets the cert branch until #6 merges.
 
 Commented on #38 confirming, including the `scrub_schedule` gap (offered to file
 separately if they want it modelled on `incus_os_storage`). T49 → resolved.
+
+## 2026-08-23 05:05 — both fleet PRs merged
+- **fleet#6** squash-merged as `3763eb1` "feat(cluster): converge the cluster TLS
+  certificate" (checks: `validate` + `Cluster checks` pass, mergeable CLEAN).
+- Stacked #7 did not auto-retarget because I merged #6 without deleting its
+  branch, and its own commits were no longer ancestors of master after the
+  squash. Fixed properly:
+  `git rebase --onto origin/master feat/cluster-certificate` replayed only the
+  migration commit, then `--force-with-lease` push and
+  `gh pr edit 7 --base master`. Diff verified as migration-only
+  (9 files, +214/−1038) before merging.
+- **fleet#7** squash-merged as `b2b13cd` "refactor(cluster): drive every Incus
+  call through pyinfra-incus 0.2.4" after CI re-ran green on the master base.
+- `wt remove` on both worktrees (Worktrunk confirmed each tree matched master);
+  fleet's main checkout fast-forwarded to `b2b13cd`.
+
+Post-merge verification on master: 31 tests pass; storage dry-run **18
+operations all no-op**, network dry-run **4 all no-op** — 22 total, not the "18"
+I wrote in the #7 body (that number predated the four scrub assertions; the
+correction is here rather than silently left wrong).
+
+`src/fleet_cluster/` on master is now: `cli.py`, `config.py`, `deploys/`,
+`errors.py`, `operations.py`, `pyinfra_runner.py`, `tls.py`. No `_cli.py`, no
+`facts.py`.
+
+Still outstanding for the certificate to actually converge (all operator-side):
+`aws sso login --profile lab-admin`, escrow the key at `GilmanLab/secrets`
+`fleet/cluster/tls.sops.yaml` (matching cert fingerprint `27:86:A3:A9:…:E0:10`,
+staged at `/tmp/monspike/incus-cluster.key`), the Route53 A-record PR, then
+`CI= moon run fleet-cluster:certificate` with AMT/PiKVM to hand.
