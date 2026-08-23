@@ -962,3 +962,46 @@ every stdio binary exists on both machines.
 Net effect of the consolidation: from ~20 servers spread across five config
 files in four formats — several of them broken or Codex-only — down to 8 working
 servers in one file that is identical on both workstations.
+
+## 2026-08-22 20:50 — Phase 5: purged
+
+Backed up first, then deleted `~/.claude`, `~/.codex`, `~/.gemini` and
+`~/.claude.json` on both machines.
+
+Backups at `~/backups/agent-configs-2026-08-22/` on each machine, `tar | zstd -3`,
+every archive integrity-checked with `zstd -t`:
+
+| Archive | MacBook | Studio |
+|---|---|---|
+| `.claude.tar.zst` | 145 MB | 5.8 MB |
+| `.codex.tar.zst` | 2.0 GB | 340 MB |
+| `.gemini.tar.zst` | 2.2 GB | 4.0 MB |
+| `claude.json` | 353 KB | — |
+
+Reclaimed **12 GB** on the MacBook and **712 MB** on the Studio.
+
+What the bulk actually was: `.codex` held 4.7 GB of `archived_sessions`, 2.2 GB
+of `sessions` and a 1.2 GB `logs_2.sqlite`; `.gemini` was 2.9 GB of
+`antigravity` plus a 237 MB browser profile; `.claude` was 618 MB of `projects`.
+Almost none of it was configuration — it was conversation history for CLIs Josh
+no longer uses. Full-fidelity archives were taken anyway rather than
+cherry-picking, so nothing needed a judgment call.
+
+Deliberately kept: `~/.cursor` (Paseo launches `cursor-agent`),
+`~/.config/bitwarden-agents/session` (`bw-mcp` reads it), `~/.agents/skills`,
+`~/.omp/agent/{AGENTS.md,mcp.json,config.yml}`.
+
+Verified after the purge on the MacBook: **8 MCP servers, 27 skills, user
+context still resolving to `/Users/josh/.omp/agent/AGENTS.md`.** Nothing
+regressed.
+
+Note the `claude` and `codex` CLIs are still installed (`~/.local/bin/claude`,
+`~/.nodenv/shims/codex`). Their configuration is gone, so a future invocation
+would start from a clean slate. Removing the binaries was out of scope.
+
+The `EXA_API_KEY` literal disappeared with `~/.claude.json`, but it was already
+exposed in a terminal today — still worth rotating at the Exa account.
+
+Consolidation complete: 5 config files in 4 formats with ~20 servers, several
+broken, reduced to one 8-server file identical on both machines, plus a single
+skills root rendered from one git repo.
