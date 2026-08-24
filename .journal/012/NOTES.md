@@ -1308,3 +1308,58 @@ automatable from here — OAuth needs a browser and Josh's identity.
 Also spotted, unrelated: the Studio's `~/.zshrc:68` errors with
 `command not found: blobber` in interactive shells. `blobber` is a MacBook-only
 binary in `~/.local/bin`; the shared shell config references it unconditionally.
+
+## 2026-08-23 14:15 — "admin@platform" explained: that terminal is the Studio
+
+Josh's new iTerm2 session showed an `admin@platform` prompt with `omp` not
+resolving. It is not a user@host — it is **starship's kubernetes module** showing
+the current kube context, and the two machines have different ones:
+
+| machine | `kubectl config current-context` |
+|---|---|
+| MacBook | `cat-k8s-operator-prod.tailc5e44a.ts.net` |
+| **Studio** | **`admin@platform`** |
+
+`~/.kube/config` on the MacBook does contain a context literally named
+`admin@platform` (alongside `platform` and an EKS `cluster/platform`), which is
+what made the string look like a shell prompt. `[kubernetes] disabled = false`
+in `~/.config/starship.toml` with no matching `context_alias`, so the raw
+context name renders.
+
+So the terminal was connected to the Studio. Verified omp resolves there in a
+real login+interactive shell over a PTY:
+
+```
+PROMPT_CTX=admin@platform
+OMP=/Users/josh/.bun/bin/omp
+BUNPATH=1
+```
+
+If a shell still reports `omp` as not found, it predates the 15:38 install and
+zsh is serving a stale command hash — `rehash` fixes it without a new session.
+
+Ruled out along the way: no `platform` host in `~/.ssh/config`, no OrbStack
+machines, nothing on the tailnet by that name, no `.envrc` or kubeconfig inside
+the synced trees referencing `admin@platform`, and `~/.kube/config` untouched
+since 2026-08-03 — so the sync did not cause this.
+
+### Fixed while here
+
+`home/shell.nix` ran `eval "$(blobber completion zsh)"` unguarded. `blobber` is
+a hand-placed `~/.local/bin` binary that exists only on the MacBook, so every
+interactive shell on the Studio printed
+`/Users/josh/.zshrc:68: command not found: blobber`. Now wrapped in a
+`command -v` guard and applied to both machines; the Studio's interactive shell
+is clean.
+
+That is a good example of the remaining class of drift: shared shell config
+referencing machine-local binaries. `bw-mcp` was the same shape and is now
+Nix-generated; `blobber`, `blob`, `agent-cli` and friends in `~/.local/bin` are
+still unmanaged.
+
+### Actual remaining gap on the Studio
+
+omp is installed and on PATH; it has **no credentials**. `auth_credentials` in
+its `agent.db` has 0 rows against the MacBook's 8 (anthropic, openai-codex,
+xai-oauth, cursor, plus MCP OAuth bindings). One interactive `/login` per
+provider is required, and cannot be automated from here.
