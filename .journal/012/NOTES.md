@@ -1551,3 +1551,34 @@ inventory claimed.
 
 Lesson for the postmortem: never verify with the same pattern set that
 produced the copy — the blind spot cancels out and reads as parity.
+
+## 2026-08-24 17:20 — Studio has its own incus identity
+
+Josh asked how to get incus credentials onto the Studio. Did NOT copy the
+MacBook's client cert (per-machine identity, same reasoning as the SSH keys) —
+used the native trust-token flow instead:
+
+1. From the MacBook (already trusted): `incus config trust add nas01:studio`
+   → single-use token embedding the cluster addresses and CA fingerprint.
+2. On the Studio: `incus remote add nas01 <token>` — generated its own
+   keypair, pinned the server cert, registered trust.
+
+Result: `auth: trusted`, full cluster view from the Studio. New identity
+`CN=josh@studio`, fingerprint `73e1f42cf39d…`, in the cluster trust store
+until 2036 alongside `josh@jmgilman-mbp` and `bootstrap-admin`. Each machine
+is now independently revocable via `incus config trust remove`.
+
+Two notes:
+
+- On macOS the incus client config landed at
+  `~/Library/Application Support/incus/` on the Studio, not `~/.config/incus/`
+  as on the MacBook (older client versions used XDG paths; both work, path
+  differs by what created it first).
+- **Cluster leadership has moved since session 010's notes:** lab01 is now
+  database-leader and nas01 database-standby (was nas01-leader/lab03-standby).
+  All four members ONLINE. Normal raft behavior, but TECH_NOTES should stop
+  asserting nas01 as leader at close-out.
+
+Not migrated: the `ovh-incusos` and `incusos-spike` remotes from the MacBook's
+config — out of scope (not the lab), and each would need its own trust
+exchange for the Studio's new cert.
