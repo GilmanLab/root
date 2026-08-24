@@ -1409,3 +1409,57 @@ Seven folders now replicate: `code`, `work`, `omp-sessions`, `omp-agents`,
 `omp-extensions`, `paseo-agents`, `paseo-projects`.
 
 Josh needs to relaunch Paseo on the Studio to pick up the registry.
+
+## 2026-08-24 15:30 — Phase A complete: the Studio is seeded
+
+Migration to "Studio as the main filesystem" — Paseo shut down on the MacBook,
+agent work stopped, only this omp session writing.
+
+### Worktrees
+
+2.3 GB / 32 worktrees across 12 repos rsynced (`.direnv`/`result*` excluded —
+MacBook Nix-store symlinks). Sync needed no pausing: `.wt` is ignored, so the
+copy is invisible to Syncthing.
+
+Two incidents, both resolved:
+
+1. **Raced the `work` folder's in-flight rescan.** My orphan cleanup deleted 5
+   catalyst-infra worktrees whose admin dirs had not yet arrived — false
+   positives. Re-copied. One genuine orphan (`phoenix/feat-campaign-v2-frontend`,
+   absent on the MacBook) removed for real; its read-only Go modcache needed
+   `chmod -R u+w` first. Lesson: orphan checks are only valid against a
+   converged index.
+2. **5 catalyst-infra worktrees were broken on BOTH machines** — relics of the
+   repo moving from `~/work/catalyst-infra` to
+   `~/work/cardano-foundation/catalyst-infra`; their `gitdir` pointers still
+   named the old path. `git worktree repair` on the MacBook fixed both
+   directions; admin-dir fixes synced, worktree `.git` files re-rsynced.
+
+Final state: **30/30 worktrees healthy on the Studio**, inventory identical to
+the MacBook (`LC_ALL=C` diff empty).
+
+### omp/paseo dump (non-credential)
+
+- `config.yml`, `mcp.json` had drifted (MacBook gained a `software-architect`
+  override and the `paper` MCP server since the last hand-copy). MacBook
+  version pushed to the Studio. Note: `paper` points at `127.0.0.1:29979` —
+  Paper.app — which does not exist on the Studio; that server will show
+  unreachable there until Paper is installed or the entry is host-guarded.
+- `AGENTS.md` already identical.
+- `history.db` copied via `sqlite3 .backup` (live DB — this session writes it).
+- `blobs/` (9.1 MB) rsynced — old `artifact://` references resolve on the Studio.
+- `managed-skills/` does not exist; nothing to copy.
+- `agent.db` deliberately NOT copied (credentials; Studio has its own logins).
+- Paseo: `cursor` provider block merged into the Studio's `config.json`
+  (preserving its daemon block for Josh's Phase B edit). `cursor-agent`
+  installed on the Studio via cursor.com/install; it errors "keychain locked"
+  over SSH, which is expected — needs the GUI session, and probably one
+  `cursor-agent login` there.
+
+### Sync convergence verified
+
+All five omp/paseo folders idle with need=0 on both sides (sessions 9,790
+files, agents 17, extensions 1, paseo-agents 138, paseo-projects 2). The synced
+state IS the final dump — safe to remove the folders in Phase C.
+
+Awaiting Josh's Phase B (Paseo server flip), then Phase C on his go.
