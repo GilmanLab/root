@@ -1192,3 +1192,69 @@ working-tree edits from a version archive is not a real workflow.
 
 **Not reverting anything until Josh rules on these.** The studio-only trees and
 the divergent shared trees are two different decisions wearing one button.
+
+## 2026-08-23 12:30 — Two-way sync live
+
+Josh's ruling: he has not coded on the Studio in weeks-to-months, so nothing
+there is current. Proceeded with the full revert.
+
+### Revert
+
+`POST /rest/db/revert` on both folders. Locally-changed counts drained to zero:
+`code` 35,320 → 0, `work` 74,977 → 0. The Studio's `~/code` went from 46 GB to
+32 GB and `~/work` from 123 GB to 26 GB, matching the MacBook. Discarded content
+was archived by staggered versioning rather than destroyed:
+`~/code/.stversions` 4.0 GB, `~/work/.stversions` 8.6 GB, both aging out after
+30 days.
+
+### Residual git churn, and a real fix
+
+After the revert, six files stayed locally-changed — all `.git/index` in the
+previously divergent repos (`ProjectCobra`, `papermark`, `lab`, `agent-skills`,
+`ai`, `Finances`). Git had rewritten each index after the revert replaced
+working-tree files and stat data changed. One `work` file also refused to
+settle: `cardano-foundation/phoenix/.git/FETCH_HEAD`.
+
+Added a second ignore block for transient git files that every fetch or commit
+rewrites: `.git/FETCH_HEAD`, `.git/ORIG_HEAD`, `.git/COMMIT_EDITMSG`,
+`.git/gc.log`, `.git/logs`. Deliberately **not** `.git/index` — git cannot
+rebuild it without a reset, so it has to travel. A second revert then cleared
+the six.
+
+### Self-inflicted stall, diagnosed
+
+After flipping to `sendreceive`, probe files would not propagate in either
+direction for ~10 minutes. The cause was the `maxFolderConcurrency: 1` tuning I
+applied during the heavy transfer: with `work` rescanning 784,545 files, `code`
+sat in `scan-waiting` and could not announce anything new. Confirmed by
+`/rest/db/file` reporting "No such object in the index" for a file that plainly
+existed on disk. Restored `maxFolderConcurrency: 0` (auto) — the serialization
+helped while transferring bulk, and blocked everything once the transfer was
+done.
+
+### Verified
+
+Both folders `sendreceive` on both machines. Bidirectional propagation proven
+with timestamped probes:
+
+```
+mbp    received: two-way probe from studio 1787538134
+studio received: two-way probe from macbook 1787538134
+```
+
+Probes removed afterward.
+
+Final state — `~/code` 60 GB / 32 GB and `~/work` 26 GB / 26 GB. The `code`
+difference is the MacBook's ignored content (worktrees, `node_modules`,
+`target`) which was never meant to travel, plus the Studio's `.stversions`.
+
+### Standing operational rules
+
+- One writer at a time. Quit omp before switching desks; simultaneous writes to
+  the same `.git` can produce `.sync-conflict` files that git does not
+  understand.
+- Watch for `.sync-conflict` under any `.git` for the first week.
+- `.wt` worktrees stay machine-local by design, so `wt list` legitimately
+  differs per machine.
+- `.stversions` holds 12.6 GB on the Studio and self-expires in 30 days; purge
+  sooner if space is needed.
