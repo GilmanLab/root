@@ -15,3 +15,4 @@
 | 011 | 2026-08-21 | Session opened, goal pending | in-progress | New session primed; awaiting the user's actual request. |
 | 012 | 2026-08-22 | Make the MacBook and Mac Studio interchangeable | in-progress | Working toward interchangeable MacBook/Mac Studio environments, with the lab as a possible supporting utility. |
 | 013 | 2026-08-23 | Retest T48 after the 10G DAC swap | complete | The 10G DACs closed the FEC leg of T48, but the E810s in ice Safe Mode pass only broadcast and drop all unicast and all tagged frames, so an untagged stopgap is impossible and the datapath waits on the upstream ice DDP release. |
+| 014 | 2026-08-24 | Session opened, goal pending | in-progress | New session primed; awaiting the user's actual request. |
