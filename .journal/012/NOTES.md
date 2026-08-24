@@ -1582,3 +1582,11 @@ Two notes:
 Not migrated: the `ovh-incusos` and `incusos-spike` remotes from the MacBook's
 config — out of scope (not the lab), and each would need its own trust
 exchange for the Studio's new cert.
+
+## 2026-08-24 17:30 — OVH incus trust extended to the Studio
+
+Same token flow as nas01, per Josh (spike remote skipped as dead):
+`incus config trust add ovh-incusos:studio` on the MacBook, redeemed on the
+Studio. Verified `auth: trusted` against `ns1001912.ip-147-135-105.us`
+(147.135.105.83). The Studio now reaches both incus targets with its single
+`josh@studio` identity.
