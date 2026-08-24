@@ -1476,3 +1476,16 @@ Fix: `daemon.listen: "0.0.0.0:6767"`, `paseo daemon restart`. Both endpoints
 now answer, and the MacBook reaches the daemon over the tailnet. Note this also
 exposes 6767 on the home LAN (192.168.1.10) — acceptable on a private network,
 and `paseo daemon set-password` is the hardening knob if wanted.
+
+## 2026-08-24 16:00 — Paper declared
+
+The missing Studio app behind the `paper` MCP entry is Paper (paper.design),
+a manual MacBook install (0.5.4) that postdated the application inventory —
+which is why no earlier list caught it. Trap: the Homebrew cask named `paper`
+is an unrelated wallpaper app; the real token is **`paper-design`**.
+
+Declared in `configuration.nix` and applied to both machines: the MacBook
+adopted the existing bundle in place (cask 0.5.4 matches installed 0.5.4,
+`auto_updates` besides), the Studio got a fresh install. The `paper` MCP server
+(`127.0.0.1:29979`) can now resolve on the Studio whenever Paper.app is
+running there.
