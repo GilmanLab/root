@@ -82,3 +82,67 @@ Josh's call, not done.
 
 Next: wait for the IncusOS stable release carrying #1306, reboot, confirm
 Safe Mode is gone, then rerun this exact test and close T48.
+
+## 2026-08-23 20:10 — Untagged experiment: stopgap is DEAD, unicast RX is broken
+Josh approved the experiment. Ran it on lab03 only, all changes reverted.
+
+Method (switch-side first, no host change): moved `sfp-sfpplus5/6` from the
+VLAN 30 tagged list to the untagged list and set `pvid=30`,
+`frame-types=admit-all` on both bridge ports. Test containers: `u30-nas01`
+with macvlan on `fast30` (tagged, the proven-good side) and `u30-lab03` with
+macvlan on `fast` (untagged). The switch does the tag translation, so the
+lab03 host config stayed untouched for this phase.
+
+Results, untagged into lab03:
+- Broadcast RX **works**: `u30-lab03` captured nas01's broadcast ARP requests
+  and a MikroTik UDP/5678 discovery frame, and its replies reached nas01.
+  This is the first switch→lab frame delivery of the whole saga.
+- Unicast RX **fails**: nas01's ICMP echo requests never appeared in the
+  capture, while switch `sfp-sfpplus5` showed tx +125,186 bytes / 109 pkts
+  for the burst and the container MAC was correctly learned on that port.
+  `ip link set eth1 promisc on` in the container changed nothing.
+
+So the tagged-vs-untagged split was only half the story. Phase two tested
+whether the NIC's PRIMARY unicast MAC still works, since the macvlan MAC is
+a secondary filter. Temporarily added `addresses: ["10.10.31.13/24"]` to
+lab03's bond in `desired_fast_parent` (uncommitted, own subnet so replies
+could not leak back via tagged fast30) and converged with
+`CI= moon run fleet-cluster:network` (1 success, 3 no-change).
+- ICMP and TCP to `10.10.31.13` from the tagged nas01 container: nothing,
+  not even a TCP RST. Ambiguous on its own — could have been the IncusOS
+  input firewall on a roleless interface.
+- Disambiguated with hand-crafted ARP (AF_PACKET, answered by the kernel
+  below nftables), unicast and broadcast in separate runs:
+  - 3x unicast ARP request to `38:05:25:32:e1:3b` at 03:05:33 → **0 replies**
+  - 3x broadcast ARP request at 03:05:37 → **3 replies in ~300us**
+
+VERDICT: in Safe Mode the E810 delivers only broadcast/multicast. Unicast RX
+is dropped for the primary MAC as well as macvlan secondaries, and every
+tagged frame is dropped regardless of type. An untagged storage VLAN is
+therefore NOT a viable stopgap — no switch- or VLAN-layer trick can carry
+unicast into these NICs without the DDP package. The earlier ICMP/TCP
+silence was the unicast drop, not the host firewall.
+
+Correction to the 18:05 entry: the `/os/1.0/system/network` byte counters are
+coarse/cached and sometimes report +0 while tcpdump proves frames arrived.
+Treat container-side captures and switch-side counters as the ground truth;
+the 18:05 conclusion still holds because it rests on those.
+
+Revert, all verified:
+- `operations.py` restored via `git checkout`; network deploy reconverged
+  lab03 (1 success, 3 no-change); bond back to no addresses, fast30 `.13`.
+- Switch: VLAN 30 tagged back to ports 1-7 with an empty untagged list;
+  ports 5/6 back to `pvid=1`, `admit-only-vlan-tagged`,
+  `ingress-filtering=true` — matches `bridge.tf` exactly (the declaration
+  sets no pvid, so RouterOS default 1 is correct).
+- All six test containers deleted. Baseline reconfirmed after revert:
+  lab03→nas01 still delivers (nas01 fast rx 5.18MB → 5.52MB), nas01→lab03
+  still 100% loss.
+- `tofu plan` could NOT be run: the `lab-admin` AWS SSO token is expired, so
+  the S3 backend is unreachable. Verified live state against `bridge.tf` by
+  hand instead. Worth a real plan run after the next `aws sso login`.
+
+Remaining options, in order of cost: wait for the stable release carrying
+#1306 (cheapest, nothing else to do); or build a local IncusOS image with
+incusos-builder including the merged fix and reinstall the three labs (works
+today, but a three-node reinstall for a fix that ships on its own).
