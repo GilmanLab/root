@@ -1363,3 +1363,49 @@ omp is installed and on PATH; it has **no credentials**. `auth_credentials` in
 its `agent.db` has 0 rows against the MacBook's 8 (anthropic, openai-codex,
 xai-oauth, cursor, plus MCP OAuth bindings). One interactive `/login` per
 provider is required, and cannot be automated from here.
+
+## 2026-08-24 14:20 — Paseo conversations: the workspace registry was missing
+
+Josh logged in on the Studio, opened Paseo, saw most projects but no
+conversations.
+
+Diagnosis. Paseo does **not** store transcripts itself — each agent record's
+`persistence.nativeHandle` is an absolute path to the omp session JSONL, e.g.
+
+```
+/Users/josh/.omp/agent/sessions/-code-Finances/2026-08-13T18-36-34-068Z_019ffc69-….jsonl
+```
+
+Checked all 132 agent records: **129 of 131 handles resolve on the Studio**. The
+two that do not are the `codex`-provider records, whose sessions lived in
+`~/.codex` and went with the purge. So the transcripts were present the whole
+time.
+
+The gap was `~/.paseo/projects/` — which we never synced:
+
+| file | MacBook | Studio (before) |
+|---|---|---|
+| `workspaces.json` | 79,699 B, **134 entries** | 6,364 B, **11 entries** |
+| `projects.json` | 5,740 B, 15 entries | 4,521 B |
+
+The Studio's Paseo had built its own small registry from what it could see
+locally. The 132 synced agent records referenced workspace IDs absent from that
+registry, so their conversations had nowhere to attach.
+
+Fix: quit Paseo on the Studio first (its daemon owns and rewrites these files,
+so syncing under a live daemon would fight it), then added a fifth Syncthing
+folder `paseo-projects` → `~/.paseo/projects`, MacBook `sendonly` / Studio
+`receiveonly`. The Studio's two divergent files reverted, both machines now
+report `workspaces.json` 134 entries and `projects.json` 15. Flipped to
+`sendreceive`.
+
+Deliberately still machine-local: `daemon-keypair.json`, `cli-client-id`,
+`server-id`, `paseo.pid` (identity), `models/local-speech` (model cache), and
+the daemon logs. `desktop-attachments/` and `schedules/` are empty on both, and
+`~/Library/Application Support/Paseo` is just Electron cache — 39 MB of
+`Cache`/`Cookies`/`DawnWebGPUCache`, no conversation data.
+
+Seven folders now replicate: `code`, `work`, `omp-sessions`, `omp-agents`,
+`omp-extensions`, `paseo-agents`, `paseo-projects`.
+
+Josh needs to relaunch Paseo on the Studio to pick up the registry.
