@@ -1258,3 +1258,53 @@ difference is the MacBook's ignored content (worktrees, `node_modules`,
   differs per machine.
 - `.stversions` holds 12.6 GB on the Studio and self-expires in 30 days; purge
   sooner if space is needed.
+
+## 2026-08-23 12:50 — omp on the Studio: installed, unauthenticated
+
+Josh reported omp missing on the Studio. It is not missing — it is
+unauthenticated, and the failure message reads like an install problem.
+
+Verified present and resolvable in every shell flavour:
+
+```
+~/.bun/bin/omp -> ../install/global/node_modules/@oh-my-pi/pi-coding-agent/dist/cli.js
+non-interactive: /Users/josh/.bun/bin/omp
+interactive zsh: /Users/josh/.bun/bin/omp
+login zsh:       /Users/josh/.bun/bin/omp
+omp/17.3.4
+```
+
+What it actually prints:
+
+```
+No models available. Use /login or set an API key environment variable.
+```
+
+Cause: **every provider on the MacBook is OAuth, stored in `agent.db`**, which
+is deliberately excluded from Syncthing. Credential inventory from the MacBook's
+`auth_credentials` table (metadata only, no secrets read):
+
+| provider | type | created |
+|---|---|---|
+| `anthropic` | oauth | 2026-08-13 |
+| `openai-codex` | oauth | 2026-08-13, re-auth 2026-08-20 |
+| `xai-oauth` | oauth | 2026-08-16 |
+| `cursor` | oauth | 2026-08-13 |
+| `mcp_oauth:…browserless.io/mcp` | oauth | 2026-08-15 |
+| `mcp_oauth:…cloudflare.com/mcp` | oauth | 2026-08-22 |
+
+The Studio's `agent.db` is 12,288 bytes with **0 rows** in `auth_credentials` —
+schema created, never signed in.
+
+There are no API keys in the environment or in `home/shell.nix` on either
+machine, so nothing can be inherited declaratively: the model roles in
+`config.yml` (`anthropic/claude-opus-5`, `openai-codex/gpt-5.6-sol`,
+`xai-oauth/grok-4.6`) all resolve through OAuth credentials that exist only in
+the MacBook's `agent.db`.
+
+Fix is a one-time interactive `/login` per provider on the Studio. Not
+automatable from here — OAuth needs a browser and Josh's identity.
+
+Also spotted, unrelated: the Studio's `~/.zshrc:68` errors with
+`command not found: blobber` in interactive shells. `blobber` is a MacBook-only
+binary in `~/.local/bin`; the shared shell config references it unconditionally.
