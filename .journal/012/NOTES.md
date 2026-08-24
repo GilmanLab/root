@@ -1463,3 +1463,16 @@ files, agents 17, extensions 1, paseo-agents 138, paseo-projects 2). The synced
 state IS the final dump — safe to remove the folders in Phase C.
 
 Awaiting Josh's Phase B (Paseo server flip), then Phase C on his go.
+
+## 2026-08-24 15:45 — Phase B correction: the desktop app connects via localhost
+
+Binding `daemon.listen` to only the Tailscale IP broke the Studio's own Paseo
+UI (right-hand projects would not load). My earlier claim that local clients
+use the unix socket is true for the CLI but **false for the desktop renderer**,
+which connects to `localhost:6767`. Proven: `127.0.0.1:6767` → connection
+refused while `100.122.142.76:6767` → HTTP 404 (daemon fine).
+
+Fix: `daemon.listen: "0.0.0.0:6767"`, `paseo daemon restart`. Both endpoints
+now answer, and the MacBook reaches the daemon over the tailnet. Note this also
+exposes 6767 on the home LAN (192.168.1.10) — acceptable on a private network,
+and `paseo daemon set-password` is the hardening knob if wanted.
