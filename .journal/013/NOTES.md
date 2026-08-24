@@ -146,3 +146,39 @@ Remaining options, in order of cost: wait for the stable release carrying
 #1306 (cheapest, nothing else to do); or build a local IncusOS image with
 incusos-builder including the merged fix and reinstall the three labs (works
 today, but a three-node reinstall for a fix that ships on its own).
+
+## 2026-08-24 16:05 — Close
+Josh ruled: wait for the upstream release; no stopgap work.
+
+No PRs and no code changes to land — this was an investigation session, and
+both experimental changes (the `desired_fast_parent` edit and the lab03
+switch port changes) were reverted and verified in-session. All repos clean:
+`root`, `networking`, `fleet`, `aws`, `sandbox`, `secrets` on `master` with
+no session-013 work outstanding. The `fleet` and `secrets` `.wt/` worktrees
+belong to other sessions and were left untouched.
+
+Release recheck at close, ~22h after the retest: still nothing new.
+`https://images.linuxcontainers.org/os/` newest build remains
+`202608201218`. So the handoff is unchanged: watch for the release, reboot,
+confirm Safe Mode is gone, rerun the fast30 ping test and the two deploys,
+then close T48.
+
+NEW, found while rechecking and NOT caused by this session: the local incus
+client config directory `~/.config/incus/` no longer exists. Yesterday it
+held the `nas01`, `ovh-incusos`, `incusos-spike`, `docker` and `ghcr`
+remotes; now only the built-in `local` and `images` remain, so `incus query
+nas01:` fails with `The remote "nas01" doesn't exist`. Nothing in this
+session wrote to `~/.config`; the timing points at session 012's
+nix-darwin/home-manager work, which owns `~/.config`. Recovery is
+documented, not lost: re-add the remote and reinstall the `bootstrap-admin`
+client cert whose private half is escrowed at `fleet/shared/bootstrap-client`
+in `GilmanLab/secrets`. Left alone deliberately — restoring it means
+decrypting escrowed key material, which is Josh's call, and it may have been
+an intentional reset. Whoever picks up T48 next must fix this first, and
+home-manager arguably ought to manage or at least not clobber that directory.
+
+Recorded at close: `SUMMARY.md` written; `INDEX.md` row 013 → complete;
+`TECH_NOTES.md` VLAN 30 bullet rewritten with the Safe-Mode characterization,
+the closed FEC leg, and the counter-reliability caution; `VISION.md` T48 row
+rewritten and the stale "802.3ad LAGs" phrasing in the storage-network bullet
+corrected to active-backup bonds.

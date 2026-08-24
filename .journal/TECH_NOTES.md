@@ -66,10 +66,19 @@
   REQUIRED (IncusOS interfaces are internal VLAN-filtering bridges).
   Incus cluster raft/API deliberately stays on VLAN 10 (address move =
   offline all-member edit; bulk traffic rides instance VLANs later).
-  T48 BLOCKER: lab datapath dead switch→host — IncusOS ships no ice DDP
-  (E810 Safe Mode) and the 25G DACs at 10G mis-negotiate FEC. Upstream fix
-  MERGED (lxc/incus-os#1306); 6x 10G DACs arrive ~2026-08-24. Retest:
-  cross-node macvlan pings on fast30, then deploy reruns.
+  T48 BLOCKER (session 013 retest): lab datapath still dead switch→host, now
+  from ONE cause — IncusOS ships no ice DDP, so the E810s run in Safe Mode
+  and pass broadcast/multicast ONLY, dropping all unicast (primary MAC too,
+  `promisc` does not help) and every tagged frame. The FEC leg is CLOSED:
+  the six links are 10G DACs (`SFP-H10GB-CU3M`) negotiating
+  `Requested FEC: NONE`. An untagged VLAN 30 is therefore NOT a viable
+  stopgap — measured, not assumed. Waiting on the stable release carrying
+  lxc/incus-os#1306 (merged 2026-08-22; newest published build is still
+  `202608201218`, which the nodes run; `auto_reboot: false` so it needs a
+  manual reboot). Retest: cross-node macvlan pings on fast30, then deploy
+  reruns. CAUTION: `/os/1.0/system/network` byte counters are coarse/cached
+  and can read `+0` while frames demonstrably arrive — trust container
+  tcpdump plus switch counters.
 - nas01 NICs: `38:05:25:37:8d:7a` = RTL8126A 5GbE → `sw-mgmt01` port 8
   (mgmt, links 2.5G, MAC-bound in the seed); `38:05:25:37:8d:7b` = RTL8127A
   10GbE `fast` → `sw-core01` port 7 (10G optic — the proven link pattern).

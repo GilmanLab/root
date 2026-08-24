@@ -14,4 +14,4 @@
 | 010 | 2026-08-21 | Configure storage and networking across the cluster | complete | Brought cluster storage fully live under new fleet pyinfra automation (data pools, cluster pool, 17.4TB hdd raidz1) and converged the VLAN 30 storage network, with the lab datapath pending 10G DACs and the merged upstream IncusOS ice-firmware fix. |
 | 011 | 2026-08-21 | Session opened, goal pending | in-progress | New session primed; awaiting the user's actual request. |
 | 012 | 2026-08-22 | Make the MacBook and Mac Studio interchangeable | in-progress | Working toward interchangeable MacBook/Mac Studio environments, with the lab as a possible supporting utility. |
-| 013 | 2026-08-23 | Review the 25G DAC issues on the lab nodes | in-progress | Recovering prior-session detail on the 25G DAC/FEC failures between the three MS-02 lab nodes and sw-core01. |
+| 013 | 2026-08-23 | Retest T48 after the 10G DAC swap | complete | The 10G DACs closed the FEC leg of T48, but the E810s in ice Safe Mode pass only broadcast and drop all unicast and all tagged frames, so an untagged stopgap is impossible and the datapath waits on the upstream ice DDP release. |
