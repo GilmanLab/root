@@ -1521,3 +1521,33 @@ host → Direct connection → 100.122.142.76:6767, SSL off), then the acceptanc
 test — open a pre-migration conversation and continue it; the agent must
 execute on the Studio inside a worktree that only existed on the MacBook
 before Phase A.
+
+## 2026-08-24 17:00 — Worktree seeding redone after a glob blind spot
+
+Josh caught `~/code/dntls/lab/.wt` missing on the Studio. Root cause: my Phase A
+rsync used shell globs (`~/code/*/.wt`, `~/work/*/*/.wt`) that covered nested
+repos under `work/` but only top-level repos under `code/` — and the
+verification used the same globs, so "parity" was measured against an
+incomplete universe. 31 `.wt` dirs in nested repos (`componere/*`, `imgoci/*`,
+`lab2/{aws,fleet,networking,sandbox}`, most of `meigma/*`, `dntls/lab`) were
+missed. Worse, the Studio had stale local copies of *some* nested `.wt` dirs,
+which made the gap invisible to a presence check.
+
+Redone find-based, with Josh's explicit ruling that no Studio worktree content
+is worth preserving:
+
+- `rsync -a --delete --delete-excluded` over all **64** `.wt` dirs found by
+  `find -maxdepth 4 -type d -name .wt` — the Studio is now an exact mirror.
+  Stale content, broken Nix-store symlinks, and fossil `.syncthing.*.tmp`
+  files (relics of the old star-topology sync writing into read-only dirs)
+  purged. One tree needed `chmod -R u+w` first (read-only Go modcache again).
+- Studio-only `.wt` dirs after the mirror: none.
+
+Final: **64 `.wt` dirs identical; 120 worktrees on each machine; 120/120 pass
+`git status` on the Studio.** The MacBook-side full health sweep hung on one
+repo and was skipped as redundant — the Studio's pass is a byte-mirror of the
+MacBook's state. The true worktree population was 4x what the globbed
+inventory claimed.
+
+Lesson for the postmortem: never verify with the same pattern set that
+produced the copy — the blind spot cancels out and reads as parity.
