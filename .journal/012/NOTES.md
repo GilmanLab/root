@@ -1130,3 +1130,65 @@ deletes what is absent from the *global* index, and that index is still
 incomplete — reverting now could delete files that exist on the MacBook but have
 not been indexed and announced. The revert has to wait for the MacBook scans to
 finish, which is exactly what the watcher is for.
+
+## 2026-08-23 08:45 — Initial pass complete; revert is NOT a clean call
+
+All four folders `idle`, `needFiles: 0`. The Studio has pulled everything the
+MacBook holds.
+
+| | files | size |
+|---|---|---|
+| mbp/code (authoritative) | 142,018 | 16.0 GB |
+| mbp/work (authoritative) | 784,545 | 14.6 GB |
+| studio/code | 177,326 | 18.0 GB — 35,320 locally-changed |
+| studio/work | 859,522 | 23.7 GB — 74,977 locally-changed |
+
+The ignore list is doing real work: `~/work` is 26 GB on disk but 14.6 GB
+indexed. Note `work` holds 784,545 files at an 18 KB average — five times
+`code`'s file count with less data, almost all of it loose git objects. That
+file count, not the byte count, is what made the initial pass take ~14 hours.
+
+The watcher died mid-run (SSH hiccup, exit 1) and was restarted; `maxFolderConcurrency: 1`
+was in place for the second half.
+
+### The revert is not what I assumed
+
+I expected the Studio's locally-changed set to be mostly the deleted
+`catalyst-world`. It is not. Classifying every locally-changed path by whether
+its top-level directory also exists on the MacBook:
+
+**`~/code`** — 45,119 entries examined:
+- **75 studio-only trees**, 43,145 files, 2.02 GB. Genuine extras:
+  `cosmos-sdk`, `cometbft`, `devos`, `blobber`, `bazel_registry`, `cartel`,
+  `aws-labs`, and ~68 more.
+- **8 shared-but-divergent trees**, 1,974 files, 0.04 GB: `meigma`, `glab`,
+  `Finances`, `ai`, `agent-skills`, `ProjectCobra`, `papermark`, `lab`.
+
+**`~/work`** — 91,000 entries examined:
+- **92 studio-only trees**, 82,760 files, 8.45 GB, including `catalyst-world`
+  (confirmed: absent on the MacBook, present on the Studio, in the changed set).
+- **1 shared-but-divergent tree**: `cardano-foundation`, 8,240 files, 0.43 GB.
+
+The studio-only trees are the straightforward part — "MacBook authoritative"
+means they go.
+
+**The divergent shared trees are the problem.** They contain uncommitted work on
+the Studio:
+
+| Repo | Dirty files on Studio |
+|---|---|
+| `~/code/lab` | 84 |
+| `~/code/papermark` | 16 |
+| `~/code/ai` | 9 |
+| `~/code/Finances` | 7 |
+| `~/code/ProjectCobra` | 3 |
+| `~/code/agent-skills` | 1 |
+| `~/work/cardano-foundation/phoenix` | **984** |
+| `~/work/cardano-foundation/catalyst-infra` | 112 |
+
+A blanket revert discards all of it. Staggered versioning would archive the
+files into `.stversions`, so it is recoverable, but recovering 984 scattered
+working-tree edits from a version archive is not a real workflow.
+
+**Not reverting anything until Josh rules on these.** The studio-only trees and
+the divergent shared trees are two different decisions wearing one button.
