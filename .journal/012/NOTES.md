@@ -1489,3 +1489,35 @@ adopted the existing bundle in place (cask 0.5.4 matches installed 0.5.4,
 `auto_updates` besides), the Studio got a fresh install. The `paper` MCP server
 (`127.0.0.1:29979`) can now resolve on the Studio whenever Paper.app is
 running there.
+
+## 2026-08-24 16:20 — Phase C complete: single-writer architecture is live
+
+Studio Paseo confirmed working after the 0.0.0.0 rebind. Executed Phase C:
+
+- Convergence gate passed (all five folders idle, need=0 both sides), then
+  removed `omp-sessions`, `omp-agents`, `omp-extensions`, `paseo-agents`,
+  `paseo-projects` from both Syncthing configs. Data untouched.
+- Remaining synced folders: **`code` and `work` only**. Zero daemon-owned files
+  are synced anywhere — the conflict class that has chased this whole session
+  (workspaces.json, .git/index, SQLite) is structurally gone.
+- Removed the long-dead `NAS` device entry from both Syncthing configs.
+- Cleaned `.stfolder`/`.stversions` markers from the five former folder roots
+  (a removed folder's `.stversions` never ages out, so it had to go by hand).
+- `st-sync-watch` had already printed ALL_IDLE and exited 0.
+
+Final architecture:
+
+- **Studio**: Paseo daemon (0.0.0.0:6767, keepRunningAfterQuit), omp with its
+  own credentials, all agent execution, all worktrees, canonical
+  `~/.omp/agent` + `~/.paseo` state.
+- **MacBook**: Paseo app as pure client (manageBuiltInDaemon: false), reaches
+  the daemon at 100.122.142.76:6767 over the tailnet from anywhere. Local omp
+  CLI still works but its sessions stay machine-local by design.
+- **Syncthing**: `~/code` and `~/work` two-way, `.wt` machine-local, git
+  transient files ignored.
+
+Remaining for Josh: add the host in the MacBook Paseo app (Settings → Add
+host → Direct connection → 100.122.142.76:6767, SSL off), then the acceptance
+test — open a pre-migration conversation and continue it; the agent must
+execute on the Studio inside a worktree that only existed on the MacBook
+before Phase A.
