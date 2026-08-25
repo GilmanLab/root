@@ -35,7 +35,7 @@ addresses.
 | --- | --- | --- | --- | --- |
 | `10` | Management | `10.10.10.0/24` | `10.10.10.1` | IncusOS management, network-device management, and `nas01` management |
 | `30` | Storage | `10.10.30.0/24` | None (not routed) | Incus node storage network on the compute-facing `sw-core01` links |
-| `40` | Sandbox/workload | `10.10.40.0/24` | `10.10.40.1` | `sandbox01` and future explicitly attached workload endpoints |
+| `40` | Sandbox/workload | `10.10.40.0/24` | `10.10.40.1` | `sandbox01`, Incus instances attached over the cluster fast links, and other explicitly attached workload endpoints |
 | `70` | OOB | `10.10.70.0/24` | `10.10.70.1` | MS-02 AMT, `pikvm01`, `kvm01`, and management-switch administration |
 
 VLAN 20 and `10.10.20.0/24` are retired. The lab does not retain a PXE or
@@ -128,10 +128,12 @@ Port 8 is the 802.1Q trunk to `gw01` and carries VLANs 10 and 40. VLAN 10
 provides the switch management path. Ports 1 through 6 form three 802.3ad
 LAGs, one per MS-02 SFP+ pair: `bond-lab01` (ports 1–2), `bond-lab02` (ports
 3–4), and `bond-lab03` (ports 5–6). Port 7 connects the `nas01` 10GbE
-interface. VLAN 30 is tagged on the three LAGs and port 7; those links carry
-no other VLAN membership yet and are not required for IncusOS management
-boot. Instance/workload VLANs join these links when their first consumer
-arrives.
+interface. VLANs 30 and 40 are tagged on the three LAGs and port 7: VLAN 30
+is the node storage network, and VLAN 40 carries Incus instance traffic so
+workloads stay off the management plane. These links are not required for
+IncusOS management boot. The host-side counterpart is the `vlan_tags`
+allow-list converged by the `GilmanLab/fleet` `cluster/` project. Additional
+instance VLANs join these links when their first consumer arrives.
 
 ## DHCP and DNS ownership
 
