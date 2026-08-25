@@ -137,3 +137,38 @@ acceptance, RPO/retention, desktop scope). With the spike green, the real work
 is the `fleet/cluster/` pool + receiver definition, per-guest manifests, the
 SOPS credential layout, and a docs design/ADR — plus a decision on the lab CA
 cert for the receiver.
+
+## 2026-08-24 18:25 — Is the wiring expressible in fleet/cluster today? Yes, for storage
+Checked the current `fleet/cluster` project (now at `b2b13cd`, "drive every Incus
+call through pyinfra-incus 0.2.4") against the spike's procedure.
+
+Storage plane needs NO new ops. `incus_os_storage_volume` creates `hdd/backup`
+(and the lab placeholders); `cluster_storage_pool(per_member_config=...)` takes
+heterogeneous member sources because `source` is in
+`MEMBER_SPECIFIC_POOL_CONFIG_KEYS` and `validate_storage_pool_member_config`
+compares only declared keys; `storage_volume(target="nas01", config=...)`
+creates the pinned `repos` volume and can carry `snapshots.schedule`/`expiry`;
+`instance(target=..., devices=...)` expresses the receiver with both the disk
+device and the proxy device, and `instance_state` starts it. Verified by a
+read-only probe deploy (`--debug-operations`) against the real inventory: all
+seven operations construct and order correctly.
+
+Notable: `cluster_storage_pool` itself REQUIRES `per_member_config` keys to
+equal the cluster member set, so the lab placeholder volumes are enforced by
+the op, not merely by Incus.
+
+Real gap is guest-side: pyinfra 3.10 ships connectors chroot/docker/dockerssh/
+local/ssh/terraform/vagrant/fake — no incus/lxd connector — and the project
+inventory is `@local` driving the `nas01` remote. So rest-server's in-container
+config cannot be converged from this project. Options: (a) purpose-built pinned
+image built in git+CI (matches the decided image-distribution plan), (b)
+cloud-init `user.user-data` via `instance(config=...)`, (c) add an `incus exec`
+connector/op to pyinfra-incus (T49-style upstream promotion). Prefer (a) with
+(b) only for per-instance secrets.
+
+Also to encode when implementing: `incus_os_storage_volume` rejects quota/`use`
+drift (IncusOS has no volume update endpoint), so a corpus quota must be set at
+creation; and pool deletion destroys the dataset (spike finding), so
+`present=False` on this pool is data-destroying and needs a guard. The
+`HDD_POOL` comment in `config.py` ("OS-level only ... waits for T16") is the
+line this work flips.
