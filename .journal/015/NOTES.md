@@ -29,3 +29,59 @@ Current state of the world:
 
 Plan: wait for Josh's actual request, then read `.journal/VISION.md` and any
 task-relevant skills before substantive work.
+
+## 2026-08-24 17:55 — Goal: generalized VM backup design (opens T16's backup half)
+Josh's ask: brainstorm a generalized backup process for lab VMs. His priors —
+disk-level backup is a poor fit because most guests will be bootc/ostree-style
+with a large immutable layer; restic looks attractive but he wants alternatives
+considered; wants a receiving "server" on nas01 tied to the 17.4TB `hdd` array;
+Mac/Windows desktop backup is a nice-to-have, not a requirement.
+
+Ran three parallel researcher slices (engines / Incus+ZFS native / guest+desktop
+reality). Load-bearing findings, all upstream-cited:
+
+- Engines (versions as of 2026-08-24): restic 0.19.1 + rest-server 0.14.0 is the
+  best receiver fit — dumb storage-agnostic HTTP daemon, native `--append-only`
+  + `--private-repos` + htpasswd + `/metrics`, client-side keys, one static
+  binary for Linux/macOS/Windows. Kopia 0.23.1 is the runner-up: better desktop
+  GUI and cross-client dedup, but repository-server mode can decrypt everything
+  (kopia#4772) and its only real immutability story is S3 object lock. PBS 4.2.5
+  is a genuine standalone appliance but wants ~4GiB + 1GiB/TiB RAM (~21GiB for
+  this datastore) plus an SSD special vdev on HDDs, and has no macOS/Windows
+  client. Borg 2.0.0b23 is still explicitly "do not use in production"; Borg 1.4
+  is one-repo-per-client and Unix-only. rustic/backrest = adjuncts, not
+  receivers. Restic append-only implies clients cannot prune: maintenance must
+  run NAS-side with a separate credential (a feature, not a defect).
+- Incus/ZFS: no Incus-native S3/off-site backup target exists; running VM
+  snapshots are crash-consistent only (no QEMU guest-agent freeze/thaw wired
+  into Incus snapshots); Incus warns it owns its ZFS subtree, so sanoid/zrepl
+  must not manage those datasets — and IncusOS has no shell to run them anyway.
+  Path to using `hdd`: IncusOS `create-volume` with `use: "incus"`, then
+  `incus storage create --target nas01 backup zfs source=hdd/<vol>` plus
+  placeholder pool definitions on lab01–03 to satisfy the all-members
+  invariant. Documented upstream; host-path disk devices work but IncusOS
+  publishes no stable mount path, so prefer the volume route.
+- Guests/desktops: bootc splits cleanly — `/usr` image-owned, `/etc` 3-way
+  merged, `/var` persistent; so back up declared `/etc` overrides + `/var/lib`
+  subtrees + app-native dumps, and never blind-restore an old `/etc` onto a
+  newer image. App-aware artifacts are mandatory for Vault (raft snapshot +
+  original unseal material), Zitadel (Postgres dump; binary is stateless),
+  Talos/etcd (`talosctl etcd snapshot`), SQLite (`VACUUM INTO`), Garage
+  (`garage meta snapshot` + independent object copy). Mac bare-metal restore =
+  reinstall + Migration Assistant from Time Machine (Samba SMB3 + `fruit`,
+  dedicated quota'd share); Windows bare-metal = Veeam Agent Free image to SMB;
+  restic/kopia are data-only on both. Dead-man-switch monitoring
+  (Healthchecks-style) is the only reliable detector of a client that stopped
+  existing; Prometheus metrics are secondary.
+
+My synthesis, pending Josh's reaction: three planes by who owns the truth
+(rebuildable → git/CI; state → restic to nas01; keys/identity → existing SOPS +
+KMS + YubiKey root of trust, which must never depend on the backup system).
+Incus scheduled snapshots stay a short-horizon rollback tier only. Off-site =
+`restic copy` of a critical subset to S3 in the lab account, not a second NAS.
+Next step proposed: a throwaway spike (rest-server container on nas01 + one
+Linux guest + the Mac) to prove hdd wiring, append-only isolation, and a
+restore drill from escrowed material alone, before any design doc.
+
+Research transcripts: `history://BackupEngines`, `history://IncusZfsNative`,
+`history://GuestsAndDesktops`.
