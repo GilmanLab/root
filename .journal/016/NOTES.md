@@ -26,3 +26,11 @@ pivot), and ~/code/componere/incus-spire-attestor (SPIRE nodeattestor pair for
 Incus VMs, v1 architecture in that repo's journal 001/ARCHITECTURE.md —
 nonce-in-instance-config challenge, server plugin needs Incus API client cert
 with can_edit).
+
+## 2026-08-25 11:41 — Assessment delivered; enumerating remaining platform-cluster work
+Delivered placement assessment: cluster exists regardless (CAPI); availability
+argument really = stretch across lab01–03, not k8s per se; second-class-VM risk
+is an interface-layer problem (guardrail: every platform service consumable
+from a plain VM; incus-spire-attestor is that pattern for identity). Rec: start
+Vault in-cluster on local PVs + anti-affinity with a cheap eject path.
+Next: work breakdown for initial platform cluster deploy (bootstrap steps 3–4).
