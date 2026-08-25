@@ -17,3 +17,4 @@
 | 013 | 2026-08-23 | Retest T48 after the 10G DAC swap | complete | The 10G DACs closed the FEC leg of T48, but the E810s in ice Safe Mode pass only broadcast and drop all unicast and all tagged frames, so an untagged stopgap is impossible and the datapath waits on the upstream ice DDP release. |
 | 014 | 2026-08-24 | Session opened, goal pending | in-progress | New session primed; awaiting the user's actual request. |
 | 015 | 2026-08-24 | Session opened, goal pending | in-progress | New session primed; awaiting the user's actual request. |
+| 016 | 2026-08-25 | Session opened, goal pending | in-progress | New session primed; awaiting the user's actual request. |
