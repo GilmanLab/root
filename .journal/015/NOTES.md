@@ -172,3 +172,39 @@ creation; and pool deletion destroys the dataset (spike finding), so
 `present=False` on this pool is data-destroying and needs a guard. The
 `HDD_POOL` comment in `config.py` ("OS-level only ... waits for T16") is the
 line this work flips.
+
+## 2026-08-24 18:45 — Does Vault (in k8s) fix backup secret delivery?
+Partly, and it adds one hard constraint.
+
+Helps: in-cluster clients get identity for free (k8s SA JWT → Vault k8s auth),
+so a future k8s workload's repo password + upload credential need no injection
+at all. Per-guest policy gives blast-radius isolation (guest01 reads only its
+own repo password), rotation stops requiring a re-converge of every guest, and
+the NAS-side prune job can hold a short-TTL token instead of every repository
+password forever — which restores the "receiver persists nothing" property.
+
+Does not help: bootstrap identity for non-k8s consumers (the receiver container
+itself, one-off VMs). Vault's own docs are explicit that AppRole is a *trusted
+broker*, not a trusted third party: RoleID is not secret and may be baked into
+an image, but SecretID must be delivered separately, ideally response-wrapped
+(`-wrap-ttl`, single use) plus `secret_id_bound_cidrs`/`secret_id_num_uses`.
+So the write path into the instance is still required — Vault only downgrades
+what we push from a durable secret to a single-use token valid for seconds, and
+gives tamper evidence (a use-limit error on unwrap means someone else read it).
+This is the same shape as the sandbox01 Tailscale enrollment pattern (single-use
+preauth key, 10-min TTL, material under root-only /run, shredded), so reuse it.
+
+Hard constraint: circularity. Vault runs in k8s; the backup system protects
+Vault's raft snapshots and the cluster itself. Therefore SOPS + KMS + YubiKey
+stays the ROOT OF TRUST for backup credentials and Vault is only a distribution
+and rotation layer. The restore path must be provably Vault-free, and the
+quarterly drill must include a restore with Vault down.
+
+Second risk: if clients require Vault at backup time, a Vault outage becomes a
+fleet-wide silent backup gap. Mitigation is a Vault Agent-templated credential
+file with a grace window (last-known-good, restrictive perms) plus the dead-man
+switch, not hard-failing the backup.
+
+Sequencing consequence: the design does not need to wait for Vault (T24). Near
+term is SOPS + broker push; Vault slots in later as a distribution layer with no
+change to the receiver's shape.
