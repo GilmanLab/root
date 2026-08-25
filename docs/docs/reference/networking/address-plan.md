@@ -131,9 +131,15 @@ LAGs, one per MS-02 SFP+ pair: `bond-lab01` (ports 1–2), `bond-lab02` (ports
 interface. VLANs 30 and 40 are tagged on the three LAGs and port 7: VLAN 30
 is the node storage network, and VLAN 40 carries Incus instance traffic so
 workloads stay off the management plane. These links are not required for
-IncusOS management boot. The host-side counterpart is the `vlan_tags`
-allow-list converged by the `GilmanLab/fleet` `cluster/` project. Additional
-instance VLANs join these links when their first consumer arrives.
+IncusOS management boot. The host-side counterpart, converged by the
+`GilmanLab/fleet` `cluster/` project, is the `vlan_tags` allow-list plus an
+IncusOS-declared VLAN interface per carried VLAN (`fast30`, `fast40`).
+Instances must attach to the IncusOS-owned interface (for example macvlan
+with `parent=fast40`), never with an Incus-created `vlan=` sub-interface on
+`fast`: the visible `fast` device is an IncusOS-internal VLAN-filtering
+bridge, and only IncusOS-declared VLANs receive bridge self-port membership,
+so other tagged sub-interfaces pass no traffic. Additional instance VLANs
+join these links when their first consumer arrives.
 
 ## DHCP and DNS ownership
 
