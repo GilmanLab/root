@@ -85,3 +85,55 @@ restore drill from escrowed material alone, before any design doc.
 
 Research transcripts: `history://BackupEngines`, `history://IncusZfsNative`,
 `history://GuestsAndDesktops`.
+
+## 2026-08-24 18:05 — Spike executed and torn down (Mac excluded per Josh)
+Josh approved the spike, scoped to a test Linux VM only — no Mac client. Ran it
+live on the cluster and destroyed everything afterward. Full procedure,
+measurements, and findings: `.journal/015/SPIKE_BACKUP.md`.
+
+All five objectives passed: `hdd` exposed to an instance (IncusOS
+`create-volume use=incus` → two-phase cluster pool with per-member sources →
+custom volume pinned to nas01, 15.73TiB visible, mounted at `/srv/repos`);
+rest-server 0.14.0 over TLS 1.3 with `--private-repos --append-only`; a
+Debian 13 VM on lab01 pushing bootc-shaped state (declared `/etc` overrides +
+`/var/lib` subtrees + a `VACUUM INTO` SQLite dump, cache excluded) through a
+manifest-driven runner; a restore on a clean container on lab02 with escrowed
+material only; and NAS-local `forget --prune` + `check`.
+
+Numbers: 131MiB first backup in 2.4s, 21MiB incremental after 20MB churn,
+420MiB new in 4.4s (~95MiB/s), full restore 1.4s, prune reclaimed 573M→153M in
+0.87s, receiver-side `rm -rf` of `snapshots/` recovered by volume-snapshot
+restore in 0.16s with a clean `restic check`.
+
+Restore fidelity was exact: content hash matched, and mode 0600, symlink
+target, POSIX ACL, and user xattr all survived; the hooked SQLite dump passed
+`integrity_check` with the right row count.
+
+Four findings that change the design:
+- `rest-server --prometheus` (0.14.0) exports ONLY Go/process families — no
+  repo size, no request counters, no last-write time, even after traffic. The
+  receiver cannot report backup freshness; per-client dead-man checks plus a
+  NAS-side snapshot-age/size job are mandatory, not optional.
+- `/metrics` returns 401 to a normal client credential under `--private-repos`;
+  it needs `--prometheus-no-auth` and network-layer restriction instead.
+- Append-only permits lock deletion: a client CAN `unlock --remove-all`. Fine
+  for stale locks after a killed backup, but it is an interference vector
+  against concurrent maintenance. Snapshot/pack deletion is genuinely blocked
+  (403), repo-root DELETE is 405.
+- `incus storage delete backup` destroyed the underlying `hdd/backup` dataset,
+  so the IncusOS `delete-volume` calls then failed with "dataset does not
+  exist". Once handed to Incus the dataset is Incus-owned: pool deletion is
+  destructive to the whole backup corpus, which the pyinfra convergence must
+  treat as a guarded operation.
+
+Teardown verified: `guest01`, `restore01`, `backupd` deleted; `repos` volume +
+`spike0` snapshot + cluster pool `backup` deleted; all four nodes back to their
+original IncusOS volume sets (`data:[incus]`, `local:[incus]`, `hdd:[]`); local
+credential files shredded. Only Incus's own cached VM image volume remains
+(self-expiring). No repository state, no lab config drift.
+
+Next: Josh's open decisions from the brainstorm are still open (single-target
+acceptance, RPO/retention, desktop scope). With the spike green, the real work
+is the `fleet/cluster/` pool + receiver definition, per-guest manifests, the
+SOPS credential layout, and a docs design/ADR — plus a decision on the lab CA
+cert for the receiver.
