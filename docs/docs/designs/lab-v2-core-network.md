@@ -149,9 +149,10 @@ The baseline policy permits:
 - approved home and Tailscale administration sources to management and OOB;
 - required management flows from management to managed lab endpoints;
 - internet egress from management and sandbox/workload;
+- sandbox/workload access to management;
 - explicit `glab.lol` mirror traffic.
 
-The sandbox/workload VLAN cannot initiate connections to management or OOB.
+The sandbox/workload VLAN cannot initiate connections to OOB or home networks.
 Each additional flow identifies its source, destination, protocol, destination
 port, direction, and owner in the version-controlled gateway policy.
 
@@ -261,7 +262,8 @@ A deployment is valid when:
 - home-to-lab traffic retains its home source address;
 - lab-to-internet traffic uses the `gw01` source-NAT address;
 - each permitted firewall flow succeeds and each denied flow fails;
-- the sandbox cannot initiate management or OOB connections;
+- the sandbox can initiate management connections but cannot initiate OOB or
+  home connections;
 - each MS-02 retains management when its AMT link is disconnected and retains
   AMT when its management link is disconnected;
 - no BGP peers or retired gateway services remain;

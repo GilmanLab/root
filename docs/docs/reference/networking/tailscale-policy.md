@@ -42,6 +42,7 @@ and trailing commas. Section syntax is documented in Tailscale's
 | Tag | Purpose | Owner |
 | --- | --- | --- |
 | `tag:subnet-router` | Devices that advertise lab and home subnet routes into the tailnet | `autogroup:admin` |
+| `tag:sandbox` | Sandbox hosts that accept advertised lab subnet routes | `autogroup:admin` |
 
 A tagged device is owned by its tag, not by the user who registered it. Removing
 a tag from the policy while a device still carries it leaves that device without
@@ -62,6 +63,19 @@ manual approval:
 
 The [network address and VLAN plan](address-plan.md) is canonical for lab
 prefixes. Reconcile this list whenever that plan changes.
+
+## Access rules
+
+`tag:sandbox` can reach the Incus cluster API through the advertised lab subnet
+route:
+
+| Destinations | Protocol | Port |
+| --- | --- | --- |
+| `10.10.10.11`–`10.10.10.14` | TCP | `8443` |
+
+Policy tests require access to all four API endpoints and deny adjacent
+addresses and ports. Other routed destinations remain denied unless a separate
+rule permits them.
 
 ## Credentials
 
