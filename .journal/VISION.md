@@ -381,9 +381,9 @@ Deployment notes (settled intent, details at deploy time):
 - Schematic definitions are cluster-template inputs (T08) and live in git
   with the template.
 
-### VM orchestration (T32 — the open fork)
+### VM orchestration (T32 — resolved)
 
-Three lifecycle regimes; one is undecided:
+Three lifecycle regimes; all decided:
 
 - Cattle-cluster VMs: **[DECIDED]** CAPI/CAPN owns them (T09).
 - Non-Talos one-off VMs (leg-3 bootc/CoreOS pets): **[DECIDED]** 2026-08-18 —
@@ -392,7 +392,10 @@ Three lifecycle regimes; one is undecided:
   clusters); no Incus VM operator exists; plan/apply lifecycle matches pet
   VMs. (Future componere product idea, parked: a small controller
   reconciling VM CRs against the Incus API — passes the second-user test.)
-- The 3 management-cluster Talos VMs: **[OPEN]** — the actual fork.
+- The 3 management-cluster Talos VMs: **[DECIDED]** 2026-08-25 — **(b) CAPI
+  self-managed (pivot pattern)**, spike-verified per the pre-registered rule
+  below. Full spike record: `.journal/016/SPIKE_T32.md` (+ working manifest
+  `T32_CLUSTER_MANIFEST.yaml`).
 
 Candidates weighed 2026-08-18:
 
@@ -411,13 +414,20 @@ Candidates weighed 2026-08-18:
   Cost: bootstrap choreography, CAPN Talos template not-CI-tested,
   self-managed sharp edges (recovery = re-pivot from laptop).
 
-Lean: **(b), spike-verified** — with an honest caveat recorded: tofu is in
-the stack regardless (runtime config + one-off VMs), so (b)'s value is not
-"one tool" but *cluster-fleet consistency* — every Talos cluster born,
-upgraded, and stretched (T21) the same CAPI way. If the pivot spike is
-anything but smooth, (a) wins on simplicity. Spike needs no lab hardware:
-kind + CAPN + any Incus daemon (the shelved UM760 is a natural sacrificial
-host).
+Lean (recorded 2026-08-18): **(b), spike-verified** — with an honest caveat:
+tofu is in the stack regardless (runtime config + one-off VMs), so (b)'s
+value is not "one tool" but *cluster-fleet consistency* — every Talos
+cluster born, upgraded, and stretched (T21) the same CAPI way. If the pivot
+spike is anything but smooth, (a) wins on simplicity.
+
+**Spike executed 2026-08-25 (session 016) on `sandbox01`: smooth.** kind →
+CAPN v0.9.0 + Talos providers → 3-CP Talos v1.12.2 cluster Ready in ~3.5
+min; forward `clusterctl move` in 2.3 s; post-pivot self-reconciliation
+proven (cluster created its own worker VM); reverse pivot (the recovery
+path) worked first try; clean teardown. One real gotcha: CABPT rejects
+JSON6902 `configPatches` on multi-doc Talos configs — use
+`strategicPatches`. Production template must swap the dev haproxy LB for
+kube-vip (T08/T10).
 
 Rides along either way: OpenTofu **state backend** — answered by the AWS
 substrate: the existing `glab-lab-tfstate-186067932323` bucket (lab-admin
@@ -613,7 +623,7 @@ agent maintaining this doc keeps statuses current. Statuses: `open`,
 | T29 | bootc-style + Fedora CoreOS image lines for one-off VMs (defined in git, CI-published, imgoci-pushed) | deferred | Later product work; captured for context |
 | T30 | ~~Create `GilmanLab/fleet`~~ | resolved | Live 2026-08-20 (fleet#1, this session): scaffold, nas01 config (validates), pinned-builder CI, wired into `init.sh` (root#17). Default branch fixed to `master` post-merge |
 | T31 | Deploy self-hosted image-factory on mgmt cluster (Helm; GHCR cache namespace; ECDSA signing key → custody; repoint clusters from factory.talos.dev) | open | After mgmt cluster exists; depends on DNS/ingress decisions |
-| T32 | Mgmt-cluster Talos VM orchestrator: OpenTofu vs. CAPI-self-managed-pivot (Crossplane rejected; non-Talos one-off VMs decided → OpenTofu). Lean (b) CAPI pivot for cluster-fleet consistency, spike-verified | open | **Spike fully unblocked**: `sandbox01` converged with vanilla Incus (50GiB loop ZFS, default bridge, Zabbly stable), Tailscale-SSH transport — run kind+CAPN pivot spike, then rule |
+| T32 | ~~Mgmt-cluster Talos VM orchestrator~~ | resolved | Ruled 2026-08-25 (session 016): **(b) CAPI self-managed pivot**, spike-verified on sandbox01 per the pre-registered rule — 3-CP Talos v1.12.2 cluster via kind+CAPN v0.9.0, forward pivot 2.3s, self-reconciliation proven (cluster created its own worker), reverse pivot (recovery) worked first try, clean teardown. Gotcha: CABPT needs `strategicPatches`, not JSON6902, for multi-doc Talos configs. Record: `.journal/016/SPIKE_T32.md` + working manifest. Production template swaps dev haproxy LB for kube-vip (→T08/T10) |
 | T33 | ~~Restructure `GilmanLab/secrets`~~ | resolved | Executed by session 005 per `.journal/002/SECRETS_RESTRUCTURE_PLAN.md`: KMS+PGP single key group on all 7 files, both paths hash-verified, fleet rule, metadata CI guard, docs (ADR-0003), stale policy removed (secrets#21, root#12). Deviation absorbed: recipient = encryption subkey `5109…979C!`, not primary fp |
 | T34 | Secrets→Vault sync automation | deferred | Explicitly later (TODO per Josh) |
 | T35 | ~~AWS migration to `GilmanLab/aws`~~ | resolved | Executed by session 004 per `.journal/002/AWS_MIGRATION_PLAN.md`: six roots moved, all plans 0/0/0, identities preserved, tombstone imported to `aws/github-oidc`, tailscale backend migrated, legacy writers removed (aws#1, infra#57/#58, platform#70, root#11) |

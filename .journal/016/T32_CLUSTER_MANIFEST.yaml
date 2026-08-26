@@ -1,0 +1,135 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: mgmt
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+      - 10.244.0.0/16
+    serviceDomain: cluster.local
+    services:
+      cidrBlocks:
+      - 10.96.0.0/12
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    kind: TalosControlPlane
+    name: mgmt-control-plane
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+    kind: LXCCluster
+    name: mgmt
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+kind: TalosControlPlane
+metadata:
+  name: mgmt-control-plane
+  namespace: default
+spec:
+  controlPlaneConfig:
+    controlplane:
+      generateType: controlplane
+      hostname:
+        source: InfrastructureName
+      strategicPatches:
+      - "cluster:\n  allowSchedulingOnControlPlanes: true\n"
+      talosVersion: v1.12
+  infrastructureTemplate:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+    kind: LXCMachineTemplate
+    name: mgmt-control-plane
+  replicas: 3
+  version: v1.34.0
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: mgmt-md-0
+  namespace: default
+spec:
+  clusterName: mgmt
+  replicas: 0
+  selector:
+    matchLabels: null
+  template:
+    spec:
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          kind: TalosConfigTemplate
+          name: mgmt-md-0
+      clusterName: mgmt
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+        kind: LXCMachineTemplate
+        name: mgmt-md-0
+      version: v1.34.0
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: TalosConfigTemplate
+metadata:
+  name: mgmt-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      generateType: worker
+      hostname:
+        source: InfrastructureName
+      talosVersion: v1.12
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+kind: LXCCluster
+metadata:
+  name: mgmt
+  namespace: default
+spec:
+  cloudProviderNodePatch: true
+  loadBalancer:
+    lxc:
+      disableHealthzCheck: true
+      instanceSpec:
+        flavor: c1-m1
+        profiles:
+        - default
+  secretRef:
+    name: lxc-secret
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+kind: LXCMachineTemplate
+metadata:
+  name: mgmt-control-plane
+  namespace: default
+spec:
+  template:
+    spec:
+      config:
+        security.secureboot: 'false'
+      devices:
+      - cloud-init,type=disk,source=cloud-init:config
+      flavor: c2-m4
+      image:
+        name: talos-v1.12.2
+      instanceType: virtual-machine
+      profiles:
+      - default
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+kind: LXCMachineTemplate
+metadata:
+  name: mgmt-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      config:
+        security.secureboot: 'false'
+      devices:
+      - cloud-init,type=disk,source=cloud-init:config
+      flavor: c2-m4
+      image:
+        name: talos-v1.12.2
+      instanceType: virtual-machine
+      profiles:
+      - default
