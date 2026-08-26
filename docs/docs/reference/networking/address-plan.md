@@ -25,9 +25,13 @@ remains the source for network values.
 | Home | `192.168.2.0/24` | `rtr01` | Additional home network advertised through Tailscale |
 
 `gw01` uses `10.0.0.1` as its default route. `rtr01` routes `10.10.0.0/16`
-through `10.0.0.2`. `gw01` applies source NAT only when lab traffic exits
-toward the internet. Home-to-lab and inter-VLAN traffic retain their source
-addresses.
+through `10.0.0.2`. `gw01` applies source NAT in exactly two cases: lab
+traffic exiting toward the internet, and Tailscale clients
+(`100.64.0.0/10`) entering the sandbox/workload VLAN. The sandbox
+masquerade keeps replies from tailnet-member hosts such as `sandbox01`
+symmetric through `gw01` instead of leaking into the host's own tailscale
+peer routes. All other home-to-lab, Tailscale-to-lab, and inter-VLAN
+traffic retains its source addresses.
 
 ## VLANs
 
