@@ -16,3 +16,10 @@ Read `~/code/componere/incus-spire-attestor` and `~/code/componere/incus-guest-a
 - **incus-guest-agent** (v0.1.0, released today): privileged Talos `machine.pods` static pod that stands in for the loader Talos can't run — finds the Incus `agent:config` ISO under `/dev/sr*`, stages the 5 agent files into a private tmpfs, supervises the host-supplied `incus-agent` (subreaper, process-group shutdown). Restores `incus info`/`incus exec` AND node-local `/dev/incus/sock` on immutable Talos guests. Digest-pinned deploy patch in `deploy/talos/`.
 
 Synergy: the guest-agent provides exactly the `/dev/incus/sock` channel the attestor's guest plugin needs, making SPIRE node attestation possible for Talos VMs on the Incus cluster. Fits the T32-resolved mgmt-cluster plan (CAPI self-managed pivot; Talos VMs on nas01) — SPIFFE/SPIRE identity for the mgmt cluster's services. Awaiting the user's actual request.
+
+## 2026-08-26 20:24 — SPIRE architecture option space laid out
+Session goal has emerged: decide the lab SPIRE architecture. Framed the space for Josh:
+- AWS/Incus/k8s are node-attestor substrates on ONE server, not three servers. Federation = separate trust domains = wrong tool (single owner). AWS deferred until a real identity consumer exists (aws_iid on the same server over Tailscale when needed).
+- k8s sits under Incus: guest-agent exposes /dev/incus/sock on Talos nodes → SPIRE Agent DaemonSet node-attests via the incus plugin; substrate-rooted node identity, zero-touch cattle-cluster enrollment (project:<cluster> selectors), beats per-cluster k8s_psat server config.
+- Recommended: single trust domain spiffe://gilman.io; flat central root server on the mgmt cluster (single replica, sqlite, self-signed root — NOT Vault upstream, cold-start cycle); grow additively to nested per-cluster servers if mgmt-outage TTL tradeoff or entry-management ergonomics (ClusterSPIFFEID needs local server) start hurting. Incus backbone identical in flat and nested → no rework.
+- Open: first identity consumers (Vault SVID auth? mTLS? Zitadel?) should drive first registration entries + TTLs. Awaiting Josh's reaction.
