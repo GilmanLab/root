@@ -49,3 +49,7 @@ NestedDeploy subagent (20m54s), hand-rolled route (helm-charts-hardened 0.30.1 s
 (i) downstream CA upstream-signed (X509 CA activated self_signed=false), bundles equal; (ii) workload SVID leaf→DOWNSTREAM-1→root openssl OK; (iii) fresh SVID (serial F38B6EF6…) issued 2s after root kill, root restarted clean, incus agent re-attested.
 Downstream entry on root: k8s:ns:spire-mgmt + k8s:sa:spire-server, Downstream:true, parent = incus agent ID (root agent gained k8s WorkloadAttestor + nodes/proxy RBAC without disturbing incus attestation).
 Gap: spire-controller-manager/ClusterSPIFFEID not exercised (manual entries) — B's ergonomics claim rests on upstream tooling. Full record + production gotchas (Incus cert SANs, chart shape, StorageClass dependency): .journal/017/SPIKE_SPIRE_B.md.
+
+## 2026-08-26 22:04 — Spike infra torn down
+Full teardown on sandbox01, verified: kubectl delete cluster mgmt (VMs+LB, no orphans) → kind delete → spire-server + http.server killed → capn-client (d953525a9bcd) + spike-spire (b7827d1603ef) trust entries removed → ~/spike-spire deleted. Remaining: pre-existing spike VM, pre-spike trust entries, T32-era residue (~/t32, tools, listener) untouched. Gotcha for the log: pkill -f inside an ssh one-liner matches the remote shell's own command line — bracket the pattern ([s]pire) or the session kills itself.
+Spike record: .journal/017/SPIKE_SPIRE_B.md. Stepping back to larger-picture architecture discussion per Josh.
