@@ -23,3 +23,11 @@ Session goal has emerged: decide the lab SPIRE architecture. Framed the space fo
 - k8s sits under Incus: guest-agent exposes /dev/incus/sock on Talos nodes → SPIRE Agent DaemonSet node-attests via the incus plugin; substrate-rooted node identity, zero-touch cattle-cluster enrollment (project:<cluster> selectors), beats per-cluster k8s_psat server config.
 - Recommended: single trust domain spiffe://gilman.io; flat central root server on the mgmt cluster (single replica, sqlite, self-signed root — NOT Vault upstream, cold-start cycle); grow additively to nested per-cluster servers if mgmt-outage TTL tradeoff or entry-management ergonomics (ClusterSPIFFEID needs local server) start hurting. Incus backbone identical in flat and nested → no rework.
 - Open: first identity consumers (Vault SVID auth? mTLS? Zitadel?) should drive first registration entries + TTLs. Awaiting Josh's reaction.
+
+## 2026-08-26 20:35 — B-shape spike sized
+Josh leans B (nested). Sized a pure-manual spike on sandbox01; verdict: 1–1.5 days, T32-scale.
+- T32 rig largely standing (HTTPS listener 10.10.40.10:8443, trusted cert, talos-v1.12.2 image, tools, working manifest .journal/016/T32_CLUSTER_MANIFEST.yaml) — SPIRE spike stacks on top.
+- Crux resolved in source: attestor guest plugin reads instance-id/local-hostname from Incus /1.0/meta-data over /dev/incus/sock (internal/incus/guest/claims.go) + DMI from /sys/class/dmi/id/product_uuid — no cloud-init runtime needed in Talos guests.
+- Plan: Phase 1 flat chain (cluster from saved manifest → guest-agent device+static pod → root spire-server on sandbox01 host with incus-server plugin + restricted cert → root agent DaemonSet with incus-agent via carrier-image initContainer, hostPaths for socket+DMI, hostNetwork, insecure_bootstrap → verify agent ID+selectors). Phase 2 nested (SPIFFE helm chart downstream server+controller-manager, UpstreamAuthority spire via root agent socket, downstream:true entry, ClusterSPIFFEID workload SVID, kill-root outage test).
+- Risks: pod-consuming-hostPath socket (first real test), meta-data invariants on CAPN VMs (verify incus config show), helm nested values (fallback: hand-rolled manifests). Known-avoided: CABPT strategicPatches.
+- Spike doubles as first real-world integration test of both v0.1.0 releases; findings → upstream issues.
