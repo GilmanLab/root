@@ -36,6 +36,7 @@ nav:
       - "ADR-0002: Manage the Tailnet Policy File with GitOps": decisions/0002-manage-tailscale-policy-with-gitops.md
       - "ADR-0003: Use AWS KMS with PGP Recovery for Secrets": decisions/0003-use-kms-with-pgp-recovery-for-secrets.md
       - "ADR-0004: Manage RouterOS Devices with OpenTofu": decisions/0004-manage-routeros-devices-with-opentofu.md
+      - "ADR-0005: Anchor Internal PKI on the KMS Root with Sibling Intermediates": decisions/0005-anchor-internal-pki-on-kms-root-with-sibling-intermediates.md
   - Designs:
       - Lab v2 core network: designs/lab-v2-core-network.md
   - Reference:
