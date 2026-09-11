@@ -215,29 +215,38 @@ object; `desktop.call.result` is a JSON string (Starlark `json.decode`).
 Root lists are `{items: [...]}`; timestamps are RFC3339 strings; empty
 collections are initialized so they never become `None`.
 
-### Error contract — needs a decision
+### Error contract
 
-Verified in `codemode/errors.go`, `dispatch.go`, and
-`docs/reference/mcp-tools.md`: any handler error reaches the agent as the
-fixed text `capability failed`. Starlark has no try/except, so the program
-aborts with no indication whether the sandbox was missing, the image
-unknown, or Incus down. That is unusable for an agent-facing tool, and no
-adapter-side trick fixes it (wrapping sentinels is stripped; result
-envelopes on every capability would destroy the abort-on-error contract
-and force agents to check every call).
+CodeMode hides ordinary handler errors: they reach the agent as the bare
+text `capability failed`, and since Starlark has no try/except the
+program aborts. That was unusable for named-resource capabilities, so
+[meigma/codemode#58](https://github.com/meigma/codemode/issues/58) was
+filed and shipped in [PR #59](https://github.com/meigma/codemode/pull/59)
+(`4b498a2`, after 0.2.0; pin a release that contains it).
 
-Recommended: an upstream CodeMode change — an exported error type (say
-`codemode.AgentError{Message string}`) whose sanitized, length-capped
-message is appended: `capability failed: instance "web" not found in
-sandbox "demo"`. Same shape CodeMode already uses for
-`invalid capability arguments: ...`. Until it lands, slice 1 returns coarse
-errors and logs the detail with `slog`; handlers validate as much as
-possible up front so that `invalid capability arguments` (which does
-carry detail) covers the common mistakes.
+`codemode.AgentError{Message}` is the opt-in. Return it directly or
+wrapped (`fmt.Errorf("lookup: %w", err)`); CodeMode finds it with
+`errors.As`, attaches only `Message` (non-printables → spaces, invalid
+UTF-8 repaired, ≤256 bytes with `...`), and the MCP error becomes
+`capability failed: instance "web" not found in sandbox "demo"`. The
+program still aborts; `errors.Is(err, ErrCapabilityFailure)` still holds.
+Everything not wrapped in `AgentError` stays hidden.
 
-Mapping otherwise: binding failures → `ErrInvalidArguments`; handler
-errors including handler-local wait timeouts → `ErrCapabilityFailure`;
-request deadline → `ErrResourceLimit`; cancellation → `context.Canceled`.
+Rule for this codebase: the `compute` service returns `*codemode.AgentError`
+for every failure the agent can act on — unknown sandbox/instance/network/
+image, expired sandbox, unsupported kind or platform, instance not
+running, exec timed out before readiness, name rule violations that
+survive binding. Backend and transport failures (Incus unreachable,
+operation error, decode failure) are ordinary wrapped errors: logged with
+detail via `slog`, surfaced as bare `capability failed`. `compute.ErrNotFound`
+and `compute.ErrUnavailable` remain the internal control-flow sentinels;
+the handler layer maps `ErrNotFound` to an `AgentError` naming the
+resource. Messages name the resource and the sandbox, never hosts,
+paths, or credentials.
+
+Mapping otherwise: binding failures → `ErrInvalidArguments` (already
+carries the argument name); request deadline → `ErrResourceLimit`;
+cancellation → `context.Canceled`.
 
 ## Request flow
 
@@ -402,8 +411,9 @@ timeout) is a constant.
 
 ## Risks
 
-- **Error contract** (above). Decide before slice 1 is accepted; this is
-  the one item that changes the agent experience.
+- **CodeMode version.** `AgentError` is on master, not in a release yet.
+  The template pins CodeMode by tag; either pin the commit or wait for the
+  next release before slice 1's error messages are real.
 - **Driver CLI contract.** Output schema, `--screenshot-out-file`
   behavior, and element-token continuity across one-shot CLI invocations
   must be verified against the pinned Driver in slice 2. If tokens do
@@ -423,9 +433,9 @@ timeout) is a constant.
 
 1. `desktop.call` invocation is `cua-driver call <tool> <json>
    --screenshot-out-file <path>`, not `cua-driver <tool> '<json>'`.
-2. The "short, actionable Starlark error" promise in the Vocabulary
-   conventions is not deliverable on current CodeMode; add the upstream
-   change as a prerequisite or soften the promise.
+2. The "short, actionable Starlark error" promise now stands on
+   `codemode.AgentError` (#59); record the CodeMode version as a
+   prerequisite.
 3. Record the name rules and the slice-1 default-bridge shape.
 
 ## Deliberately excluded
