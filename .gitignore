@@ -6,6 +6,7 @@
 /aws/
 /sandbox/
 /fleet/
+/agentcompute/
 
 # Moon
 .moon/cache/
