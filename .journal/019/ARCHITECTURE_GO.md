@@ -221,8 +221,9 @@ CodeMode hides ordinary handler errors: they reach the agent as the bare
 text `capability failed`, and since Starlark has no try/except the
 program aborts. That was unusable for named-resource capabilities, so
 [meigma/codemode#58](https://github.com/meigma/codemode/issues/58) was
-filed and shipped in [PR #59](https://github.com/meigma/codemode/pull/59)
-(`4b498a2`, after 0.2.0; pin a release that contains it).
+filed and shipped in [PR #59](https://github.com/meigma/codemode/pull/59),
+released as [codemode v0.2.1](https://github.com/meigma/codemode/releases/tag/v0.2.1)
+(2026-09-11). Pin `github.com/meigma/codemode v0.2.1` or later.
 
 `codemode.AgentError{Message}` is the opt-in. Return it directly or
 wrapped (`fmt.Errorf("lookup: %w", err)`); CodeMode finds it with
@@ -411,9 +412,8 @@ timeout) is a constant.
 
 ## Risks
 
-- **CodeMode version.** `AgentError` is on master, not in a release yet.
-  The template pins CodeMode by tag; either pin the commit or wait for the
-  next release before slice 1's error messages are real.
+- **CodeMode version.** `AgentError` requires codemode ≥ v0.2.1. The
+  template pins by tag; bump it when generating the repository.
 - **Driver CLI contract.** Output schema, `--screenshot-out-file`
   behavior, and element-token continuity across one-shot CLI invocations
   must be verified against the pinned Driver in slice 2. If tokens do

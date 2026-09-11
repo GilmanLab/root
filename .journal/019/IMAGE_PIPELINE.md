@@ -120,17 +120,21 @@ the lab bakes; CI orchestrates; GHCR stores; a reconciler imports.**
 
 ## CI on the lab: `incus-gh-runner`
 
-Yes, but two facts shape it:
+Yes. Two facts shape it:
 
-1. **Unix socket only** (`internal/adapters/incus/client.go`:
-   `ConnectIncusUnixWithContext`). It cannot target the IncusOS cluster
-   over HTTPS today. Options: run it on `sandbox01` (local Incus, Ubuntu,
-   UM760 32 GB — fine for 1–2 runner VMs; loosely meets the "dedicated
-   host" advice), or add an HTTPS + client-cert connection mode to the
-   controller. The feature passes the second-user test (IncusOS users,
-   anyone with remote Incus) and would let the controller run as a VM on
-   the cluster where the capacity is (3× 64 GB MS-02s), or on the
-   `ovh-incusos` box.
+1. **HTTPS mode exists as of v2.0.0** ([#65](https://github.com/meigma/incus-gh-runner/issues/65)
+   → [#66](https://github.com/meigma/incus-gh-runner/pull/66), released
+   2026-09-11): `incus.url` + `client_cert_file` + `client_key_file` +
+   pinned `server_cert_file`, mutually exclusive with `incus.socket`
+   (which is now required explicitly for local mode — breaking change).
+   So the controller can run as a VM on the cluster, where the capacity
+   is (3× 64 GB MS-02s), with a trust certificate restricted to the
+   runner project — no `incus-admin` root-equivalence. `sandbox01` is
+   no longer needed as a host; it remains a fine place to *spike* before
+   the cluster-side project/profile/network baseline exists. The
+   `deploy/incus/` CUE baseline and drift validator still assume a
+   single host (one bridge, one pool); adapting them to the cluster is
+   the remaining gap.
 2. **Runner VMs have `security.nesting=false`** by hardened baseline. Good
    — it means the design above never asks for nested virt. Runners do
    assemble work (distrobuilder needs root + loop devices: a *publisher*
@@ -157,12 +161,14 @@ macOS seed job 6 h timeout.
 2. distrobuilder `router` recipe, built on a GitHub-hosted runner, boot-
    tested via the cluster API, published as imgoci → proves publish +
    reconcile end to end with the smallest artifact.
-3. Runner VM image via the same path; stand up `incus-gh-runner` on
-   `sandbox01`; move builds there.
+3. Runner VM image via the same path; stand up `incus-gh-runner` v2.0.0
+   as an OpenTofu-owned VM on the cluster (`incus.url` mode, project-
+   restricted cert); move builds there.
 4. Linux desktop recipe (the first Cua-in-guest acceptance).
 5. Windows bake-on-cluster (after the licensing answer).
 6. macOS seed on the Mac (after the "which Mac" answer).
 
-Candidate upstream work surfaced: `incus-gh-runner` remote-HTTPS
-connection mode; imgoci `incus-container` representation;
-`simplestreams-oci` as the native last mile; Lume pull-by-digest.
+Candidate upstream work surfaced: ~~`incus-gh-runner` remote-HTTPS
+connection mode~~ (shipped v2.0.0); cluster-aware `deploy/incus/`
+baseline; imgoci `incus-container` representation; `simplestreams-oci`
+as the native last mile; Lume pull-by-digest.
