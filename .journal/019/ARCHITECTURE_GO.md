@@ -10,7 +10,8 @@ deployment, image recipes, networking prerequisites, or deployment form.
 ## Summary
 
 Generate the repository from `template-mcp-codemode` and keep everything
-it already decides: Cobra/Viper CLI, stdio and HTTP transports, one
+it already decides: Cobra/Viper CLI, stdio and HTTP transports (HTTP is
+the deployment; stdio is development-only and exits with its client), one
 immutable CodeMode build, `codemode.ServeWorkerAndExit()` as the first
 statement of `main` and every `TestMain`, stderr-only `slog`. The three
 MCP tools stay the whole MCP surface; the vocabulary is CodeMode
@@ -332,12 +333,14 @@ delete, network create, NIC attach. Not held for exec, reads, waits, or
 desktop calls. Handlers re-read `expires_at` after acquiring it.
 
 **Reaper.** Runs at startup and every 30 s under the runtime's lifecycle
-context. Lists projects, filters on the ownership key, and for each
-expired project acquires the gate, re-reads expiry, then deletes
-instances, then networks, then the project. Failure leaves the expired
-project in place; the next scan retries. `sandbox.delete` is the same
-routine after setting `expires_at = now`. `sandbox.extend` writes
-`now + ttl`.
+context, in whichever process is running; the deployed HTTP service is
+what makes it continuous. Lists projects, filters on the ownership key,
+and for each expired project acquires the gate, re-reads expiry, then
+deletes in dependency order: forwards, NICs, instances, sandbox images
+and snapshots, OVN networks, the sandbox's bridges in the `default`
+project, then the project. Failure leaves the expired project in place;
+the next scan retries. `sandbox.delete` is the same routine after setting
+`expires_at = now`. `sandbox.extend` writes `now + ttl`.
 
 **Exec.** Two capped writers (64 KiB each) that keep draining after the
 cap, so the Incus websocket completes; per-stream truncation flags. Exec
