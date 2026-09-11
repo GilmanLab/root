@@ -10,6 +10,12 @@ Incus `default` project. Findings 1 and 2 have been applied to
 `ARCHITECTURE_GO.md` and the design draft (`cce8670`). Designs otherwise
 unchanged; the plan is advisory until Josh reviews it.
 
+Repository: the tool lives in a new `GilmanLab/agentcompute` repository
+generated from `meigma/template-mcp-codemode`, cloned by `init.sh` into
+`/Users/josh/code/lab2/agentcompute` as an ignored sub-repository like
+`fleet` and `networking` (Phase 1 creates it and registers it in the
+meta repo). Per-phase prompts are in `prompts/`.
+
 ---
 
 ## 1. Critical evaluation
