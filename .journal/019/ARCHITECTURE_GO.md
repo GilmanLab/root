@@ -289,10 +289,13 @@ cancellation → `context.Canceled`.
 ## State and concurrency
 
 **Registry is Incus.** A sandbox is a project `ac-<name>` with
-`features.images=true`, `features.networks=true`,
-`features.profiles=true`, restricted settings
-(`restricted=true`, `restricted.containers.nesting=block`,
-`restricted.devices.*` per the draft's security section), and metadata:
+`features.images=true`, `features.profiles=true`,
+`features.networks=false` in slice 1 (Incus: "This feature requires the
+server to be configured for OVN"; flips to `true` with the OVN slice),
+restricted settings (`restricted=true`,
+`restricted.containers.nesting=block`, `restricted.devices.*` per the
+draft's security section, `restricted.networks.access` listing the
+sandbox's own bridges), and metadata:
 
 | Key | Value |
 | --- | --- |
@@ -308,14 +311,20 @@ generates `<adjective>-<noun>` from a small word list, retrying on
 collision. Instance and network names follow the same rule; Incus sees
 them unprefixed inside the project.
 
-**Default network, slice 1.** One managed bridge per sandbox in the
-project, named `default`, `ipv4.address=auto`, `ipv4.nat=true`,
-`ipv4.dhcp=true`, created on the sandbox's member at `sandbox.create` and
-deleted last at `sandbox.delete`. `sandbox.create` returns it as
-`network`. When the OVN slice lands, the same name and return shape apply
-with `network.type=ovn`; the switch is a config flag
-(`default_network_kind`), never an implicit rewrite of an explicit OVN
-request.
+**Default network, slice 1.** Bridge networks cannot live inside a
+project without OVN, so the per-sandbox default bridge is created in the
+Incus `default` project as `ac-<sandbox>-default` (`ipv4.address=auto`,
+`ipv4.nat=true`, `ipv4.dhcp=true`, on the sandbox's member) and carries
+`user.agentcompute.sandbox=<name>` so the reaper can find it. Instances in
+the sandbox project reference it by that name; the agent sees it as
+`default` (the `ac-<sandbox>-` prefix is stripped at the DTO boundary).
+Created at `sandbox.create`, deleted last at `sandbox.delete`. Additional
+`kind="bridge"` networks follow the same placement and prefix. When the
+OVN slice lands, sandbox projects switch to `features.networks=true`,
+OVN networks live inside the project under their plain names, and the
+switch is a config flag (`default_network_kind`), never an implicit
+rewrite of an explicit request. Existing bridge sandboxes are drained,
+not converted.
 
 **Gate.** `gate.Lock(ctx, sandbox)` is a keyed mutex honoring context
 cancellation. Held for sandbox create/delete/extend, instance create/
