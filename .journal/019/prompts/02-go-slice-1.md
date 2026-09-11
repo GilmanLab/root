@@ -83,9 +83,21 @@ Per `ARCHITECTURE_GO.md`, adding files only as the slice needs them:
 - `internal/incus/{client,sandbox,instance,network}.go` over
   `lxc/incus/client`; request-scoped `UseProject`/`UseTarget`; never
   mutate a shared client.
-- Catalog reconciliation at startup: for each catalog entry with a
-  digest, ensure the alias exists in the cluster (absorb the Phase 1
-  `spikes/images` logic; then delete the spike).
+- Catalog reconciliation at startup, reading the existing
+  `images/catalog.yaml` (Phase 1's schema). `reference` comes in two
+  forms and both must work: `ghcr.io/…@sha256:<imgoci digest>` for
+  lab-built images (resolve → verify → import → smoke-launch → move
+  alias, absorbing the Phase 1 `spikes/images` logic, then delete the
+  spike) and an Incus alias like `images:ubuntu/24.04` for upstream
+  images (ensure the remote exists; let Incus fetch on first use). Key
+  on the imgoci digest, recorded on the imported image's properties;
+  the Incus fingerprint is derived and changes on every rebuild
+  (distrobuilder stamps timestamps) — never compare fingerprints across
+  builds or across the local spike and CI.
+- Restricted Incus certificates filter rather than 403 on reads outside
+  their projects. Tests for "the server's identity cannot see the
+  `default` project's instances" assert an empty list; tests for
+  "cannot create there" assert the mutation error.
 - Config file per the `ARCHITECTURE_GO.md` schema; hard-coded constants
   for everything it says is a constant. CodeMode `Limits`:
   `MaxExecutionTime` 15 m, `MaxNativeCalls` 1000.

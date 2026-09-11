@@ -55,9 +55,13 @@ VM nesting still disabled.
 
 - `agentcompute` PR: `images/runner/…` recipe(s), pins, catalog entries,
   the publish workflow extended to build/publish the runner image, and
-  the `router` build switched to `runs-on: <scale-set label>` for the
-  publisher runner on protected refs only. PR validation stays on
+  the `router` build switched to the publisher scale set by setting the
+  existing `IMAGES_RUNNER` repository variable (Phase 1 made `runs-on`
+  a variable), on protected refs only. PR validation stays on
   GitHub-hosted runners (untrusted code never reaches the publisher pool).
+  While here: skip the build when the release tag already exists, so a
+  `master` run on an unchanged tree is a no-op rather than a publish
+  failure (Phase 1 finding 5).
 - `fleet` PRs: (a) `cluster/` deploy for the `github-runners` project and
   its restricted baseline (project restrictions, profile with
   `security.nesting=false`, `security.secureboot=true`, bridged NIC on
@@ -88,8 +92,20 @@ VM nesting still disabled.
   `NOPASSWD: ALL`.
 - Controller credentials are systemd credentials, never in `config.yaml`,
   never in git plaintext.
-- Repository-scoped scale set (the `agentcompute` repo), `default` runner
-  group, per the deploy guide's threat notes; no organization scope yet.
+- **`GilmanLab/agentcompute` is public.** incus-gh-runner's README
+  requires a threat review before a public repository targets a
+  self-hosted scale set: fork `pull_request` workflows must never be able
+  to select the publisher label. Before enabling the scale set, do the
+  review and record it in `images/README.md`: repository settings require
+  approval for all outside-collaborator workflow runs; the publisher
+  workflow triggers only on `push` to `master` and `workflow_dispatch`
+  (never `pull_request`/`pull_request_target`); `IMAGES_RUNNER` is a
+  repository variable, which forks cannot read into their own runs;
+  `github.runner_group` stays `default` at repository scope with the
+  scale set bound to this repository only; confirm with
+  `gh api repos/GilmanLab/agentcompute/actions/permissions` and the
+  scale-set's repository binding. If any of these cannot be made true,
+  stop and report rather than proceeding.
 - Do not edit the design documents; report findings.
 
 ## Acceptance evidence
@@ -105,7 +121,9 @@ VM nesting still disabled.
   cluster passed, GHCR digest recorded; runner VM deleted afterward
   (`incus list --project github-runners` empty or at standby count).
 - Negative checks: a config with a wrong `server_cert_file` fails to
-  connect; the CI cert cannot list instances in the `default` project.
+  connect; with the CI cert, listing instances in the `default` project
+  returns an empty list and creating one there fails (restricted
+  certificates filter reads and refuse mutations — no 403 on reads).
 - Measured: runner VM boot-to-job latency, build wall time vs the
   GitHub-hosted numbers from Phase 1.
 - `fleet` dry-runs no-op; OpenTofu plan clean.

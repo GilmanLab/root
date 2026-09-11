@@ -120,7 +120,7 @@ type CatalogImage struct {
     Kind                        string // default kind
     Kinds                       []string
     Desktop                     bool
-    Reference                   string // Incus "remote:alias" or Lume OCI ref
+    Reference                   string // "ghcr.io/…@sha256:…" (imgoci release), "remote:alias" (upstream Incus), or a Lume seed name
     CPUs, MemoryMB, DiskGB      int64  // defaults
 }
 
@@ -384,20 +384,33 @@ sandbox:
 screenshots:
   dir: /var/lib/agentcompute/shots
   base_url: http://agentcompute.lab:8081
-images:
-  - name: ubuntu/24.04
-    os: ubuntu
-    version: "24.04"
-    kinds: [container, vm]
-    kind: container
-    reference: images:ubuntu/24.04
-    cpus: 2
-    memory_mb: 2048
-    disk_gb: 10
+images_file: images/catalog.yaml   # the Phase 1 catalog; schema_version 1
 ```
+
+The image catalog is the existing `images/catalog.yaml` (Phase 1 shipped
+it: `schema_version`, `images[]` with `name`, `os`, `version`, `kinds`,
+`kind`, `reference`, `cpus`, `memory_mb`, `disk_gb`), not a second list
+in the server config. `reference` takes two forms and the reconciler
+must accept both: lab-built images are `ghcr.io/…@sha256:<imgoci release
+digest>`; upstream images are an Incus alias such as `images:ubuntu/24.04`
+(the server ensures the remote is configured and lets Incus fetch on
+first use). Later, `platform: mac` entries carry a Lume seed name.
+
+Reconciliation keys on the **imgoci digest**, never on the Incus
+fingerprint: distrobuilder stamps creation time, so two builds of the
+same recipe produce different tarballs and fingerprints. The reconciler
+records the imgoci digest on the imported image (image `properties`, e.g.
+`agentcompute.digest`) and treats the fingerprint as derived — it
+re-imports when the alias's recorded digest differs from the catalog,
+and moves the alias only after a smoke launch, as Phase 1's spike does.
 
 Everything else (reaper interval, exec caps, screenshot bounds, create
 timeout) is a constant.
+
+Restricted Incus certificates **filter** rather than reject: listing
+outside the identity's projects returns empty results, and only mutations
+fail. Negative tests assert "not visible" or "create refused", never an
+HTTP 403 on reads.
 
 ## Testing
 
