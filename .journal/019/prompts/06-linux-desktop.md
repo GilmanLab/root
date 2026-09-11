@@ -121,3 +121,12 @@ without the tree, screenshot size at default and `max_dimension` 1280.
 - Store behavior: an expired sandbox's screenshots 404 after the reaper
   runs; the 128 MiB cap rejects rather than evicts silently.
 - Measured numbers in `images/README.md` and the report.
+
+## Handoff from Phase 2 (2026-09-11)
+
+Reuse the landed `compute.Service.Exec` (bounded, draining writers) and
+catalog reconciliation. Screenshots must **not** travel through the
+capped exec output: add `ReadFile` to `compute.Backend`/`internal/incus`
+using the Incus file API (binary-safe) and pull the PNG that way. The
+Incus client is cloned per request before `WithContext`/`UseProject`;
+keep that pattern for the file API calls.

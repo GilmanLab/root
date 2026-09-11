@@ -133,3 +133,14 @@ instance) is then the owner's call — do not decide it yourself and do not
 - The number Phase 5 needs: external addresses consumed per sandbox
   (router + typical forwards) so the owner can decide whether a /26 on
   VLAN 40 suffices.
+
+## Handoff from Phase 2 (2026-09-11)
+
+Slice 1 landed (agentcompute#14). Its clustered bridges are defined on
+every member and each member is an independent L2/NAT domain; that says
+nothing about OVN. Prove cross-member traffic, NAT, forwards, and
+central-failure recovery independently here. Phase 2's probe
+(`spikes/project-bridge/probe.py`) and `spikes/results.json` show the
+project settings that already work under `restricted=true`; reuse the
+same project shape for the disposable OVN project, flipping
+`features.networks=true`.

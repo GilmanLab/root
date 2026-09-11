@@ -132,3 +132,12 @@ Server-side (`agentcompute`):
 - A third concurrent macOS instance is refused with a clear message.
 - `go build ./...` shows Incus and Lume both satisfying the extracted
   interfaces with no Lume-only methods.
+
+## Handoff from Phase 2 (2026-09-11)
+
+The seam already exists: `compute.Backend` in `internal/compute/types.go`,
+consumer-defined and slice-scoped (13 methods after slice 1, more after
+Phases 5–6), with a mockery mock in `internal/compute/mocks`. Lume is a
+second implementation of that interface in `internal/lume`, not an
+extraction exercise. If Lume needs a method the Incus path does not
+have, that is a finding to report, not a reason to widen the interface.

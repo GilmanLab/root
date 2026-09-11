@@ -17,11 +17,16 @@ statement of `main` and every `TestMain`, stderr-only `slog`. The three
 MCP tools stay the whole MCP surface; the vocabulary is CodeMode
 capabilities behind them.
 
-Shape: **handlers → `compute` service → concrete `incus` adapter**. There
-is no cross-hypervisor interface in slices 1 and 2 because only Incus
-exists; handlers see `compute` types only, never Incus API types, so when
-Lume arrives the consumer-sized interfaces are extracted from real call
-sites rather than guessed. State lives in Incus (project and instance
+Shape: **handlers → `compute` service → `compute.Backend` → `incus`
+adapter**. As landed in slice 1 (agentcompute#14): `compute.Backend` is
+a consumer-defined interface in the `compute` package carrying only the
+methods the service calls (13 in slice 1), implemented by `internal/incus`;
+it lives in `compute` because `incus` imports `compute` types and Go
+forbids the cycle. Handlers see `compute` types only, never Incus API
+types. When Lume arrives it implements the same interface; methods are
+added only when the service needs them, so the seam stays consumer-sized
+rather than a hypervisor abstraction. Lume support is "implement the
+interface", not "extract one". State lives in Incus (project and instance
 metadata), not in memory. One re-scanning TTL reaper, one small keyed
 mutation gate, fixed I/O bounds, and a transient disk screenshot store.
 Nothing configurable that has not yet needed tuning.
@@ -30,7 +35,7 @@ Nothing configurable that has not yet needed tuning.
 
 | Item | Decision |
 | --- | --- |
-| Cross-backend `compute.Backend` (24 methods) | Not yet. Concrete `*incus.Client` behind a `compute.Service`. Extract interfaces at Lume time. |
+| Cross-backend `compute.Backend` (24 methods) | Landed as a consumer-defined 13-method interface in `compute` (slice-1 methods only), `incus` implements it; grows only with service call sites. Not a hypervisor abstraction. |
 | Stringly `ChangeState`/`ChangeSnapshot` | Cut; explicit methods per verb, added with their slice. |
 | `Sandbox.Generation`, deleting marker | Cut. Explicit delete sets `expires_at = now` first; the reaper's re-scan is the retry mechanism. |
 | `Sandbox.Owner` | Keep as a write-only metadata key (`user.agentcompute.subject`). Zero behavior today; costs one string. |
@@ -161,7 +166,7 @@ The service is the only thing handlers call:
 
 ```go
 type Service struct {
-    incus   *incus.Client
+    backend Backend          // consumer-defined; *incus.Client satisfies it
     catalog *Catalog
     gate    *gate
     log     *slog.Logger
@@ -183,10 +188,14 @@ func (s *Service) CreateNetwork(ctx context.Context, sandbox string, n Network) 
 func (s *Service) AttachNIC(ctx context.Context, ref Ref, network, nic, ip, mac string) (NIC, error)
 ```
 
-That is the slice-1 surface. `Start/Stop/Restart`, `Wait`, `ReadFile`,
-`WriteFile`, snapshots, `Publish`, `DetachNIC`, `Peer`, `ACL*`, `Forward`,
-and `Impair` are added to the same struct in later slices. `Exec` is the
-seam desktop rides on in slice 2; `ReadFile` joins it then.
+That is the slice-1 surface. In the landed code instance creation is
+split on the backend: `BeginCreateInstance` returns a `PendingInstance`
+once Incus has accepted the create (the instance name now exists, so the
+sandbox gate can be released), and the service then waits for running
+outside the gate. `Start/Stop/Restart`, `Wait`, `ReadFile`, `WriteFile`,
+snapshots, `Publish`, `DetachNIC`, `Peer`, `ACL*`, `Forward`, and
+`Impair` are added to the service and the interface in later slices.
+`Exec` is the seam desktop rides on in slice 2; `ReadFile` joins it then.
 
 ### Capability registration
 
@@ -260,11 +269,14 @@ cancellation → `context.Canceled`.
    project, rejects an expired sandbox, releases the gate after the Incus
    create request is accepted (the instance name now exists; concurrent
    deletes will see it).
-3. `incus.Client.CreateInstance` uses a project-scoped client with
-   `--target` = the sandbox's member, image source from
-   `CatalogImage.Reference`, config `limits.cpu`/`limits.memory`, root
-   disk size on the project's default pool, one `nic` device on the
-   default network unless `network == "none"`, and metadata
+3. `incus` uses a project-scoped client with `--target` = the sandbox's
+   member. Images: the catalog alias lives in the `default` project and
+   sandbox projects have `features.images=true`, so `InstanceSource.Project`
+   alone does not make it visible — the adapter **copies the image into
+   the sandbox project** first (once per sandbox, keyed on fingerprint),
+   then creates from it. Config `limits.cpu`/`limits.memory`, root disk
+   size on the project's default pool, one `nic` device on the default
+   network unless `network == "none"`, and metadata
    `user.agentcompute.image`, `user.agentcompute.desktop`. Waits for the
    operation, then starts and waits for `Running` (bounded by the
    request context and a 5-minute create timeout).
@@ -368,8 +380,8 @@ the next scan retries. `sandbox.delete` is the same routine after setting
 cap, so the Incus websocket completes; per-stream truncation flags. Exec
 timeout is the earliest of the request deadline and `Timeout`; an
 exec-only timeout returns `TimedOut=true` with captured output. The Incus
-client is scoped per request (`UseProject`, `UseTarget`); a shared client
-is never mutated.
+client is **cloned** per request before `WithContext`/`UseProject`/`UseTarget`
+are applied; the shared client is never mutated.
 
 **CodeMode limits.** `MaxExecutionTime = 15m`, `MaxNativeCalls = 1000`,
 default value/aggregate byte limits. No goroutine-per-wait; all waits are

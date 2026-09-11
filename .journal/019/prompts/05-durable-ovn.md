@@ -117,3 +117,22 @@ Software (`agentcompute`):
 Report: what changed, the VLAN decision and numbers behind it, deviations,
 and anything Phase 6/9 must know (MTU, forward address exhaustion, reaper
 timing under OVN).
+
+## Handoff from Phase 2 (2026-09-11)
+
+- Slice-1 sandboxes are `features.networks=false` projects with bridges
+  `ac<8hex>` in the `default` project, mapped by `user.agentcompute.*`
+  metadata (see `ARCHITECTURE_GO.md` "Default network, slice 1"). Drain
+  and delete them (TTL or explicit delete) before enabling project-owned
+  OVN networks; never rewrite a live topology. Keep the ownership checks
+  and retryable deletion the reaper already has.
+- The backend seam is `compute.Backend` (consumer-defined in `compute`,
+  implemented by `internal/incus`). Add OVN/lifecycle methods to the
+  interface only as the service calls them.
+- Images are copied into each sandbox project before first use
+  (`features.images=true` hides the `default` project's aliases);
+  `instance.publish` must account for that copy when it creates
+  sandbox-scoped images, and deletion must remove both.
+- OVN networks inside a project create no host interface, so plain
+  agent-facing names should be legal Incus names there — verify, and
+  keep the metadata mapping anyway so the two kinds behave alike.
