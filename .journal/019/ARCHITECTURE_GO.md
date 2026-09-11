@@ -309,23 +309,45 @@ sandbox's own bridges), and metadata:
 Names: `[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?`, lowercase only, no
 normalization; `default` and `none` reserved. Omitted `sandbox.create.name`
 generates `<adjective>-<noun>` from a small word list, retrying on
-collision. Instance and network names follow the same rule; Incus sees
-them unprefixed inside the project.
+collision. Instance names follow the same rule and Incus sees them
+unprefixed inside the project. Network names follow the same rule at the
+agent boundary but are **not** used as Incus bridge names (below).
 
-**Default network, slice 1.** Bridge networks cannot live inside a
-project without OVN, so the per-sandbox default bridge is created in the
-Incus `default` project as `ac-<sandbox>-default` (`ipv4.address=auto`,
-`ipv4.nat=true`, `ipv4.dhcp=true`, on the sandbox's member) and carries
-`user.agentcompute.sandbox=<name>` so the reaper can find it. Instances in
-the sandbox project reference it by that name; the agent sees it as
-`default` (the `ac-<sandbox>-` prefix is stripped at the DTO boundary).
-Created at `sandbox.create`, deleted last at `sandbox.delete`. Additional
-`kind="bridge"` networks follow the same placement and prefix. When the
-OVN slice lands, sandbox projects switch to `features.networks=true`,
-OVN networks live inside the project under their plain names, and the
-switch is a config flag (`default_network_kind`), never an implicit
-rewrite of an explicit request. Existing bridge sandboxes are drained,
-not converted.
+**Default network, slice 1** (corrected after the Phase 2 spike,
+2026-09-11). Two Incus facts govern the mapping:
+
+- Bridge networks cannot live inside a project without OVN, so bridges
+  live in the Incus `default` project.
+- In a cluster a managed bridge is defined per member (`--target`) and
+  activated once, which instantiates it on **every** member; a
+  member-only bridge does not exist. Each member's copy is a separate L2
+  domain with its own dnsmasq/NAT — exactly the `kind="bridge"`
+  semantics the draft documents ("a bare wire on one member").
+- Bridge names are host interface names: at most 15 characters.
+
+So: the per-sandbox default bridge is a managed bridge in the `default`
+project named `ac` + 8 random lowercase hex characters (10 chars;
+random, not derived from the sandbox name, retried on the vanishingly
+unlikely collision), defined on all members then activated, with
+`ipv4.address=auto`, `ipv4.nat=true`, `ipv4.dhcp=true`, and config
+`user.agentcompute.sandbox=<sandbox>`, `user.agentcompute.name=default`,
+`user.agentcompute.version=1`. Agent-facing network names (`default`,
+`lan`, …) are resolved to Incus names through that metadata, never by
+prefix parsing; `compute.Network` carries both. `restricted.networks.access`
+on the sandbox project lists the sandbox's Incus bridge names. Additional
+`kind="bridge"` networks use the same scheme. A bridge-backed sandbox
+keeps all its instances on one member (`user.agentcompute.host`; slice 1:
+the configured member) so its bridges behave as one L2 domain; that is
+the placement rule `instance.create(host?)` must respect for bridge
+sandboxes. Created at `sandbox.create`, deleted last at `sandbox.delete`
+(the reaper finds them by metadata, not by name).
+
+When the OVN slice lands, sandbox projects switch to
+`features.networks=true` and OVN networks live inside the project under
+their plain agent-facing names (no host interface, so no 15-char limit;
+verify in Phase 5). The switch is a config flag
+(`default_network_kind`), never an implicit rewrite of an explicit
+request. Existing bridge sandboxes are drained, not converted.
 
 **Gate.** `gate.Lock(ctx, sandbox)` is a keyed mutex honoring context
 cancellation. Held for sandbox create/delete/extend, instance create/
