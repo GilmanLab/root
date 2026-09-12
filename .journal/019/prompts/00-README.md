@@ -34,3 +34,8 @@ Documents every prompt refers to (absolute paths on Josh's workstation):
 
 Prompts are advisory drafts. Adjust scope before feeding if earlier phases
 changed the picture.
+
+Phase agents report findings in their final response and PRs; they do
+not edit files under `.journal/` (the session owner folds findings into
+`ARCHITECTURE_GO.md` and the prompts). Phase 3's follow-up did so once
+(`74ea07b`); the content was accepted as-is.
