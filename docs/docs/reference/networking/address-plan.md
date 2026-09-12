@@ -102,10 +102,17 @@ external router and network-forward addresses on VLAN 40, not a separate
 routed subnet or an extension of the `.200`–`.250` DHCP pool. Do not assign
 them to other endpoints.
 
+Each tested sandbox consumes two addresses: one NAT router address and one
+network-forward address. The 16-address pool therefore has address capacity
+for eight such sandboxes. A temporary empty `keeper` network added one shared
+address (`10.10.40.64`), reducing that ceiling to seven sandboxes and one spare.
+The failed keeper mitigation was removed; it no longer reserves an address.
+These figures describe address capacity, not lifecycle qualification.
+
 Temporary OVN central runs on `sandbox01` at `10.10.40.10`, with northbound
 TCP port `6641` and southbound TCP port `6642`; it remains running until
 Phase 5 replaces it. Chassis encapsulation uses the members' VLAN 30
-addresses. See the [spike report](https://github.com/GilmanLab/agentcompute/blob/spike/ovn-mechanism/spikes/ovn/README.md)
+addresses. See the [spike report](https://github.com/GilmanLab/agentcompute/blob/master/spikes/ovn/README.md)
 for measurements and the northbound/chassis sequencing constraint.
 
 ## Gateway interface mapping
