@@ -94,6 +94,20 @@ by the fleet `cluster/` project and mirrored in the seeds), and lab-node AMT
 addresses are static in MEBx so out-of-band access survives a gateway outage.
 The AMT interfaces have no DHCP reservations.
 
+### OVN external addresses
+
+Reserve `10.10.40.64` through `10.10.40.79` for the agentcompute OVN
+spike and its Phase 5 handoff. Fleet owns the uplink allocation. These are
+external router and network-forward addresses on VLAN 40, not a separate
+routed subnet or an extension of the `.200`–`.250` DHCP pool. Do not assign
+them to other endpoints.
+
+Temporary OVN central runs on `sandbox01` at `10.10.40.10`, with northbound
+TCP port `6641` and southbound TCP port `6642`; it remains running until
+Phase 5 replaces it. Chassis encapsulation uses the members' VLAN 30
+addresses. See the [spike report](https://github.com/GilmanLab/agentcompute/blob/spike/ovn-mechanism/spikes/ovn/README.md)
+for measurements and the northbound/chassis sequencing constraint.
+
 ## Gateway interface mapping
 
 | `gw01` chassis port | VyOS interface | Mode | Network |
