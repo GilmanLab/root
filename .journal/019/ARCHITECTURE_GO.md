@@ -361,6 +361,37 @@ verify in Phase 5). The switch is a config flag
 (`default_network_kind`), never an implicit rewrite of an explicit
 request. Existing bridge sandboxes are drained, not converted.
 
+**OVN uplink ownership (Phase 5).** The host parent `fast40` has one
+cluster-wide owner: the managed physical network `fast40-uplink` in the
+Incus `default` project. On every member, no other network, profile NIC,
+or instance NIC may attach directly to `parent=fast40`, including raw
+macvlan/physical NICs or NICs attached directly to the physical uplink.
+Sandbox projects retain `restricted.devices.nic=managed`; their NICs attach
+through managed logical networks rather than claim a host parent.
+Before fleet configures or
+reconciles the uplink, it checks default-project networks, profile NICs,
+and instance NICs across every member. A conflicting attachment makes
+the deploy fail closed with the resource named; fleet never deletes it
+silently.
+
+The Phase 3 `spikes/ovn/README.md` diagnosis established this ownership
+boundary: `default/soak01` had a raw macvlan NIC on lab01's `fast40`,
+which held the parent's `rx_handler` while OVS tried to claim the parent
+for its provider bridge. OVS returned `Device or resource busy`, so
+lab01 could not serve as the OVN gateway chassis. This fixture contention
+is tracked in [lxc/incus#3986](https://github.com/lxc/incus/issues/3986);
+it is separate from the central-outage failure below.
+
+After fleet deleted `default/soak01`, the first qualification cycle
+selected lab01 as gateway chassis and passed in 31.018 seconds. Network
+creation took 0.669 seconds; router `incus-net39-lr` used external
+address `10.10.40.64` and MAC `10:66:6a:66:eb:74`. OVS added `fast40` on
+port 1 and removed it during normal teardown, with no `EBUSY` errors.
+The cycle required no reboot, central restart, or neighbor repair. The
+evidence is under
+`spikes/ovn/parent-recovery-2026-09-12/cycle-1`; its **PROCEED** verdict
+supersedes the earlier fixture-confounded fallback verdict.
+
 **Gate.** `gate.Lock(ctx, sandbox)` is a keyed mutex honoring context
 cancellation. Held for sandbox create/delete/extend, instance create/
 delete, network create, NIC attach. Not held for exec, reads, waits, or
@@ -373,8 +404,23 @@ and for each expired project acquires the gate, re-reads expiry, then
 deletes in dependency order: forwards, NICs, instances, sandbox images
 and snapshots, OVN networks, the sandbox's bridges in the `default`
 project, then the project. Failure leaves the expired project in place;
-the next scan retries. `sandbox.delete` is the same routine after setting
+the next scan retries. This includes an owned OVN network in `Errored`
+state. If OVN central is unavailable, cleanup remains pending; after
+central recovers, the next scan retries deletion and continues the same
+dependency order. `sandbox.delete` is the same routine after setting
 `expires_at = now`. `sandbox.extend` writes `now + ttl`.
+
+**OVN central failure boundary.** OVN central must be up for every OVN
+control-plane operation, including create, update, and delete. Existing
+dataplane flows can continue during an outage, but that does not make
+control-plane mutations safe. The Phase 3 report reproduced a network
+create that timed out after 60 seconds with NB unavailable and left an
+`Errored` network holding an external address; explicit deletion worked
+after central recovered, without any further restart of central, OVS,
+the chassis, or the uplink. That Incus behavior is tracked in
+[lxc/incus#3985](https://github.com/lxc/incus/issues/3985). The reaper's
+delete-and-retry path is the documented repair; no restart-based repair
+is part of the architecture.
 
 **Exec.** Two capped writers (64 KiB each) that keep draining after the
 cap, so the Incus websocket completes; per-stream truncation flags. Exec

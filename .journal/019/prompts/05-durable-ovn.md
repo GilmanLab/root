@@ -1,11 +1,19 @@
 # Phase 5 — Durable OVN and the full Incus network/lifecycle contract
 
-Phase 3 reported SMOOTH (if it did not, stop: this prompt does not apply
-and the owner decides the fallback). You are now making OVN the real
-sandbox fabric — a reviewed OVN central, TLS, the durable uplink — and
-completing the Incus side of the vocabulary: the remaining `net.*`
-capabilities, instance lifecycle verbs, `wait`, files, snapshots,
-`publish`, and default least-loaded placement.
+Phase 3's follow-up verdict is **PROCEED** after fleet deleted the
+`default/soak01` raw macvlan fixture. The first post-deletion cycle
+selected lab01 as gateway chassis and passed in 31.018 seconds; network
+creation took 0.669 seconds, router `incus-net39-lr` used
+`10.10.40.64` / `10:66:6a:66:eb:74`, and OVS added `fast40` on port 1
+then removed it during normal teardown with no `EBUSY` errors. No reboot,
+central restart, or neighbor repair was used. Evidence is in
+`spikes/ovn/parent-recovery-2026-09-12/cycle-1`. This supersedes the
+fixture-confounded fallback verdict, not the separate central-outage
+finding. You are now making OVN the real sandbox fabric — a reviewed
+OVN central, TLS, the durable uplink — and completing the Incus side of
+the vocabulary: the remaining `net.*` capabilities, instance lifecycle
+verbs, `wait`, files, snapshots, `publish`, and default least-loaded
+placement.
 
 ## Blocking decision
 
@@ -18,9 +26,14 @@ touching `networking` or the address plan. Do not pick for them.
 
 ## Read first
 
-1. Phase 3's `spikes/ovn/README.md` and report; Phase 2's report
+1. Phase 3's `spikes/ovn/README.md`, including "2026-09-12 —
+   recreate and gateway diagnosis" and the parent-recovery section, plus
+   `spikes/ovn/parent-recovery-2026-09-12/cycle-1`; Phase 2's report
    (default-project bridges, `features.networks=false`, what the reaper
-   deletes).
+   deletes); [lxc/incus#3985](https://github.com/lxc/incus/issues/3985)
+   for the central-outage `Errored` network; and
+   [lxc/incus#3986](https://github.com/lxc/incus/issues/3986) for the
+   conflicting raw macvlan attachment.
 2. Design draft: `net` table, "Design Overview" OVN paragraphs, "Security
    and Privacy" (baseline ACL denying management/OOB), "Lab
    prerequisites" 1–3, "Validation", Open Questions (still open #1).
@@ -49,8 +62,14 @@ Infrastructure (fleet / networking / root docs, each its own PR):
 - `fleet cluster/`: the Phase 3 chassis deploy made durable — TLS client
   material per node (or one shared chassis identity, justify either),
   `tunnel_address` on VLAN 30, central's VLAN 10 address; Incus
-  `network.ovn.*` config with the CA; the uplink `physical` network on
-  `parent=fast40` with the decided `ipv4.ovn.ranges`. Seeds under
+  `network.ovn.*` config with the CA; the default-project
+  `fast40-uplink` physical network on `parent=fast40` with the decided
+  `ipv4.ovn.ranges`. This network is the exclusive owner of `fast40` on
+  every member. Before it applies or reconciles the uplink, fleet checks
+  default-project networks, profile NICs, and instance NICs across every
+  member for any competing direct attachment to `parent=fast40`, including
+  raw macvlan/physical NICs and NICs using the physical uplink directly.
+  A conflict names the resource and aborts the deploy; fleet never deletes it silently. Seeds under
   `nodes/*/config.yaml` mirror runtime where IncusOS supports it (the
   project's existing rule).
 - `GilmanLab/secrets`: OVN TLS keys under the fleet scope.
@@ -66,8 +85,10 @@ Infrastructure (fleet / networking / root docs, each its own PR):
 Software (`agentcompute`):
 
 - `net.create(kind="ovn")` as the default; per-sandbox `default` becomes
-  an OVN network with NAT; sandbox projects created with
-  `features.networks=true`; the config flag `default_network_kind` flips.
+  an OVN network with NAT; sandbox projects use
+  `features.networks=true` and retain
+  `restricted.devices.nic=managed`, so sandbox NICs attach only through
+  managed networks. The config flag `default_network_kind` flips.
   Existing bridge sandboxes: reaper drains them by TTL; no live conversion.
 - `net.peer`, `net.acl.add/remove` (with the baseline deny toward
   `10.10.10.0/24` and `10.10.70.0/24` installed by the server and not
@@ -78,8 +99,11 @@ Software (`agentcompute`):
   (sandbox-scoped image, dies with the sandbox), default least-loaded
   placement across members (`host?` still honored).
 - Reaper: full dependency order now exercised (forwards, NICs, instances,
-  published images/snapshots, OVN networks, project). Prove `sandbox.delete`
-  after `publish` + a forward + an ACL leaves zero residue.
+  published images/snapshots, OVN networks, project). Treat an owned OVN
+  network in `Errored` state as deletable. If central is unavailable,
+  leave the expired project pending; retry deletion after central recovers
+  and continue the same dependency order. Prove `sandbox.delete` after
+  `publish` + a forward + an ACL leaves zero residue.
 - Tests: extend the discovery contract test; integration lane grows to
   cover cross-member OVN, peer routing, ACL, forward, snapshot, publish,
   and a management-VLAN probe that must fail.
@@ -93,6 +117,17 @@ Software (`agentcompute`):
 - The design's `net` signatures are fixed. Report any field you could not
   honor.
 - Do not accept the ADR yourself; open it `proposed`.
+- OVN central must be up for every OVN control-plane operation, including
+  create, update, and delete. Existing dataplane flows may continue while
+  central is unavailable; that does not make mutations safe.
+- Recovery from a central-outage `Errored` network is deletion and reaper
+  retry after central recovers. Do not restart OVS, the chassis, the
+  uplink, or central as an undocumented repair.
+- `fast40` parent contention is a separate failure. The Phase 3 fixture
+  `default/soak01` attached a raw macvlan NIC on lab01, held the parent's
+  `rx_handler`, and prevented OVS from claiming `fast40` for its provider
+  bridge. That fixture was deleted before successful qualification; do not
+  recreate it or attribute its gateway failure to the central outage.
 
 ## Acceptance evidence
 
@@ -108,6 +143,14 @@ Software (`agentcompute`):
 - `sandbox.delete` after publish + forward + ACL: `incus project list`,
   `incus network list --project …`, `incus image list --project …`
   show nothing owned.
+- Fleet's default-project preflight covers all members and reports no
+  `fast40` parent owner other than `default/fast40-uplink`. Its conflict
+  proof shows a named conflicting network, profile NIC, or instance NIC
+  aborts the deploy without deleting the resource.
+- With central unavailable, reaper leaves an expired sandbox containing
+  an owned `Errored` OVN network pending. After central recovers, a later
+  scan deletes the network and project without an OVS, chassis, uplink,
+  or additional central restart.
 - OVN central VM: OpenTofu plan clean; `ovn-nbctl --db=ssl:… show` works
   with the issued cert; a plain-TCP connection is refused.
 - Node reboot with central stopped: management stays up, existing OVN
