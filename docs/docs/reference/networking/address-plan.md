@@ -109,6 +109,14 @@ address (`10.10.40.64`), reducing that ceiling to seven sandboxes and one spare.
 The failed keeper mitigation was removed; it no longer reserves an address.
 These figures describe address capacity, not lifecycle qualification.
 
+`fast40-uplink` is the exclusive consumer of `fast40` on every member. Do not
+attach raw macvlan or physical NIC devices to that parent: macvlan and OVS
+compete for its RX handler. Sandbox projects require
+`restricted.devices.nic=managed`; fleet checks default-project instances,
+profiles, and member-specific network parents before OVN convergence.
+OVN control-plane operations require central up. After central recovery,
+the reaper can delete an `Errored` network left by a failed create.
+
 Temporary OVN central runs on `sandbox01` at `10.10.40.10`, with northbound
 TCP port `6641` and southbound TCP port `6642`; it remains running until
 Phase 5 replaces it. Chassis encapsulation uses the members' VLAN 30
@@ -159,12 +167,12 @@ workloads stay off the management plane. These links are not required for
 IncusOS management boot. The host-side counterpart, converged by the
 `GilmanLab/fleet` `cluster/` project, is the `vlan_tags` allow-list plus an
 IncusOS-declared VLAN interface per carried VLAN (`fast30`, `fast40`).
-Instances must attach to the IncusOS-owned interface (for example macvlan
-with `parent=fast40`), never with an Incus-created `vlan=` sub-interface on
-`fast`: the visible `fast` device is an IncusOS-internal VLAN-filtering
-bridge, and only IncusOS-declared VLANs receive bridge self-port membership,
-so other tagged sub-interfaces pass no traffic. Additional instance VLANs
-join these links when their first consumer arrives.
+OVN instances attach to managed OVN networks, whose physical uplink alone
+claims `fast40`. Do not attach instance NICs directly to `fast40` or create
+Incus `vlan=` sub-interfaces on `fast`: the visible `fast` device is an
+IncusOS-internal VLAN-filtering bridge, and only IncusOS-declared VLANs
+receive bridge self-port membership, so other tagged sub-interfaces pass no
+traffic. Additional instance VLANs join these links when their first consumer arrives.
 
 ## DHCP and DNS ownership
 
