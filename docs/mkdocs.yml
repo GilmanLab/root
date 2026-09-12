@@ -54,6 +54,7 @@ nav:
       - Manage the sw-core01 configuration: runbooks/sw-core01-configuration.md
       - Manage the sw-mgmt01 configuration: runbooks/sw-mgmt01-configuration.md
       - Deploy the VyOS gateway configuration: runbooks/vyos-gateway-deployment.md
+      - Deploy private image runners: runbooks/private-image-runners.md
 
 plugins:
   - search
