@@ -108,6 +108,26 @@ Phase 5 replaces it. Chassis encapsulation uses the members' VLAN 30
 addresses. See the [spike report](https://github.com/GilmanLab/agentcompute/blob/spike/ovn-mechanism/spikes/ovn/README.md)
 for measurements and the northbound/chassis sequencing constraint.
 
+### Incus-local image runner networks
+
+These NAT bridges are local to each Incus member, not routed VLAN prefixes.
+Do not advertise them through `gw01` or Tailscale.
+
+| Resource | Address or prefix | Ownership |
+| --- | --- | --- |
+| Existing `incusbr0` bridge | `10.158.84.0/24`, gateway `.1` | IncusOS |
+| `github-runners` bridge | `10.158.85.0/24`, gateway `.1` | Fleet `cluster/` |
+| Reserved controller VM `ghrunner01` on `nas01` | `10.158.84.50` | Fleet OpenTofu root `incus/incus-gh-runner/` |
+| Reserved HTTP CONNECT forward | `10.10.10.14:3128` → `10.158.84.50:3128` | Same OpenTofu root, member-local to `nas01` |
+
+Runner egress permits the management gateway's DNS service, the pinned Incus
+API at `10.10.10.14:8443`, and the proxy port. The ACL also permits the exact
+proxy destination after DNAT because network-forward translation precedes
+the network ACL on the member hosting the forward. No other controller
+port is exposed by that forward. See the
+[private image runner runbook](../../runbooks/private-image-runners.md)
+for deployment and cutover checks.
+
 ## Gateway interface mapping
 
 | `gw01` chassis port | VyOS interface | Mode | Network |
