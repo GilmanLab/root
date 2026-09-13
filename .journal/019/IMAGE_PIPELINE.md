@@ -148,6 +148,25 @@ customer — a minimal Ubuntu server distrobuilder recipe implementing the
 guest contract. First build runs on a GitHub-hosted runner (fits 14 GB
 for a server image) or locally; thereafter the lab builds its own.
 
+**Delivered (Phase 4, 2026-09-12).** The public/self-hosted boundary
+forced one change to the shape above: the org is on the free plan (no
+restricted runner groups) and `agentcompute` stays public, so the scale
+set lives in a private trigger repo, `GilmanLab/agentcompute-images`.
+Public `master` push → GitHub-hosted validate + `repository_dispatch(sha)`
+→ private `bake.yml` on the `agentcompute-publisher` scale set checks out
+the public repo at the SHA (ancestor-of-master gate), builds all three
+images (`router`, `runner`, `runner-publisher`; tag `tree-<hash>`),
+boot-tests on the cluster, publishes to the existing GHCR names, and a
+dedicated App (`glab-image-publisher`) opens the catalog digest PR. The
+public repo has zero runners; `IMAGES_RUNNER` is gone. Controller
+`ghrunner01` is OpenTofu-owned on the cluster (fleet#18), restricted
+cert to `github-runners` + `image-build`. Measured: cold VM → listening
+15 s; warm dispatch → job 3–4 s; router build 41.7 s on the lab vs
+~75 s hosted; full three-image qualification 3m23s. Private bakes carry
+no GitHub artifact attestations (documented). Validator: #69 makes the
+baseline cluster-aware but still rejects wildcard listeners, and IncusOS
+binds `:8443` — open upstream policy question.
+
 Unknowns to measure on the first three builds: wall time, peak RSS,
 scratch high-water mark, artifact sizes. Nobody publishes numbers for
 these exact images. Planning reservations: router 4 vCPU/8 GiB/30 GiB;
