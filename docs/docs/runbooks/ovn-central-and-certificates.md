@@ -1,6 +1,6 @@
 ---
 title: Operate OVN central and certificates
-description: Issue and renew OVN certificates, deploy the durable central VM and chassis configuration, and recover the OVN control plane.
+description: Issue and renew OVN certificates, deploy the durable central VM and chassis configuration, and recover the control plane from ENOSPC and TLS trust failures.
 ---
 
 # Operate OVN central and certificates
@@ -17,6 +17,17 @@ The durable central is an OpenTofu-owned VM pinned to `nas01`'s unmanaged
 databases. Both databases accept mutual TLS only. Fleet owns the VM, the
 central service lifecycle, Incus client TLS, all four chassis, and the
 physical uplink.
+
+Fleet is the source of truth for these procedures. The recovery implementation
+is fleet commit
+[`b82fa1d`](https://github.com/GilmanLab/fleet/commit/b82fa1d), proposed in
+[fleet PR #20](https://github.com/GilmanLab/fleet/pull/20). Its canonical
+files are
+[`config.py`](https://github.com/GilmanLab/fleet/blob/b82fa1d/cluster/src/fleet_cluster/config.py),
+the [`central` deploy](https://github.com/GilmanLab/fleet/blob/b82fa1d/cluster/src/fleet_cluster/deploys/ovn_central.py),
+the [`ovn-trust-roll` deploy](https://github.com/GilmanLab/fleet/blob/b82fa1d/cluster/src/fleet_cluster/deploys/ovn_trust_roll.py),
+and the [`fleet-cluster` CLI](https://github.com/GilmanLab/fleet/blob/b82fa1d/cluster/src/fleet_cluster/cli.py).
+Use one reviewed fleet revision for every command in a procedure.
 
 ## Preconditions and required access
 
@@ -70,6 +81,14 @@ physical uplink.
   a durability promise for long-lived workloads.
 - The retired `sandbox01` spike central is not a rollback target. Do not
   reinstall or restart it.
+- Treat log truncation as destructive recovery. Capture evidence outside the
+  central VM, archive it, record its SHA-256 digest, and obtain approval that
+  names each file before truncating anything. Never truncate an OVN database or
+  any path under `/var/lib/ovn`.
+- `ovn-trust-roll` restarts only `incus.service` on explicitly selected
+  members. It briefly interrupts that member's API, in-flight operations, and
+  `incus exec` sessions. Run it without `--confirm` first, then obtain approval
+  for the named members. It does not write a persistent trust marker.
 
 ## Issue the initial certificate set
 
@@ -81,7 +100,8 @@ install -d -m 0700 "$OVN_TLS_DIR"
 
 cd /path/to/fleet/cluster
 uv run --locked python -m fleet_cluster ovn-ceremony \
-  --dir "$OVN_TLS_DIR"
+  --dir "$OVN_TLS_DIR" \
+  --mint-ca
 ```
 
 The command creates `ca.crt` and `ca.key`, the `ovncentral01` certificate and
@@ -89,6 +109,14 @@ key, and one certificate and key for each chassis. It prints JSON containing
 subjects, expiry dates, SHA-256 fingerprints, and the required SOPS escrow
 path for every artifact. It never prints a private key or contacts the
 cluster.
+
+`--mint-ca` is required because this procedure establishes the initial trust
+domain. In every later ceremony, materialize the existing CA first. Without
+`--mint-ca`, an absent CA is a refusal rather than an implicit replacement.
+
+Record the reported fingerprint and update the pinned
+`OVN_CA_FINGERPRINT_SHA256` in fleet's canonical `config.py` through a reviewed
+commit before deployment. Delivery refuses a CA that does not match the pin.
 
 Review the JSON and escrow every certificate/key pair at the paths it reports:
 
@@ -285,6 +313,12 @@ updates a chassis, then converges each chassis and the physical uplink. It
 never disables a chassis, clears the northbound connection, changes IncusOS
 system network configuration, or reboots a member.
 
+If this procedure minted a new CA, complete the
+[explicit four-member trust roll](#recycle-incus-daemons-after-client-trust-changes)
+after this converge and before the no-op and connectivity checks. Initial
+delivery does not exempt running Incus daemons from rebuilding their in-memory
+clients.
+
 Run the same command again and require a no-op. Repeat the northbound TLS check
 and the OpenTofu acceptance commands. Full sandbox lifecycle acceptance is a
 separate agentcompute qualification; central and chassis checks do not prove
@@ -297,6 +331,80 @@ evidence are reviewed:
 rm -rf -- "$OVN_TLS_DIR"
 unset OVN_TLS_DIR TF_VAR_ovn_ca_certificate_file TF_VAR_central_certificate_file
 ```
+
+## Converge central log-exhaustion controls
+
+The `central` command owns the central VM's logging configuration. Committed
+source is not activation evidence: run the command against the target VM and
+record its result.
+
+```sh
+cd /path/to/fleet/cluster
+uv run --locked python -m fleet_cluster central --state running
+```
+
+The command converges these controls:
+
+- The two `ovsdb-server` processes log at `syslog:warn` and `file:info`.
+  `ovn-northd` retains its stricter packaged `syslog:err` setting.
+- `/var/log/ovn/*.log` uses a `64MiB` rotation threshold, six retained
+  archives, and a five-minute logrotate check. A file can exceed `64MiB`
+  between checks, and compressed size depends on content. This is a retention
+  policy, not a hard byte cap or a fixed-size compressed quota.
+- The persistent journal has `SystemMaxUse=512M`. Fleet also manages its file,
+  free-space, runtime, and per-service rate limits.
+- Fleet manages `/etc/rsyslog.conf` so the `imuxsock` input rate-limits
+  messages at severity `4` through a 30-second interval with a burst of `500`.
+  The existing `/etc/rsyslog.d/*.conf` local and forwarding rules remain
+  included.
+
+When a managed logging file changes, the command reloads systemd and restarts
+only `rsyslog` and/or `systemd-journald` as required. It does not restart an OVN
+service. It applies live `ovsdb-server` vlog levels through `appctl`; a helper
+failure fails an explicit converge. The unit drop-ins deliberately use
+`ExecStartPost=-`, so a future helper failure cannot prevent a database from
+starting.
+
+The running-state converge also refuses a missing or inactive
+`logrotate.timer`, a root filesystem that does not match the provisioned disk,
+less than `1GiB` of free root space, or incomplete central TLS material. Verify
+the active state and rendered values:
+
+```sh
+incus exec --project default nas01:ovncentral01 -- \
+  rsyslogd -N1
+incus exec --project default nas01:ovncentral01 -- \
+  logrotate --debug /etc/logrotate.d/ovn-common
+incus exec --project default nas01:ovncentral01 -- \
+  systemctl is-active rsyslog systemd-journald logrotate.timer
+incus exec --project default nas01:ovncentral01 -- \
+  systemctl list-timers logrotate.timer --no-pager
+incus exec --project default nas01:ovncentral01 -- \
+  cat /etc/rsyslog.conf /etc/logrotate.d/ovn-common \
+      /etc/systemd/system/logrotate.timer.d/10-ovn-central-cadence.conf
+incus exec --project default nas01:ovncentral01 -- \
+  systemd-analyze cat-config systemd/journald.conf
+for ctl in /run/ovn/ovnnb_db.ctl /run/ovn/ovnsb_db.ctl; do
+  incus exec --project default nas01:ovncentral01 -- \
+    ovn-appctl -T 2 -t "$ctl" vlog/list
+done
+```
+
+Require a valid rsyslog configuration, active logging services and timer, the
+five-minute timer override, the source-managed values above, and `WARN` in the
+syslog column plus `INFO` in the file column for every module in both
+`ovsdb-server` tables. On a second `central --state running` converge, require
+every rendered file to be unchanged and no logging daemon restart. The
+idempotent northd enable probe and vlog no-drift command can still appear as
+pyinfra operations; do not require a zero-operation report.
+
+The approved 2026-09-14 converge activated these controls. Both logging daemons
+were active with fresh start timestamps; `rsyslogd` 8.2512.0 validation and
+the logrotate debug pass succeeded. `logrotate.timer` last ran at 16:21 UTC
+and was next scheduled for 16:25 UTC. Every module in both database vlog
+tables reported syslog `WARN` and file `INFO`. The northbound, southbound, and
+`ovn-northd` PIDs and `ActiveEnterTimestampMonotonic` values still matched the
+pre-recovery baseline, so activation did not restart an OVN process.
 
 ## Renew a chassis leaf
 
@@ -337,10 +445,14 @@ FLEET_OVN_TLS_DIR="$OVN_TLS_DIR" \
   moon run fleet-cluster:ovn
 ```
 
-Only the named chassis should change. For `nas01`, the same leaf also updates
-the Incus global OVN client identity. Require northbound connectivity, verify
-all four chassis remain configured, and rerun the deploy to a no-op before
-removing the plaintext directory.
+Only the named chassis should change unless the named member is `nas01`.
+Rotating `nas01` also changes the cluster-wide Incus OVN client certificate and
+key. In that case, follow the
+[explicit four-member trust roll](#recycle-incus-daemons-after-client-trust-changes)
+so every Incus daemon uses the new client identity. For another member, no
+Incus daemon roll is required. Require northbound connectivity, verify all four
+chassis remain configured, and rerun the deploy to a no-op before removing the
+plaintext directory.
 
 ## Rotate the central leaf or complete OVN trust set
 
@@ -367,20 +479,28 @@ uv run --locked python -m fleet_cluster ovn-ceremony \
 Compare the reported CA fingerprint with escrow, confirm only the central leaf
 reports `reissued`, and escrow the new central certificate/key pair.
 
-For a complete CA replacement, use a fresh empty owner-only directory and run
-the ceremony without `--rotate` or a leaf selector:
+For a complete CA replacement, use a fresh empty owner-only directory. This is
+the only later ceremony that may use `--mint-ca`; do not use `--rotate` or a
+leaf selector:
 
 ```sh
 export OVN_TLS_DIR=/absolute/path/to/new-owner-only-directory
 install -d -m 0700 "$OVN_TLS_DIR"
 cd /path/to/fleet/cluster
 uv run --locked python -m fleet_cluster ovn-ceremony \
-  --dir "$OVN_TLS_DIR"
+  --dir "$OVN_TLS_DIR" \
+  --mint-ca
 ```
 
 Review and escrow the new CA, central pair, and four chassis pairs. Confirm all
-six identities can be materialized from the reviewed secrets checkout. In
-either procedure, remove the plaintext CA key after escrow and before
+six identities can be materialized from the reviewed secrets checkout. Record
+the reported CA fingerprint. Before delivery, update the pinned
+`OVN_CA_FINGERPRINT_SHA256` in fleet's canonical
+[`config.py`](https://github.com/GilmanLab/fleet/blob/b82fa1d/cluster/src/fleet_cluster/config.py)
+through a reviewed commit. Every delivery path refuses a CA that does not match
+that pin.
+
+In either procedure, remove the plaintext CA key after escrow and before
 deployment:
 
 ```sh
@@ -422,12 +542,46 @@ FLEET_OVN_TLS_DIR="$OVN_TLS_DIR" \
   moon run fleet-cluster:ovn
 ```
 
+#### Recycle Incus daemons after client trust changes
+
+When the cluster-wide Incus OVN CA, client certificate, or client key changes,
+plan the required daemon roll with explicit member selectors. This includes a
+new CA and renewal of the `nas01` leaf:
+
+```sh
+uv run --locked python -m fleet_cluster ovn-trust-roll \
+  --member lab01 \
+  --member lab02 \
+  --member lab03 \
+  --member nas01
+```
+
+Review the CA fingerprint, selected members, and pre-restart `server_pid`
+values. After separate approval for those four daemon restarts, repeat the
+same command with `--confirm`:
+
+```sh
+uv run --locked python -m fleet_cluster ovn-trust-roll \
+  --member lab01 \
+  --member lab02 \
+  --member lab03 \
+  --member nas01 \
+  --confirm
+```
+
+The command enforces `lab01`, `lab02`, `lab03`, then `nas01` order regardless
+of selector order. It waits until each selected member answers with a different
+`server_pid` before touching the next member; `nas01`, the command's remote and
+central VM host, remains last. It restarts no instance, chassis, central
+process, or member operating system.
+
 Do not run the chassis/client converge while northbound is stopped: Incus must
 reach northbound to update its global client TLS configuration. During a
-complete CA replacement, starting central before that converge creates a
-brief fail-closed trust mismatch. Do not add a dual-CA interval. The subsequent
-fleet deploy updates the Incus client identity and all four chassis to the new
-trust set.
+complete CA replacement, starting central before that converge creates a brief
+fail-closed trust mismatch. Do not add a dual-CA interval. The fleet deploy
+updates the stored Incus client identity and all four chassis; the explicit
+trust roll then makes each selected Incus daemon rebuild its in-memory clients.
+A central-leaf renewal under the same CA does not require this trust roll.
 
 Repeat the central acceptance commands, the northbound TLS check, and the
 chassis checks. Require the recorded NB_Global, SB_Global, and logical-switch
@@ -437,12 +591,13 @@ identity to be rejected by both. Verify a cross-member guest path after the
 rotation, including a guest restart, then rerun `central-tls --dry-run` and the
 fleet deploy to no-ops.
 
-The live complete-set rotation replaced the central's three TLS files, the
-Incus global client identity, and all four chassis identities. It preserved
-NB_Global, SB_Global, and two logical-switch UUIDs. The new `lab03` identity
-authenticated to both NB `6641` and SB `6642`; the old identity was rejected
-by both before an authenticated response. Each of the two fixture paths
-completed three of three pings.
+The 2026-09-14 complete-set rotation replaced the central's three TLS files,
+the stored Incus global client identity, and all four chassis identities. It
+preserved NB_Global, SB_Global, and two logical-switch UUIDs. The certificate
+and guest-path checks passed, but they did not prove that every Incus daemon
+had rebuilt its in-memory OVN clients. Three daemons retained the prior CA and
+later caused the ENOSPC incident below. A complete-set rotation is not complete
+until the explicit PID-witnessed trust roll and passive-open check pass.
 
 ### Update OpenTofu public metadata
 
@@ -579,6 +734,226 @@ API returned after approximately 112 seconds while central was still stopped.
 A surviving path completed three of three pings throughout; the rebooted
 guest completed zero of three during the outage and three of three after the
 single central start.
+
+## Recover ENOSPC caused by stale in-memory OVN trust
+
+Use this procedure when the central root is full and the logs show a high-rate
+TLS reject/reconnect loop even though the installed CA and leaf certificates
+validate. Incus constructs its northbound and southbound TLS clients when
+`incus.service` starts. Updating `network.ovn.*` does not replace those
+in-memory clients.
+
+### 1. Capture and archive evidence
+
+Work from an owner-only directory outside every repository. The commands below
+are read-only against the central VM:
+
+```sh
+export CENTRAL=nas01:ovncentral01
+export EVIDENCE_DIR=/absolute/owner-only/path/ovn-enospc-$(date -u +%Y%m%dT%H%M%SZ)
+install -d -m 0700 "$EVIDENCE_DIR"
+
+incus config show --project default "$CENTRAL" --expanded \
+  >"$EVIDENCE_DIR/incus-expanded-before.yaml"
+incus cluster list nas01: >"$EVIDENCE_DIR/cluster-before.txt"
+incus exec --project default "$CENTRAL" -- \
+  systemctl show \
+    -p Id -p ActiveEnterTimestampMonotonic -p MainPID \
+    ovn-ovsdb-server-nb.service \
+    ovn-ovsdb-server-sb.service \
+    ovn-northd.service \
+  >"$EVIDENCE_DIR/central-units-before-recovery.txt"
+incus exec --project default "$CENTRAL" -- sh -c \
+  'df -h / /var/log; findmnt /; blockdev --getsize64 /dev/sda' \
+  >"$EVIDENCE_DIR/root-before.txt"
+```
+
+Record metadata for only the exhausted files:
+
+```sh
+incus exec --project default "$CENTRAL" -- python3 -c '
+import json
+import os
+import sys
+import time
+
+fields = ("dev", "ino", "mode", "uid", "gid", "size", "blocks", "mtime_ns", "ctime_ns")
+files = []
+for path in sys.argv[1:]:
+    value = os.stat(path)
+    files.append({"path": path, **{f"st_{field}": getattr(value, f"st_{field}") for field in fields}})
+print(json.dumps({"captured_at": time.time(), "files": files}, indent=2))
+' \
+  /var/log/syslog \
+  /var/log/ovn/ovsdb-server-nb.log \
+  /var/log/ovn/ovsdb-server-sb.log \
+  >"$EVIDENCE_DIR/stat-before.json"
+```
+
+Capture the first and last `20MiB` of each file onto the execution host. Do not
+store these segments inside the VM whose root is full:
+
+```sh
+for path in \
+  /var/log/syslog \
+  /var/log/ovn/ovsdb-server-nb.log \
+  /var/log/ovn/ovsdb-server-sb.log
+do
+  name=${path##*/}
+  incus exec --project default "$CENTRAL" -- head -c 20971520 "$path" \
+    >"$EVIDENCE_DIR/$name.first-20MiB.log"
+  incus exec --project default "$CENTRAL" -- tail -c 20971520 "$path" \
+    >"$EVIDENCE_DIR/$name.last-20MiB.log"
+done
+```
+
+Inspect certificate subjects, issuers, validity, SANs, and fingerprints without
+reading private keys. Compare the installed central CA and leaf, the Incus
+global `network.ovn.*` material, the four chassis identities, CA creation time,
+and each Incus daemon's start evidence. A valid installed set does not exclude
+stale in-memory trust. Identify the source members that continue the reconnect
+loop; do not select a member that has already rebuilt its clients.
+
+If the VM remains responsive, complete a full-file signature scan before
+truncation rather than extrapolating only from the captured windows. Save the
+scanner, its stderr, and its machine-readable results in the evidence
+directory. Then freeze the pre-recovery record:
+
+```sh
+tar -C "$(dirname "$EVIDENCE_DIR")" -czf "$EVIDENCE_DIR.tar.gz" \
+  "$(basename "$EVIDENCE_DIR")"
+shasum -a 256 "$EVIDENCE_DIR.tar.gz" | tee "$EVIDENCE_DIR.tar.gz.sha256"
+```
+
+Stop here. Obtain approval that names the exact files to truncate and the
+members whose `incus.service` may be restarted. Do not modify the archive after
+approval; write recovery results into the directory beside it.
+
+### 2. Reclaim log space
+
+After approval, truncate only the three captured log files in place. In-place
+truncation preserves the inode held by each running logger:
+
+Immediately before truncation, compare each path's device and inode with
+`stat-before.json`. If rotation replaced a file, capture the replacement and
+renew approval rather than truncating a file that is absent from the archive.
+
+```sh
+incus exec --project default "$CENTRAL" -- truncate -s 0 -- \
+  /var/log/syslog \
+  /var/log/ovn/ovsdb-server-nb.log \
+  /var/log/ovn/ovsdb-server-sb.log
+incus exec --project default "$CENTRAL" -- df -h / /var/log \
+  | tee "$EVIDENCE_DIR/df-after-truncate.txt"
+```
+
+Do not stop or restart central, reboot the guest, grow the disk, rotate TLS
+again, or weaken TLS. If the guest filesystem is smaller than the provisioned
+root device, stop and repair that separate growth fault. A root that already
+matches its provisioned disk needs bounded logging and removal of the loop, not
+an ad hoc size increase.
+
+### 3. Roll only the stale Incus daemons
+
+Use explicit selectors derived from the evidence. This example is the approved
+Phase 5 selection; `lab03` is deliberately absent because its Incus daemon had
+already restarted after the CA changed:
+
+```sh
+cd /path/to/fleet/cluster
+uv run --locked python -m fleet_cluster ovn-trust-roll \
+  --member lab01 \
+  --member lab02 \
+  --member nas01
+```
+
+Review the plan and its pre-restart `server_pid` values. After approval, repeat
+the exact selection with `--confirm`:
+
+```sh
+uv run --locked python -m fleet_cluster ovn-trust-roll \
+  --member lab01 \
+  --member lab02 \
+  --member nas01 \
+  --confirm
+```
+
+The command first requires central root headroom. It then restarts one selected
+`incus.service` at a time and proves that member is serving with a different
+PID before continuing. If one member does not return, the command abandons the
+rest of the roll.
+
+### 4. Verify recovery
+
+Require every member to report `Online`, and prove that no central process
+restarted:
+
+```sh
+incus cluster list nas01: | tee "$EVIDENCE_DIR/cluster-after.txt"
+incus exec --project default "$CENTRAL" -- \
+  systemctl show \
+    -p Id -p ActiveEnterTimestampMonotonic -p MainPID \
+    ovn-ovsdb-server-nb.service \
+    ovn-ovsdb-server-sb.service \
+    ovn-northd.service \
+  >"$EVIDENCE_DIR/central-units-after-recovery.txt"
+cmp "$EVIDENCE_DIR/central-units-before-recovery.txt" \
+  "$EVIDENCE_DIR/central-units-after-recovery.txt"
+```
+
+Measure inbound connection churn over ten seconds:
+
+```sh
+passive_opens() {
+  incus exec --project default "$CENTRAL" -- python3 -c '
+rows = [line.split() for line in open("/proc/net/snmp") if line.startswith("Tcp:")]
+print(dict(zip(rows[0][1:], rows[1][1:]))["PassiveOpens"])
+'
+}
+before=$(passive_opens)
+sleep 10
+after=$(passive_opens)
+printf "PassiveOpens before=%s after=%s delta=%s over 10 seconds\n" \
+  "$before" "$after" "$((after - before))" \
+  | tee "$EVIDENCE_DIR/passive-opens-after-recovery.txt"
+test "$after" -eq "$before"
+```
+
+Repeat the central acceptance commands and northbound TLS check. Require stable
+NB and SB connections and no new bad-certificate/reconnect flood. Do not
+restart a host, guest, chassis, or central process to make these checks pass.
+
+### Phase 5 recovery evidence
+
+The 2026-09-14 scan covered all `151785740` lines and `19307134976` bytes in
+`/var/log/syslog`, `ovsdb-server-nb.log`, and `ovsdb-server-sb.log`. The first
+and last `20MiB` of all three files were captured off the VM. The `20GiB` root
+matched the provisioned disk; this was not a guest filesystem growth failure.
+
+The installed CA and leaves were valid, but the CA had been silently re-minted.
+The Incus daemons on `lab01`, `lab02`, and `nas01` retained the old CA in
+memory. After explicit approval, the operator truncated exactly the three logs
+above and used `ovn-trust-roll` to recycle only those three daemons. `lab03`
+was not restarted. All members returned `Online`; the central database and
+`ovn-northd` PIDs and start timestamps were unchanged. No host, guest, chassis,
+or central process restarted. Passive opens fell from `1039` per second to
+`0` per second across a ten-second observation.
+
+The incident-only evidence directory is
+`/tmp/agentcompute-ovn-enospc-20260914/`. Its canonical recovery record includes
+`forensics-findings.md`, `top-signatures.jsonl`, `stat-before.json`,
+`approved-member-roll.stderr`, `connections-after-recovery.json`, and
+`log-controls-verification.json`.
+
+The immutable pre-recovery archive is
+`/tmp/agentcompute-ovn-enospc-20260914.tar.gz`, with SHA-256
+`1900270c232538a07588ba0adcccecb9ccbb9b64da71c0ccd02798a21b759926`.
+It contains only the evidence captured before recovery. Later recovery outputs
+under `/tmp/agentcompute-ovn-enospc-20260914/`, including the approved member
+roll and post-recovery results, are directory additions and are not part of
+that archive.
+These `/tmp` paths record this incident; they are not prerequisites for a later
+recovery. Create the owner-only evidence path described in step 1 instead.
 
 ## Recover from control-plane unavailability
 
