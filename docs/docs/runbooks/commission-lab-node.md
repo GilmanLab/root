@@ -17,8 +17,9 @@ canonical for every address used here. Seed configuration lives in
 ## Preconditions and required access
 
 - A `GilmanLab/fleet` config for the node with its **verified** 10GbE
-  management NIC MAC (`strict_hwaddr` binding; a wrong MAC leaves the node
-  unreachable after install). See "Harvest the management MAC" below.
+  management NIC MAC. Lab compute nodes keep `strict_hwaddr: true`; a wrong
+  `hwaddr` leaves the node unreachable after install. See "Harvest the
+  management MAC" below.
 - `incusos-builder` at the pin recorded in the fleet README, and a sacrificial
   USB stick. Install media MUST be a raw image written with `dd`; never boot
   the installer through Ventoy, and never attempt an AMT IDER/USB-R boot (see
@@ -106,6 +107,17 @@ as a prediction only; verify before building.
 
 Record the MAC in `GilmanLab/fleet` `nodes/<name>/config.yaml` through the
 normal PR flow.
+
+The `hwaddr` value selects the physical NIC that becomes `mgmt`.
+`strict_hwaddr` is a separate guest-egress policy: when enabled, it prevents
+frames with another source MAC from leaving that bridge. It does not create or
+remove the permanent interface identity binding.
+
+Keep `strict_hwaddr: true` on `lab01`–`lab03`. The only exception is
+`nas01`, where fleet sets it to `false` so the bridged `ovncentral01` VM can
+egress with its own source MAC. The VM NIC still sets
+`security.mac_filtering=true`, which confines the guest to its assigned MAC.
+Do not copy the `nas01` exception to a lab compute node.
 
 ### 3. Build and write install media
 

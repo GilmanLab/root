@@ -66,6 +66,7 @@ by the `GilmanLab/fleet` `cluster/` project and mirrored in each node's seed.
 | `gw01` OOB gateway | `10.10.70.1` | Interface address |
 | `sw-mgmt01` management | `10.10.70.2` | Interface address |
 | `gw01` `glab.lol` mirror | `10.10.10.54` | Local service address |
+| `ovncentral01` OVN central | `10.10.10.15` | Static VM interface on `nas01`'s unmanaged `mgmt` bridge |
 
 ### Hosts
 
@@ -87,26 +88,61 @@ configuration.
 
 Infrastructure endpoints do not depend on DHCP: gateway and managed-switch
 interface addresses and the local DNS mirror address are static interface
-configuration, IncusOS node management addresses are static in each node's
-seed (bound to the management NIC's hardware MAC in `GilmanLab/fleet`),
-storage-network addresses are static IncusOS runtime configuration (converged
-by the fleet `cluster/` project and mirrored in the seeds), and lab-node AMT
-addresses are static in MEBx so out-of-band access survives a gateway outage.
-The AMT interfaces have no DHCP reservations.
+configuration; the OVN central address is static VM network configuration;
+IncusOS node management addresses are static in each node's seed (bound to the
+management NIC's hardware MAC in `GilmanLab/fleet`); storage-network addresses
+are static IncusOS runtime configuration (converged by the fleet `cluster/`
+project and mirrored in the seeds); and lab-node AMT addresses are static in
+MEBx so out-of-band access survives a gateway outage. The AMT interfaces have
+no DHCP reservations.
 
 ### OVN external addresses
 
-Reserve `10.10.40.64` through `10.10.40.79` for the agentcompute OVN
-spike and its Phase 5 handoff. Fleet owns the uplink allocation. These are
-external router and network-forward addresses on VLAN 40, not a separate
-routed subnet or an extension of the `.200`–`.250` DHCP pool. Do not assign
-them to other endpoints.
+Reserve `10.10.40.64` through `10.10.40.127` (64 addresses) for OVN
+virtual-router external addresses and network forwards. The owner approved
+this durable allocation on 2026-09-12, replacing the `.64`–`.79` spike
+reservation. Fleet owns `ipv4.ovn.ranges` on the default-project physical
+network `fast40-uplink`.
 
-Temporary OVN central runs on `sandbox01` at `10.10.40.10`, with northbound
-TCP port `6641` and southbound TCP port `6642`; it remains running until
-Phase 5 replaces it. Chassis encapsulation uses the members' VLAN 30
-addresses. See the [spike report](https://github.com/GilmanLab/agentcompute/blob/spike/ovn-mechanism/spikes/ovn/README.md)
-for measurements and the northbound/chassis sequencing constraint.
+The allocation stays inside the physical uplink's existing
+`10.10.40.0/24` gateway subnet; it is not a new routed subnet and requires no
+new route or VLAN. Do not add this reservation to `ipv4.routes` on
+`fast40-uplink`: Incus authorizes addresses from the uplink's configured
+gateway subnet. The `.200`–`.250` DHCP pool and named endpoints remain
+unchanged. Do not assign the reserved addresses to other endpoints.
+
+Capacity accounting charges one external address for each NAT-enabled OVN
+network and one for each distinct forward listen address. An isolated
+`nat=false` network uses `network=none` and consumes no external address.
+Guests use internal addresses, and additional ports sharing a listen address
+do not consume another external address. Forwards are not available on
+isolated networks.
+
+| Sandbox topology | External addresses per sandbox | Eight concurrent sandboxes |
+| --- | ---: | ---: |
+| NAT-enabled `default` network and one forward listen address | 2 | 16 |
+| NAT-enabled `default`, isolated `lan`, NAT-enabled `wan`, and one forward listen address | 3 | 24 |
+
+The planning target is eight concurrent sandboxes for the single operator
+and their agents. The representative three-network topology uses 24 of the
+64 addresses and leaves 40 for additional NAT-enabled networks, distinct
+forward addresses, and pending cleanup. These are address-budget
+calculations, not measured scale limits.
+
+An `Errored` NAT-enabled OVN network retains its external address until
+deleted and counts against capacity. If central is unavailable, the reaper
+leaves cleanup pending and retries deletion after central recovers; it does not
+repair the network with service restarts. Revisit a dedicated VLAN only
+when OVN needs more than this 64-address allocation.
+
+Durable OVN central uses the `ovncentral01` allocation listed above. The VM is
+pinned to `nas01` and attaches directly to its unmanaged VLAN 10 `mgmt`
+bridge, so management boot and central do not depend on OVN. The standalone
+northbound and southbound databases accept mutual TLS only on ports `6641`
+and `6642`; chassis encapsulation uses the members' VLAN 30 addresses. The
+qualification spike central on `sandbox01` has been removed. See the
+[OVN central and certificate runbook](../../runbooks/ovn-central-and-certificates.md)
+for deployment, renewal, and recovery procedures.
 
 ### Incus-local image runner networks
 
