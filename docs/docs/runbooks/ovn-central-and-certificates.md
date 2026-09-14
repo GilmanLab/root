@@ -300,6 +300,11 @@ unset OVN_TLS_DIR TF_VAR_ovn_ca_certificate_file TF_VAR_central_certificate_file
 
 ## Renew a chassis leaf
 
+Renewing a leaf under the same CA does not revoke its old certificate. This
+deployment does not configure per-leaf revocation. If a leaf private key is
+exposed, use the complete CA and all-five-leaf replacement below; a leaf-only
+renewal is not containment.
+
 Use "Materialize the escrowed set," including the CA key, to create a fresh
 owner-only directory. Rotation must use the existing CA; the ceremony refuses
 to mint a replacement CA during `--rotate`.
