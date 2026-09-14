@@ -506,6 +506,11 @@ project limits (indicative: 8 vCPU, 16 GiB, 100 GiB per sandbox) and by
 the TTL reaper. Geneve tunnels ride the VLAN 30 storage links; sandbox
 east-west traffic is small.
 
+Phase 3 measured a 1442-byte OVN guest MTU over the 1500-byte underlay.
+The operator's Tailscale path used a 1280-byte tunnel MTU. Desktop and file
+transfers must not assume a 1500-byte end-to-end path; see the
+[Phase 3 measurements](https://github.com/GilmanLab/agentcompute/blob/master/spikes/ovn/README.md).
+
 The approved OVN range contains 64 external addresses. Only NAT-enabled
 networks and distinct forward listen addresses consume them. The
 representative `default` NAT, isolated `lan`, `wan` NAT, and one-forward
@@ -689,7 +694,8 @@ Resolved in review, kept here until the draft is promoted:
   The [address plan](../../reference/networking/address-plan.md#ovn-external-addresses)
   records the approved 64-address allocation and eight-sandbox planning
   target. Default-plus-forward consumes two external addresses per sandbox;
-  adding `lan` and `wan` brings that budget to four. Count `Errored`
+  adding an isolated `lan` and NAT-enabled `wan` brings that budget to three.
+  Count `Errored` NAT-enabled
   networks until deletion. A dedicated VLAN is reconsidered only if OVN
   needs more than this allocation; DHCP, named endpoints, and routes stay
   unchanged.
