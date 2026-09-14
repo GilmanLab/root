@@ -37,8 +37,10 @@ nav:
       - "ADR-0003: Use AWS KMS with PGP Recovery for Secrets": decisions/0003-use-kms-with-pgp-recovery-for-secrets.md
       - "ADR-0004: Manage RouterOS Devices with OpenTofu": decisions/0004-manage-routeros-devices-with-opentofu.md
       - "ADR-0005: Anchor Internal PKI on the KMS Root with Sibling Intermediates": decisions/0005-anchor-internal-pki-on-kms-root-with-sibling-intermediates.md
+      - "ADR-0006: OVN as the Sandbox Network Fabric": decisions/0006-ovn-as-the-sandbox-network-fabric.md
   - Designs:
       - Lab v2 core network: designs/lab-v2-core-network.md
+      - "Draft: agentcompute": designs/drafts/agentcompute.md
   - Reference:
       - Device naming: reference/naming.md
       - Hardware inventory: reference/hardware-inventory.md
@@ -50,6 +52,7 @@ nav:
   - Runbooks:
       - Change the Tailscale policy: runbooks/tailscale-policy-change.md
       - Commission a lab compute node: runbooks/commission-lab-node.md
+      - Operate OVN central and certificates: runbooks/ovn-central-and-certificates.md
       - Rebuild nas01: runbooks/rebuild-nas01.md
       - Manage the sw-core01 configuration: runbooks/sw-core01-configuration.md
       - Manage the sw-mgmt01 configuration: runbooks/sw-mgmt01-configuration.md
