@@ -201,7 +201,7 @@ checking must remain enabled.
 
 ```bash
 incus exec --project default nas01:agentcompute01 -- \
-  ssh -F /dev/null \
+  ssh -4 -F /dev/null \
     -i /etc/agentcompute/credentials/mac-ssh.key \
     -o BatchMode=yes \
     -o IdentitiesOnly=yes \
@@ -224,7 +224,7 @@ qualified stopped seed; it does not start or modify a VM.
 
 ```bash
 incus exec --project default nas01:agentcompute01 -- sh -eu -c '
-  ssh -F /dev/null \
+  ssh -4 -F /dev/null \
     -i /etc/agentcompute/credentials/mac-ssh.key \
     -o BatchMode=yes \
     -o IdentitiesOnly=yes \
@@ -280,7 +280,7 @@ test "$(ssh-keygen -l -f "$STUDIO_SSH_WORK/derived-mac-ssh.pub" | awk '{print $2
   "$(ssh-keygen -l -f "$STUDIO_SSH_WORK/agentcompute01.pub" | awk '{print $2}')"
 
 set +e
-ssh -F /dev/null \
+ssh -4 -F /dev/null \
   -i "$STUDIO_SSH_WORK/mac-ssh.key" \
   -o BatchMode=yes \
   -o IdentitiesOnly=yes \
