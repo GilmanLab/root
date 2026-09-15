@@ -52,6 +52,8 @@ nav:
           - Tailscale policy: reference/networking/tailscale-policy.md
   - Runbooks:
       - Change the Tailscale policy: runbooks/tailscale-policy-change.md
+      - Deploy and operate agentcompute: runbooks/agentcompute-service.md
+      - Authorize agentcompute SSH to Studio: runbooks/agentcompute-studio-ssh.md
       - Commission a lab compute node: runbooks/commission-lab-node.md
       - Operate OVN central and certificates: runbooks/ovn-central-and-certificates.md
       - Rebuild nas01: runbooks/rebuild-nas01.md
