@@ -67,6 +67,7 @@ by the `GilmanLab/fleet` `cluster/` project and mirrored in each node's seed.
 | `sw-mgmt01` management | `10.10.70.2` | Interface address |
 | `gw01` `glab.lol` mirror | `10.10.10.54` | Local service address |
 | `ovncentral01` OVN central | `10.10.10.15` | Static VM interface on `nas01`'s unmanaged `mgmt` bridge |
+| `agentcompute01` MCP service | `10.10.10.16` | Static `/32` on a routed Incus NIC through `lab01`'s `_vmgmt` interface; host gateway `169.254.0.1` |
 
 ### Hosts
 

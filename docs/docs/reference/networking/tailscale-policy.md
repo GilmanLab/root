@@ -43,6 +43,7 @@ and trailing commas. Section syntax is documented in Tailscale's
 | --- | --- | --- |
 | `tag:subnet-router` | Devices that advertise lab and home subnet routes into the tailnet | `autogroup:admin` |
 | `tag:sandbox` | Sandbox hosts that accept advertised lab subnet routes | `autogroup:admin` |
+| `tag:agentcompute` | Durable agentcompute HTTPS service | `autogroup:admin` |
 
 A tagged device is owned by its tag, not by the user who registered it. Removing
 a tag from the policy while a device still carries it leaves that device without
@@ -76,6 +77,20 @@ route:
 Policy tests require access to all four API endpoints and deny adjacent
 addresses and ports. Other routed destinations remain denied unless a separate
 rule permits them.
+
+The agentcompute service uses these additional rules:
+
+| Source | Destination | Protocol | Port |
+| --- | --- | --- | --- |
+| `autogroup:member` | `tag:agentcompute` | TCP | `443` |
+| `tag:agentcompute` | `studio-1` (`100.122.142.76`) | TCP | `22` |
+
+`studio-1` is a host alias for a user-owned device, not a device tag. Do not
+retag Studio. The existing `autogroup:admin` → `*:*` rule is unchanged.
+Policy tests allow the two service flows and deny service-to-Studio VNC,
+service-to-other-host SSH, and sandbox-to-Studio SSH. OpenSSH separately
+source-pins the service key; see the
+[Studio authorization runbook](../../runbooks/agentcompute-studio-ssh.md).
 
 ## Credentials
 
