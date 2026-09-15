@@ -44,6 +44,7 @@ nav:
   - Reference:
       - Device naming: reference/naming.md
       - Hardware inventory: reference/hardware-inventory.md
+      - Agentcompute Phase 7 qualification: reference/agentcompute/phase7.md
       - Networking:
           - Address and VLAN plan: reference/networking/address-plan.md
           - Hardware: reference/networking/hardware.md
