@@ -145,15 +145,18 @@ qualification spike central on `sandbox01` has been removed. See the
 [OVN central and certificate runbook](../../runbooks/ovn-central-and-certificates.md)
 for deployment, renewal, and recovery procedures.
 
-### Incus-local image runner networks
+### Incus-local and service networks
 
-These NAT bridges are local to each Incus member, not routed VLAN prefixes.
-Do not advertise them through `gw01` or Tailscale.
+These private prefixes are not routed lab VLANs. Do not advertise them through
+`gw01` or Tailscale. `incusbr0` and `github-runners` are member-local NAT
+bridges. `ac-svc-vlan40` is a managed OVN network whose uplink remains
+`fast40-uplink`.
 
 | Resource | Address or prefix | Ownership |
 | --- | --- | --- |
 | Existing `incusbr0` bridge | `10.158.84.0/24`, gateway `.1` | IncusOS |
 | `github-runners` bridge | `10.158.85.0/24`, gateway `.1` | Fleet `cluster/` |
+| Agentcompute service network `ac-svc-vlan40` | `10.158.86.0/24`, gateway `.1`; `agentcompute01` guest NIC `.2` | Fleet OpenTofu root `incus/agentcompute/` |
 | Reserved controller VM `ghrunner01` on `nas01` | `10.158.84.50` | Fleet OpenTofu root `incus/incus-gh-runner/` |
 | Reserved HTTP CONNECT forward | `10.10.10.14:3128` → `10.158.84.50:3128` | Same OpenTofu root, member-local to `nas01` |
 
