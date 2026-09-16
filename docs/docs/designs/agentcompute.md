@@ -235,7 +235,7 @@ Indicative catalog:
 | `router` | container | lab-built | Alpine or Debian with `nftables`, `frr`, `iproute2`/`tc`, `dnsmasq`, `wireguard`, `tcpdump`. The building block for NAT, routing, and impairment topologies. |
 | `windows/11/desktop` | vm | lab-built, cluster-local | Repacked with `distrobuilder repack-windows`, virtio drivers, autounattend, Cua Driver daemon at logon, VNC fallback. Captured on the cluster; never published to a registry. |
 | `windows/server-2025` | vm | lab-built, cluster-local | Headless. Same capture and non-publication rule. |
-| `macos/sequoia/desktop` | vm | lab-built, Mac-local | `lume create --unattended` from a pinned IPSW; Cua Driver with Accessibility and Screen Recording granted once by an operator; Screen Sharing as the VNC fallback. Kept as a stopped seed on the Mac; never published to a registry. |
+| `macos/tahoe/desktop` | vm | lab-built, Mac-local | `lume create --unattended` from a pinned IPSW (Tahoe; Sequoia's last restore image is a year of security updates behind); Cua Driver with Accessibility and Screen Recording granted once by an operator; clones carry the seed's `machineIdentifier` so they boot to a desktop. Kept as a stopped seed on the Mac under a dedicated account; never published to a registry. No VNC console on backend guests; `desktop.screenshot` is the view. |
 
 Agents can add to a sandbox's local catalog with `instance.publish` (below).
 Lab-built images are produced by a pinned recipe in the implementing
@@ -269,7 +269,7 @@ records a digest for the former and an alias or seed name for the latter.
 
 | Capability | Arguments | Returns | Notes |
 | --- | --- | --- | --- |
-| `net.create` | `sandbox`, `name`, `kind?` (`ovn` default, `bridge`), `cidr?`, `dhcp?`, `nat?`, `dns?` | `{name, kind, cidr, gateway}` | `ovn`: a cluster-wide segment with a logical router at `.1`; `nat` masquerades to the sandbox VLAN; `dhcp` and `dns` are on by default. nat=false networks are unreachable from outside the sandbox; attach a router instance or use net.peer. `bridge`: a bare L2 wire on one member, no router, nothing served; the agent brings its own. |
+| `net.create` | `sandbox`, `name`, `kind?` (`ovn` default, `bridge`), `cidr?`, `dhcp?`, `nat?`, `dns?` | `{name, kind, cidr, gateway}` | `ovn`: a cluster-wide segment with a logical router at `.1`; `dhcp` and `dns` are on by default. `nat=true` masquerades to the sandbox VLAN and consumes one external address. `nat=false` is an isolated segment with no uplink: unreachable from outside the sandbox and free of external addresses; reach it through `net.peer` or a two-NIC guest acting as a router. Sandbox prefixes are never routed onto the lab VLAN. `bridge`: a bare L2 wire on one member, no router, nothing served; the agent brings its own. |
 | `net.list` / `net.get` / `net.delete` | `sandbox` [, `name`] | | Delete fails while NICs are attached. |
 | `net.attach` | `sandbox`, `instance`, `network`, `nic?`, `ip?`, `mac?` | `{nic, mac}` | Hot-plugs a NIC. `nic` names the device (`eth1`…); `ip` requests a static lease. |
 | `net.detach` | `sandbox`, `instance`, `nic` | `{}` | |
@@ -386,17 +386,39 @@ behavior were qualified separately and are recorded under Validation.
    storage address as its Geneve tunnel address and its own TLS leaf. The
    Incus global OVN client uses the `nas01` leaf.
 3. **An OVN uplink on the sandbox VLAN — complete.** Fleet owns the
-   cluster-wide `physical` uplink on the IncusOS-owned `fast40` parent and the
-   approved external range. The
+   cluster-wide `physical` uplink `fast40-uplink` on the IncusOS-owned
+   `fast40` parent and the approved external range. That network is the
+   exclusive owner of `fast40` on every member: no other network, profile
+   NIC, or instance NIC may attach to the parent (a raw macvlan there holds
+   its `rx_handler` and silently disqualifies the member as an OVN gateway
+   chassis); fleet checks this fail-closed before touching the uplink. The
    [address plan](../reference/networking/address-plan.md#ovn-external-addresses)
    is the only source for that allocation and its capacity calculation.
-4. **An Incus identity for `agentcompute`** with rights to create
-   projects. Fleet `cluster/` concern.
-5. **A macOS host.** A dedicated Apple Silicon machine in the lab (a
-   Mac mini is enough) running `lume serve`, reachable from the server,
-   with SSH. Not a personal workstation: the consented Driver seed is a
-   security-relevant artifact and the backend must not vanish when a lid
-   closes. Apple limits a host to two concurrent macOS guests.
+4. **An Incus identity for `agentcompute`.** Creating projects is
+   root-equivalent in Incus 7.4 — a restricted certificate cannot be scoped
+   to projects that do not yet exist, and the authorization model treats
+   `can_create_projects` as host-root trust — so the service holds a
+   dedicated unrestricted identity by explicit exception ("Implementation
+   Outcome"). The durable shape is a fleet-managed pool of pre-restricted
+   `ac-NN` projects with a certificate restricted to them.
+5. **A macOS host.** An always-on Apple Silicon machine running
+   `lume serve`, reachable from the server over SSH. The lab's Mac Studio
+   serves. The containment boundary is a dedicated standard, non-admin,
+   hidden account that owns Lume, the seed, and every clone; the server
+   holds an SSH key for that account (source-pinned to the service's
+   tailnet address, no agent or X11 forwarding, options enforced by a
+   root-owned sshd `Match` block), and the tailnet policy restricts who
+   may reach the host's SSH at all. A forwarding-only key was tried and
+   rejected: stock Lume's HTTP API has no exec, file, or identity route,
+   so the backend needs the account's shell for guest SSH/scp, the
+   metadata sidecar, and pinning the seed's `machineIdentifier` on each
+   clone. The API binds loopback only; backend guests start with VNC
+   disabled (source-pinned Lume until a release carries it). Migration to
+   a dedicated Mac mini is one Lume directory and one key. Apple's
+   two-concurrent-macOS-guest limit is host-wide and shared with any
+   macOS VMs the operator runs in other accounts, which nothing can
+   enumerate; the server refuses a third of its own before calling Lume
+   and detects the cross-account case after `run` with a clear error.
 6. **Lab-built images**: the `router` container, one Linux desktop VM, one
    Windows desktop VM. Built from pinned recipes in the `agentcompute`
    repository until they earn a product home.
