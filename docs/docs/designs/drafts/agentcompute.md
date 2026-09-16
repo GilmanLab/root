@@ -94,14 +94,15 @@ policy, and the deployment form of the server. Those follow the prototype.
   impaired links) between instances in a sandbox.
 - An agent can take screenshots of and send keyboard and pointer input to a
   guest desktop.
-- Sandboxes expire. Nothing an agent forgets outlives its TTL.
+- Sandboxes expire unless an explicitly allowlisted operator pins them.
 - The vocabulary is small enough to be discoverable through `search_api` and
   stable enough that agents' saved programs keep working.
 
 ## Non-goals
 
-- Durable workloads. Anything meant to survive the day belongs in OpenTofu
-  or CAPI, not here.
+- Durable workloads. Operator pins can retain an interactive machine while
+  iterating, but are not backups or reusable images. Durable workloads belong
+  in OpenTofu or CAPI; reusable images require recipes under `images/`.
 - Generality. No second-user abstraction over hypervisors; the two backends
   (Incus, Lume) are named and their differences are exposed, not hidden.
 - Cluster configuration. Storage pools, cluster-wide networks, and profiles
@@ -203,13 +204,21 @@ shape is whatever `describe_api` reports from the Go types.
 
 | Capability | Arguments | Returns | Notes |
 | --- | --- | --- | --- |
-| `sandbox.create` | `name?`, `platform?` (`incus` default, `mac`), `ttl_minutes?` | `{name, platform, expires_at, network}` | Creates an Incus project (or Lume name prefix) named after the sandbox, plus its `default` NAT'd network. Default TTL 240 minutes. |
-| `sandbox.list` | — | `list[{name, platform, created_at, expires_at, instances: int}]` | |
-| `sandbox.get` | `name` | `{name, platform, created_at, expires_at, instances: list[...], networks: list[...]}` | One call for an agent to re-orient. |
-| `sandbox.extend` | `name`, `ttl_minutes` | `{expires_at}` | Extends from now. |
-| `sandbox.delete` | `name` | `{}` | Records expiry, then destroys owned resources in dependency order. A partial failure remains discoverable for reaper retry; an unknown sandbox returns `AgentError`. |
+| `sandbox.create` | `name?`, `platform?` (`incus` default, `mac`), `ttl_minutes?`, `pinned?` (false) | `{name, platform, expires_at, pinned, pinned_by, network}` | Creates an Incus project or Lume sidecar. Incus also creates its `default` NAT network. Default TTL 240 minutes; pinning requires an operator identity. |
+| `sandbox.list` | — | `{items: list[{name, platform, created_at, expires_at, pinned, pinned_by, instances: int}]}` | |
+| `sandbox.get` | `name` | `{name, platform, created_at, expires_at, pinned, pinned_by, instances: list[...], networks: list[...]}` | One call for an agent to re-orient. |
+| `sandbox.extend` | `name`, `ttl_minutes` | `{expires_at}` | Extends from now within the existing TTL limit; pins ignore the deadline. |
+| `sandbox.pin` | `name`, `pinned` | `{pinned, pinned_by}` | Operator-only. Unpinning restores the existing expiry, which may already have passed. |
+| `sandbox.delete` | `name` | `{}` | Records expiry and clears any pin, then destroys owned resources in dependency order. A partial failure remains discoverable for reaper retry; an unknown sandbox returns `AgentError`. |
 
-Expired sandboxes are deleted by a reaper inside `agentcompute`.
+Expired, unpinned sandboxes are deleted by a reaper inside `agentcompute`.
+`sandbox.pin_identities` is an exact subject allowlist, empty by default;
+unauthorized pin/create-pinned/unpin calls return `AgentError` without changes.
+Both backends persist `pinned`, `pinned_by`, and `pinned_at` alongside expiry:
+Incus in `user.agentcompute.*` project config, Lume in its sidecar. Every scan
+logs pinned sandboxes at INFO, including the operator and pin timestamp.
+Pins survive restart and leave normal operations usable after expiry.
+Re-pinning preserves attribution; unpinning clears it without extending TTL.
 
 #### `image` — the curated catalog
 
