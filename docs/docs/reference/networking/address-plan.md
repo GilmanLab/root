@@ -126,9 +126,9 @@ isolated networks.
 
 The planning target is eight concurrent sandboxes for the single operator
 and their agents. The representative three-network topology uses 24 of the
-64 addresses and leaves 40 for additional NAT-enabled networks, distinct
-forward addresses, and pending cleanup. These are address-budget
-calculations, not measured scale limits.
+64 addresses; the service's `ac-svc-vlan40` network holds one more. This leaves
+39 for additional NAT-enabled networks, distinct forward addresses, and
+pending cleanup. These are address-budget calculations, not measured scale limits.
 
 An `Errored` NAT-enabled OVN network retains its external address until
 deleted and counts against capacity. If central is unavailable, the reaper
@@ -212,11 +212,12 @@ workloads stay off the management plane. These links are not required for
 IncusOS management boot. The host-side counterpart, converged by the
 `GilmanLab/fleet` `cluster/` project, is the `vlan_tags` allow-list plus an
 IncusOS-declared VLAN interface per carried VLAN (`fast30`, `fast40`).
-Instances must attach to the IncusOS-owned interface (for example macvlan
-with `parent=fast40`), never with an Incus-created `vlan=` sub-interface on
-`fast`: the visible `fast` device is an IncusOS-internal VLAN-filtering
-bridge, and only IncusOS-declared VLANs receive bridge self-port membership,
-so other tagged sub-interfaces pass no traffic. Additional instance VLANs
+The default-project physical network `fast40-uplink` exclusively owns `fast40`.
+Workload NICs use managed OVN networks, not raw macvlan or bridge attachments
+to that same parent. For any additional instance VLAN, use an IncusOS-declared
+interface, never an Incus-created `vlan=` sub-interface on `fast`: the visible
+`fast` device is an IncusOS-internal VLAN-filtering bridge, and only
+IncusOS-declared VLANs receive bridge self-port membership. Additional VLANs
 join these links when their first consumer arrives.
 
 ## DHCP and DNS ownership

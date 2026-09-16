@@ -71,9 +71,10 @@ documentation, not this inventory.
   - `64GB` memory
 - Backend boundary: Lume and its VM store run under the dedicated hidden,
   standard `agentcompute` account, not the owner's account.
-- Deployment state: the seed and backend have qualification evidence on this
-  host. Permanent agentcompute service configuration and the Studio VNC packet
-  filter remain rollout gates.
+- Console boundary: the account-local pinned Lume build supports disabled VNC;
+  backend starts require it. No broad high-port PF block is installed, so
+  Internet Sharing and the owner's Continuity services retain their policies.
+  See the [Mac operations runbook](../runbooks/agentcompute.md#operate-the-mac-backend).
 
 ### MikroTik CRS309-1G-8S+IN
 

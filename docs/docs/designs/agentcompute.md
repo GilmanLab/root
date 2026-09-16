@@ -778,6 +778,9 @@ and successful qualification do not silently accept an ADR.
   external addresses; adding a NAT-enabled WAN consumes a third. Isolated
   `nat=false` LANs consume none. Count failed NAT network allocations until
   deletion. The approved range remains `10.10.40.64–10.10.40.127`.
+  The service's `ac-svc-vlan40` network consumes one address from that same
+  range. Eight representative sandboxes therefore leave **39**, not the
+  proposal's 40, after infrastructure use.
 
 ### Mac implementation amendments
 
@@ -790,9 +793,9 @@ and successful qualification do not silently accept an ADR.
   rule. Consent and activation are seed properties, not permission grants
   performed by the server.
 - The server serializes starts and enforces the two-running-macOS-guest
-  limit before Lume mutations. It counts every running macOS VM in the
+  limit before each Lume run mutation. It counts every running macOS VM in the
   confined account and diagnoses host-wide capacity occupied elsewhere.
-- There is no `lume ssh` transport. Guest exec and SFTP use system SSH through
+- The runtime does not use the unavailable `lume ssh`. Guest exec and SFTP use system SSH through
   Studio as `ProxyJump`, with distinct host/guest keys and both host keys
   pinned. The guest pin uses the seed name, not a DHCP address.
 - Lume 0.5.3's wildcard VNC server cannot be disabled with `--display none`.
@@ -820,16 +823,26 @@ and successful qualification do not silently accept an ADR.
   the isolated client's default route/DNS through that router. A WAN packet
   capture proved the client's connection source was the router WAN address;
   merely checking NAT rules was not accepted as evidence.
+- Linux whole-desktop capture was black because Cua Driver's cosmetic
+  agent-cursor overlay froze X root-window reads before GNOME's first frame.
+  Starting it later could freeze a coloured frame instead. Window capture
+  remained live; VNC was affected too. Driver 0.28.2 reproduced the defect.
+  [Agentcompute #41](https://github.com/GilmanLab/agentcompute/pull/41) starts
+  the image's Driver with `--no-overlay`, retaining the reviewed 0.28.1 pin.
+  This removes synthetic session cursors, not input or the native cursor.
+  Image qualification now requires whole-desktop pixels to change after
+  launching Text Editor; a black-frame heuristic would miss a coloured freeze.
 - Fleet release installation now converges the public configuration, catalog,
   unit, and SSH pins in place, after artifact checks. It does not replace the
   service VM, rerun cloud-init, overwrite private credentials, or re-enroll
   Tailscale. Bootstrap/network/certificate changes retain the deliberate
   replacement procedure.
 - Windows and macOS images remain local and do not have published image
-  attestations. Binary/container release attestations exist, but the build
-  still occurs outside the reusable attesting job: **SLSA Level 3 is not
-  claimed**. This supply-chain gap remains deferred rather than being hidden
-  by the presence of a signature.
+  attestations. Private Linux image bakes also omit the older hosted
+  `attest.yml` step: digest verification and boot qualification are not signed
+  build provenance. Binary/container release attestations exist, but their
+  build still occurs outside the reusable attesting job: **SLSA Level 3 is not
+  claimed**. These supply-chain gaps remain deferred.
 
 ### Known residuals
 
@@ -844,6 +857,12 @@ and successful qualification do not silently accept an ADR.
   this with deliberately missing commands and an unavailable BusyBox applet;
   valid command, routing, and desktop checks used real installed programs.
   Error reporting was not broadened as an unrelated Phase 9b change.
-- Mac cold-clone Driver scheduling has required an explicit LaunchAgent
-  kickstart in earlier qualification while TCC grants remained present.
-  The runbook separates that finding from permission re-consent.
+- Mac cold-clone readiness now checks the GUI session, kickstarts the existing
+  Driver LaunchAgent, and verifies the daemon's existing TCC grants before
+  returning. Phase 9b required no manual intervention or new permission grant.
+  Missing consent still requires a human; the server does not grant it.
+- The existing Mac seed was qualified manually. Legacy
+  `images/macos/provision.sh` and `verify.sh --clone` still depend on the
+  unavailable `lume ssh` and are not qualified rebuild automation. The runbook
+  uses deployed MCP create/readiness/exec/screenshot/delete to requalify clones.
+  Porting those legacy bootstrap scripts is deferred.

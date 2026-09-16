@@ -96,8 +96,8 @@ Reconsider a dedicated VLAN only if OVN needs more than the approved
 64-address block.
 The representative topology has NAT-enabled `default` and `wan` networks, an
 isolated `lan`, and one distinct forward listen address. It consumes three
-external addresses per sandbox: eight sandboxes consume 24 and leave 40 of
-the 64-address reservation.
+external addresses per sandbox. Eight sandboxes consume 24; the service's
+`ac-svc-vlan40` network consumes one more, leaving 39 of the 64-address reservation.
 
 New sandbox projects use project-owned OVN networks and managed-only NICs.
 The default network has NAT. An additional NAT-enabled network consumes one

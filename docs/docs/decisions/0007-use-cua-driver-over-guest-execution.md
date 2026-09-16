@@ -40,7 +40,7 @@ execution**. This record remains `proposed` until the owner accepts it.
 
 Curated desktop images install the pinned Cua Driver and start its daemon in the
 logged-in graphical session. Agentcompute exposes `desktop.info`,
-`desktop.call`, and `desktop.screenshot` capabilities. `desktop.call` forwards a
+`desktop.enable`, `desktop.call`, and `desktop.screenshot`. `desktop.call` forwards a
 native Driver tool name and JSON object without defining a second typed API for
 each upstream tool.
 
@@ -87,7 +87,7 @@ Compliance is observable when all of the following remain true:
   reports their typed shapes, and `desktop.info` discovers the installed Driver
   version and native tool names.
 - A native read such as `list_apps` returns structured Driver content, and a
-  screenshot capability returns a fetchable PNG URL rather than image bytes.
+  screenshot capability returns a fetchable image URL rather than image bytes.
 - Linux and macOS Driver operations execute one-shot guest commands. Windows
   reuses a Driver MCP session carried by a guest exec stream and does not replay
   a call after a lost response.

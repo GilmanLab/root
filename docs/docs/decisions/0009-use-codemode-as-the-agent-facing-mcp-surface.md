@@ -21,7 +21,7 @@ outer MCP contract small and stable?
 - Let an agent discover exact capability names and shapes at runtime.
 - Compose dependent operations without returning every intermediate value to
   the model.
-- Validate typed capability inputs and authorize every native call.
+- Validate typed inputs and expose an authorization point for every native call.
 - Bound program execution time, native calls, and values.
 
 ## Considered Options
@@ -68,8 +68,9 @@ host responsibilities outside program-controlled arguments.
   clean up while returning only its final bounded value.
 - Good, because generated descriptions and argument binding come from the same
   Go types used by handlers.
-- Good, because authorization is applied to canonical typed arguments for every
-  native call, including calls made inside one program.
+- Good, because CodeMode passes canonical typed arguments to the authorizer for
+  every native call. The deployed policy is `authz.AllowAll`: bearer
+  authentication is the current gate, and subject identity is attribution.
 - Bad, because clients must discover CodeMode and write Starlark instead of
   calling an operation-specific MCP tool directly.
 - Bad, because flat scalar inputs require repeated calls or an explicitly

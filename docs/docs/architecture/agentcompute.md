@@ -98,7 +98,8 @@ including restore and restart, uses `noDisplay: true` and `vnc: disabled`.
 Startup refuses a CLI or daemon that cannot enforce the policy. This avoids a
 wildcard VNC listener at its source; no high-port PF rule is installed on the
 owner's LAN interfaces. `pins/lume.yaml` in agentcompute records the exact
-source commit, installed binary digest, and the unchanged 0.5.3 release fallback.
+source commit, installed binary digest, and 0.5.3 as a manual rollback
+reference that backend startup rejects.
 Return to a release pin once a release includes the feature. The global Lume
 install, Internet Sharing, and Continuity services remain outside service
 ownership.
@@ -114,8 +115,9 @@ execution path. This is the trust and transport decision in
 Screenshot bytes are written under `/var/lib/agentcompute/screenshots` and
 returned as opaque HTTPS URLs rooted at the service hostname. Screenshot URLs
 are bearer capabilities: do not log or publish them for private workloads.
-Their lifetime is tied to sandbox expiry/deletion; the HTTP service checks
-that lifetime rather than treating a file on disk as perpetual authorization.
+Their lifetime is at most five minutes, shortened by sandbox expiry or deletion,
+and they do not survive a service restart. The HTTP service checks that lifetime
+rather than treating a file on disk as perpetual authorization.
 The service's systemd credential directory and Studio keys are not available
 to guest desktop tools.
 
@@ -124,9 +126,9 @@ to guest desktop tools.
 - Incus projects and Lume sandbox metadata survive an MCP process restart.
   The reaper reconciles expired sandboxes on its next pass, including those
   that expired while the process was stopped; it is not an in-memory timer.
-- Incus snapshot restore stages a stopped copy before deleting the original,
-  then renames the staged instance, reapplies current agentcompute metadata,
-  and starts it. UUID, NIC identity, and DHCP address can change.
+- Incus snapshot restore stops the original and stages a copy carrying current
+  agentcompute metadata, then deletes the original, renames the copy, and
+  starts it. UUID, NIC identity, and DHCP address can change.
   Deleting the original also deletes its snapshot
   tree. This is recreate semantics, not an in-place filesystem rollback.
 - A failed create or delete can leave backend resources needing reconciliation.

@@ -58,10 +58,11 @@ clone's first boot, agentcompute copies the seed's `machineIdentifier` into the
 stopped clone while retaining the clone's generated MAC address. Snapshot and
 restore clones follow the same pre-boot identity rule.
 
-Apple permits at most two additional running macOS guests on a host. Before a
-create, start, or restart makes a Lume HTTP mutation, agentcompute serializes
-starts and counts every running macOS VM visible in the confined account,
-regardless of name. It refuses a third. This check is required because Lume
+Apple permits at most two additional running macOS guests on a host.
+Agentcompute serializes starts and counts every running macOS VM visible in
+the confined account, regardless of name. It refuses a third before the Lume
+run mutation; cloning and configuring a stopped VM do not consume a running slot.
+This check is required because Lume
 0.5.3 accepts the third run request but leaves the VM stopped and reports the
 limit only in its service log. A separate account can still consume a host-wide
 slot, so a run that remains stopped is diagnosed against new Lume log output.
@@ -76,7 +77,7 @@ It installs only for `agentcompute`; the system-wide Lume remains unchanged.
 
 Every backend run requests disabled VNC and no display. Startup fails closed
 if either the account-local CLI or the running daemon lacks that policy.
-Verification samples account-owned TCP listeners from request through Running.
+The backend polls Lume until Running and stops any guest reporting a VNC URL.
 No PF rule is installed, so this change does not alter Internet Sharing or the
 owner's Continuity services. Once a release includes the feature, replace the
 source pin with that release. The 0.5.3 release pin is retained as a rollback
@@ -114,6 +115,8 @@ Compliance is observable when all of the following remain true:
 - The durable service configuration enables Lume only after source-pinned SSH,
   separate host and guest keys, known-host pins, and disabled-VNC enforcement
   are verified. No account-owned per-VM VNC listener appears during startup.
+- Live qualification separately samples account-owned TCP listeners from the
+  create request through Running; only the daemon's loopback listener may exist.
 - Generated guest SSH configuration uses Studio as `ProxyJump`; guest exec and
   SFTP do not invoke `lume ssh` and do not use an SSH agent.
 - A fresh clone receives the seed's `machineIdentifier` while stopped and

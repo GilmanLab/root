@@ -132,6 +132,7 @@ enrollment.
 ```bash
 export GLAB_SECRETS_DIR="$HOME/code/glab/secrets"
 export FLEET_DIR="$HOME/code/lab2/fleet"
+export AGENTCOMPUTE_DIR="$HOME/code/lab2/agentcompute"
 export AWS_PROFILE=lab-admin
 
 umask 077
@@ -181,8 +182,11 @@ certificates, image catalog, SSH host-key pins, and runtime configuration do.
 The three base private inputs are delivered after provisioning as `root:root`
 mode `0600` files in a mode `0700` directory. Enabling Lume adds a fourth
 private input, `mac-guest.key`, delivered separately from the qualified
-Studio account. The unit loads the Incus client certificate/key, bearer-token
-file, Studio SSH key, and (when enabled) Mac guest key with `LoadCredential=`.
+Studio account by `just deliver-lume-key`. With `lume_host` set, deliver it
+**before** `just deliver-credentials` on a first deployment or VM replacement;
+the unit is gated on that file too. The unit loads the Incus client
+certificate/key, bearer-token file, Studio SSH key, and enabled Mac guest key
+with `LoadCredential=`.
 Treat the runtime credential mount as unit-private; do not infer its access from
 ownership or mode observed outside the service namespace.
 
@@ -314,6 +318,10 @@ object with unique names and tokens and no whitespace or control characters.
 It pushes all three private files as root-owned mode `0600`, then restarts the
 unit. Install the release first so the initial service start cannot select an
 unverified binary.
+With `lume_host` enabled, first follow
+[the Mac guest-key delivery procedure](#deliver-permanent-runtime-configuration).
+That delivery does not start the service; the base delivery below does.
+
 
 ```bash
 just deliver-credentials \
@@ -483,6 +491,45 @@ Require a successful `initialize` result naming `agentcompute` before declaring
 the MCP endpoint accepted. A healthy systemd unit, valid TLS, and an HTTP `401`
 without a token do not prove authenticated MCP handling.
 
+### Phase 9b qualification — 2026-09-16
+
+Live qualification used the deployed HTTPS endpoint, normal certificate validation,
+and the SOPS-managed `omp` identity from fresh workstation processes. The
+initial network, TTL, snapshot, and Windows checks ran on v0.1.2; Mac rollout
+and the later restart/concurrency checks ran on
+[`v0.1.3`](https://github.com/GilmanLab/agentcompute/releases/tag/v0.1.3),
+commit `d85426b72257998a339b91f854c8928ca9d3e361`. Its Linux amd64 SHA-256 is
+`d7e8e5229e7299612f858ba6d39718d402fc3b80017cbe3da0c7c0e2a6859c63`;
+the checksum and exact-tag/commit GitHub attestation passed before installation.
+
+| Contract | Observed result |
+| --- | --- |
+| One-minute TTL with a running VM | `p9b-ttl` expired at `02:04:44Z`; absent at `02:05:07.499Z`, 23.499 seconds later. `ac-p9b-ttl` was also absent from Incus project listing. |
+| LAN-only client through guest NAT | Client `192.168.50.3` had only its LAN NIC and used router `192.168.50.2`. Verified HTTPS returned `200`; WAN capture showed source `10.99.0.2`, the router's WAN address. |
+| Cross-member OVN and workstation forward | `lab01` and `lab02` containers exchanged three of three pings in each direction. Workstation HTTP to `10.10.40.67:8080` returned `p9b-final-forward`. |
+| Isolated networks | `network=none`, `ipv4.nat=false`, and no external allocation. Direct lab/internet pings failed; intentional `net.peer` traffic succeeded both ways. A forward on an isolated network returned `AgentError`. |
+| External-address budget | The representative sandbox held `.69` for default NAT, `.70` for WAN NAT, and `.71` for its forward; LAN held none. The service network separately held `.65`. Eight such sandboxes use 24 addresses, leaving 39 after the service's one address. |
+| Snapshot semantics | Restore recovered the original file contents and returned `Running` with the same name but a different UUID, MAC, and DHCP address; all original snapshots were consumed. Separate create/list/delete checks retained only the named snapshot until its deletion. |
+| Windows ready screenshot | Three initial captures took 1.146, 1.150, and 1.148 seconds. After a later service restart, readiness took 6.182 seconds and the subsequent real desktop capture took 1.379 seconds. |
+| Restart rediscovery | `systemctl restart agentcompute.service` preserved discovery of all four then-existing sandboxes: three Incus and one Mac, with the same ten-instance total and expiry metadata. |
+| Eight blocking executions | Eight simultaneous `sleep 5` programs returned their distinct results successfully. Tool times were 5.671–6.015 seconds; total workstation wall time, including client setup, was 7.381 seconds. |
+| Mac lifecycle | HTTPS create returned Running in 44.992 seconds; `sw_vers` reported macOS 26.6.2 / 25G83; Driver 0.28.1 was ready; the 1920×1200 screenshot showed the desktop. Instance and sandbox deletion left only the stopped seed in Lume. |
+| No-VNC boundary | Sampling began before the Mac create request and continued through Running. The first 1,000 listener observations contained only account-owned `127.0.0.1:7777`, no guest VNC listener. PF filter/NAT rules, the global Lume digest, and owner `rapportd` listeners were unchanged. |
+| Fresh-shell operation | The runbook's service, routing, Serve, DNS, public TLS, unauthenticated `401`, and SOPS-authenticated initialization commands passed under `bash --noprofile --norc` with a minimal environment. |
+
+A separate isolated HTTP fault fixture exercised the actual Incus SDK and
+restore adapter without faulting the deployed cluster. Stop failure retained
+the running original and snapshot; copy failure retained them with the original
+stopped; delete failure retained the stopped original plus staged copy;
+rename failure retained the staged copy; start failure retained the stopped
+replacement under the original name. The success control returned that
+replacement Running. All six cases passed; the temporary harness was removed.
+
+Windows's persistent guest MCP session has a cold-start cost. A direct first
+screenshot after restart, without a new readiness probe, took 5.275 seconds.
+The sub-two-second result is measured **after readiness**, not a cold-call
+latency guarantee.
+
 ### Phase 9a qualification — 2026-09-15
 
 - Deployed [`v0.1.1`](https://github.com/GilmanLab/agentcompute/releases/tag/v0.1.1),
@@ -511,7 +558,7 @@ without a token do not prove authenticated MCP handling.
   access as `agentcompute`, and rejected the same key from Studio's own source
   with `Permission denied (publickey)`.
 
-Two findings remain relevant to operations:
+Two findings informed the later qualification:
 
 1. `v0.1.0` rejected Tailscale Serve's preserved public `Host` header on the
    loopback listener. `v0.1.1` permits that path only with configured bearer
@@ -519,9 +566,10 @@ Two findings remain relevant to operations:
    for unauthenticated loopback servers.
 2. Whole-desktop capture returned a black `1280×800` image even after Text
    Editor launched. Explicit window capture rendered the editor correctly
-   (`822×642`), and accessibility state was available. This is a desktop-capture
-   finding, not an HTTPS delivery failure; full-desktop capture is not qualified
-   by this deployment.
+   (`822×642`), and accessibility state was available. Phase 9a did not qualify
+   whole-desktop capture. Phase 9b traced this to the Driver's cosmetic cursor
+   overlay freezing X root reads, including VNC; see the
+   [implementation outcome](../designs/agentcompute.md#runtime-and-image-contract-details).
 
 ## Operate the Mac backend
 
@@ -545,7 +593,7 @@ From the owner account, stage only the public build inputs outside the
 protected home, then build as `agentcompute`:
 
 ```bash
-LUME_STAGE="$(mktemp -d)"
+LUME_STAGE="$(mktemp -d /tmp/lume-build.XXXXXX)"
 mkdir -p "$LUME_STAGE/images/macos" "$LUME_STAGE/pins"
 cp "$AGENTCOMPUTE_DIR/images/macos/build-lume.sh" \
   "$AGENTCOMPUTE_DIR/images/macos/lib.sh" "$LUME_STAGE/images/macos/"
@@ -642,9 +690,12 @@ Screen Recording; add `/Applications/CuaDriver.app` to Screen Recording if
 absent. Let the operator authenticate and approve each permission. Do not
 modify TCC databases, grant owner-host permissions, or automate consent.
 Restart the guest's `com.trycua.cua_driver_daemon` LaunchAgent, then recheck
-Driver readiness and a real screenshot. Requalify a disposable clone before
-returning the stopped seed to service. A cold clone that needs a LaunchAgent
-kickstart is a known qualification finding, not evidence of missing TCC consent.
+Driver readiness and a real screenshot. Qualify a disposable clone through the
+deployed MCP endpoint: `desktop.info` must report readiness, `sw_vers` must
+identify the expected release, and `desktop.screenshot` must show the desktop.
+Then delete the clone and retain the stopped seed. The legacy
+`images/macos/provision.sh` and `verify.sh --clone` scripts still assume
+`lume ssh`; they are not a qualified rebuild or recovery path.
 
 Return to an account-local release pin once an upstream Lume release includes
 [cua#3209](https://github.com/trycua/cua/pull/3209). Retire the source-build
@@ -749,6 +800,11 @@ For a release regression, return `release.auto.tfvars` to the last accepted
 version and digest, review and apply the plan, then install that verified asset
 through `just install-release`. Confirm the embedded tag commit and repeat the
 full verification procedure. Do not point the symlink at an unverified file.
+With `lume_host` enabled, retain agentcompute **v0.1.3 or newer**: older releases
+do not enforce disabled VNC. Disable the Mac backend before deliberately
+rolling back below that boundary; never silently substitute the global Lume
+0.5.3 binary or enable VNC to make a rollback start.
+
 
 For a VM replacement, use a saved plan with an explicit replacement and expect
 to lose the VM's tailnet node identity and delivered files:
@@ -759,8 +815,9 @@ tofu show tfplan
 tofu apply tfplan
 ```
 
-After cloud-init completes, install the release and deliver credentials. Before
-enrollment, remove the old, offline `agentcompute01` device from the tailnet so
+After cloud-init completes, install the release, deliver the Mac guest key if
+Lume is enabled, then deliver the three base credentials to start the unit.
+Before enrollment, remove the old, offline `agentcompute01` device from the tailnet so
 the replacement can receive the exact MagicDNS name. Then enroll and run the
 full verification. Never accept a collision name such as `agentcompute01-1`;
 the enrollment script refuses to publish Serve under that name.
