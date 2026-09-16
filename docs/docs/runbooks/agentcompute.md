@@ -308,6 +308,11 @@ changes `/usr/local/bin/agentcompute`, and restarts the service only if it is
 already running. It does not overwrite private credentials. A rejected asset
 does not replace the current binary or runtime bundle.
 
+A changed image catalog is reconciled before the MCP listener opens. During
+that work, systemd can report `active` while Tailscale Serve returns `502`.
+Wait for the service's `listening` log entry, then perform the HTTPS checks
+below; `systemctl is-active` alone is not a readiness check.
+
 GitHub artifact and OCI attestations and the OCI Cosign signature are release
 evidence, not deployed-service acceptance. Do not claim SLSA Build Level 3:
 the artifact build occurs outside the reusable attester, so signer isolation
@@ -504,6 +509,15 @@ commit `d85426b72257998a339b91f854c8928ca9d3e361`. Its Linux amd64 SHA-256 is
 `d7e8e5229e7299612f858ba6d39718d402fc3b80017cbe3da0c7c0e2a6859c63`;
 the checksum and exact-tag/commit GitHub attestation passed before installation.
 
+The final deployed release is
+[`v0.1.4`](https://github.com/GilmanLab/agentcompute/releases/tag/v0.1.4),
+commit `18c881ae6c854030bfed8115ac50d51c221b0151`, Linux amd64 SHA-256
+`fc9394427e573132a2461f7764c23bc0448bbceecd2bbfdd1f901f5b636dc8be`.
+Its exact-tag/commit attestation, checksum manifest, immutable release, and
+release-asset verification passed. The applied upgrade changed only the
+service's public cloud-init metadata and release outputs; the installer
+converged the public runtime bundle without replacing the VM or credentials.
+
 | Contract | Observed result |
 | --- | --- |
 | One-minute TTL with a running VM | `p9b-ttl` expired at `02:04:44Z`; absent at `02:05:07.499Z`, 23.499 seconds later. `ac-p9b-ttl` was also absent from Incus project listing. |
@@ -518,6 +532,8 @@ the checksum and exact-tag/commit GitHub attestation passed before installation.
 | Mac lifecycle | HTTPS create returned Running in 44.992 seconds; `sw_vers` reported macOS 26.6.2 / 25G83; Driver 0.28.1 was ready; the 1920×1200 screenshot showed the desktop. Instance and sandbox deletion left only the stopped seed in Lume. |
 | No-VNC boundary | Sampling began before the Mac create request and continued through Running. The first 1,000 listener observations contained only account-owned `127.0.0.1:7777`, no guest VNC listener. PF filter/NAT rules, the global Lume digest, and owner `rapportd` listeners were unchanged. |
 | Fresh-shell operation | The runbook's service, routing, Serve, DNS, public TLS, unauthenticated `401`, and SOPS-authenticated initialization commands passed under `bash --noprofile --norc` with a minimal environment. |
+| Fresh discovery-only workflow | On v0.1.4, an independent agent starting with `search_api` created `p9b-final`: NAT WAN `10.77.9.0/24`, isolated LAN `10.77.10.0/24`, dual-NIC router, and LAN-only Ubuntu desktop at `10.77.10.3`. It configured guest routing/DNS, verified HTTPS to `example.com`, listed applications, and captured the desktop without patching the image. The returned 1280×800 full-desktop image was visually verified over HTTPS. |
+| Final fleet drift | OpenTofu reported `No changes. Your infrastructure matches the configuration.` with detailed exit code `0` after the v0.1.4 installation. |
 
 A separate isolated HTTP fault fixture exercised the actual Incus SDK and
 restore adapter without faulting the deployed cluster. Stop failure retained

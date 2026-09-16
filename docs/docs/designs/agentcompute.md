@@ -1,6 +1,6 @@
 ---
 title: agentcompute — disposable compute for agents
-status: draft
+status: implemented
 authors:
   - Josh Gilman
   - agent (session 019)
@@ -734,6 +734,11 @@ The root documentation set is authoritative for architecture, decisions, and
 operations; source repositories own code, images, and deployment inputs.
 ADRs 0006–0009 remain **proposed** until the owner accepts them. Implementation
 and successful qualification do not silently accept an ADR.
+The final deployment is v0.1.4 with the qualified live-desktop catalog.
+Phase 9b exercised the deployed HTTPS service, including an independent
+discovery-only router/Ubuntu-desktop workflow and a visually verified
+whole-desktop capture. The [runbook qualification record](../runbooks/agentcompute.md#phase-9b-qualification-2026-09-16)
+contains the measurements and release identities.
 
 ### Security and authorization deviations
 
