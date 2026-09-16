@@ -52,8 +52,8 @@ tailnet.
 The Incus trust entry is the dedicated, unrestricted `agentcompute01` client.
 Never substitute `bootstrap-admin`, broaden an image-build or CI certificate, or
 reuse one of those identities. The MCP service accepts the static named bearer
-identity `omp`; possession of its token grants every currently registered
-capability.
+identity `omp`; it can manage every sandbox. Pin and unpin additionally require
+that subject in `sandbox.pin_identities`, which is empty by default.
 
 The Phase 2 live restricted-certificate check is the evidence for this
 exception: the `image-build` certificate saw an empty filtered list for
@@ -83,6 +83,32 @@ One service process owns one runtime and one in-process reaper. All HTTP
 sessions share it. The reaper scans once at startup and every 30 seconds. Do not
 run a second durable service or a long-lived STDIO process against the same
 sandbox set.
+
+## Retain an interactive sandbox
+
+After installing a version with `sandbox.pin` support, add
+`sandbox.pin_identities: [omp]` in the fleet-managed server configuration and
+deploy it through the normal configuration workflow. Do not edit the managed
+host file. An empty allowlist disables both pin and unpin for every identity;
+existing pins remain pinned until explicitly unpinned or deleted.
+
+Discover the signatures with `search_api` and `describe_api`, then create with
+`sandbox.create(name="keep", ttl_minutes=60, pinned=True)` or pin an existing
+live sandbox with `sandbox.pin(name="keep", pinned=True)`. Incus and Mac
+sandboxes use the same policy. Verify `pinned: true` and `pinned_by: "omp"`
+in `sandbox.get` or `sandbox.list`. Each startup/30-second scan logs the
+sandbox name, operator, and pin timestamp at INFO with `expires_at ignored`.
+
+Pinning does not change `expires_at` or lift the configured TTL maximum.
+To release a pin, call `sandbox.pin(name="keep", pinned=False)`.
+**If its expiry has already passed, the next scan deletes the sandbox and all
+its instances, snapshots, and published images.** Extend it before unpinning
+if you need more time. To destroy it immediately, use `sandbox.delete`.
+Verify the sandbox disappears from the list after cleanup.
+
+A pin is not a backup or catalog promotion. Reusable images still require
+recipes in `GilmanLab/agentcompute/images/`; `instance.publish` images remain
+sandbox-local and are deleted with their sandbox.
 
 ## Materialize deployment inputs
 
