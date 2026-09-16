@@ -1,16 +1,24 @@
 ---
 title: agentcompute — disposable compute for agents
-status: draft
+status: implemented
 authors:
   - Josh Gilman
   - agent (session 019)
 created: 2026-09-11
-updated: 2026-09-13
+updated: 2026-09-16
 related-decisions:
   - ADR-0006
+  - ADR-0007
+  - ADR-0008
+  - ADR-0009
 ---
 
 # agentcompute — disposable compute for agents
+
+The proposal below is retained so implementation deviations remain visible.
+Read [Implementation Outcome](#implementation-outcome) for those deviations,
+the [architecture](../architecture/agentcompute.md) for runtime boundaries,
+and the [runbook](../runbooks/agentcompute.md) for operations.
 
 ## Summary
 
@@ -52,7 +60,7 @@ The lab already has the substrate:
   management or OOB). It is carried on the cluster's fast links, and
   the default-project physical network `fast40-uplink` exclusively owns
   the IncusOS-owned `fast40` parent. Sandbox NICs use managed logical networks. See the
-  [address plan](../../reference/networking/address-plan.md).
+  [address plan](../reference/networking/address-plan.md).
 - macOS guests cannot run on Incus. They need Apple hardware running
   Apple's Virtualization framework, driven by
   [Lume](https://cua.ai/docs/reference/lume/cli-reference) (or Tart; see
@@ -134,7 +142,7 @@ but no OVN central. The lab's durable `ovncentral01` VM is pinned to `nas01`'s
 unmanaged management bridge and runs `ovn-northd` with standalone NB/SB
 databases. Both databases require mutual TLS from the application-scoped
 offline OVN CA. See the
-[OVN central and certificate runbook](../../runbooks/ovn-central-and-certificates.md).
+[OVN central and certificate runbook](../runbooks/ovn-central-and-certificates.md).
 Each sandbox network is an Incus OVN network: a Geneve overlay that spans the
 cluster, with a logical router, DHCP, DNS, network ACLs, and peering built in.
 A NAT-enabled network also has SNAT and can host network forwards. An isolated
@@ -227,7 +235,7 @@ Indicative catalog:
 | `router` | container | lab-built | Alpine or Debian with `nftables`, `frr`, `iproute2`/`tc`, `dnsmasq`, `wireguard`, `tcpdump`. The building block for NAT, routing, and impairment topologies. |
 | `windows/11/desktop` | vm | lab-built, cluster-local | Repacked with `distrobuilder repack-windows`, virtio drivers, autounattend, Cua Driver daemon at logon, VNC fallback. Captured on the cluster; never published to a registry. |
 | `windows/server-2025` | vm | lab-built, cluster-local | Headless. Same capture and non-publication rule. |
-| `macos/sequoia/desktop` | vm | lab-built, Mac-local | `lume create --unattended` from a pinned IPSW; Cua Driver with Accessibility and Screen Recording granted once by an operator; Screen Sharing as the VNC fallback. Kept as a stopped seed on the Mac; never published to a registry. |
+| `macos/tahoe/desktop` | vm | lab-built, Mac-local | `lume create --unattended` from a pinned IPSW (Tahoe; Sequoia's last restore image is a year of security updates behind); Cua Driver with Accessibility and Screen Recording granted once by an operator; clones carry the seed's `machineIdentifier` so they boot to a desktop. Kept as a stopped seed on the Mac under a dedicated account; never published to a registry. No VNC console on backend guests; `desktop.screenshot` is the view. |
 
 Agents can add to a sandbox's local catalog with `instance.publish` (below).
 Lab-built images are produced by a pinned recipe in the implementing
@@ -261,7 +269,7 @@ records a digest for the former and an alias or seed name for the latter.
 
 | Capability | Arguments | Returns | Notes |
 | --- | --- | --- | --- |
-| `net.create` | `sandbox`, `name`, `kind?` (`ovn` default, `bridge`), `cidr?`, `dhcp?`, `nat?`, `dns?` | `{name, kind, cidr, gateway}` | `ovn`: a cluster-wide segment with a logical router at `.1`; `nat` masquerades to the sandbox VLAN; `dhcp` and `dns` are on by default. nat=false networks are unreachable from outside the sandbox; attach a router instance or use net.peer. `bridge`: a bare L2 wire on one member, no router, nothing served; the agent brings its own. |
+| `net.create` | `sandbox`, `name`, `kind?` (`ovn` default, `bridge`), `cidr?`, `dhcp?`, `nat?`, `dns?` | `{name, kind, cidr, gateway}` | `ovn`: a cluster-wide segment with a logical router at `.1`; `dhcp` and `dns` are on by default. `nat=true` masquerades to the sandbox VLAN and consumes one external address. `nat=false` is an isolated segment with no uplink: unreachable from outside the sandbox and free of external addresses; reach it through `net.peer` or a two-NIC guest acting as a router. Sandbox prefixes are never routed onto the lab VLAN. `bridge`: a bare L2 wire on one member, no router, nothing served; the agent brings its own. |
 | `net.list` / `net.get` / `net.delete` | `sandbox` [, `name`] | | Delete fails while NICs are attached. |
 | `net.attach` | `sandbox`, `instance`, `network`, `nic?`, `ip?`, `mac?` | `{nic, mac}` | Hot-plugs a NIC. `nic` names the device (`eth1`…); `ip` requests a static lease. |
 | `net.detach` | `sandbox`, `instance`, `nic` | `{}` | |
@@ -372,23 +380,45 @@ behavior were qualified separately and are recorded under Validation.
    ADR-0003. The CA is not part of ADR-0005's KMS hierarchy; revisit Vault
    issuance when Vault PKI exists and there is a reason to migrate. The
    transitional central on `sandbox01` has been purged. See the
-   [operations runbook](../../runbooks/ovn-central-and-certificates.md).
+   [operations runbook](../runbooks/ovn-central-and-certificates.md).
 2. **OVN chassis on every node — complete.** Fleet converges
    `/os/1.0/services/ovn` on all four members, with each member's VLAN 30
    storage address as its Geneve tunnel address and its own TLS leaf. The
    Incus global OVN client uses the `nas01` leaf.
 3. **An OVN uplink on the sandbox VLAN — complete.** Fleet owns the
-   cluster-wide `physical` uplink on the IncusOS-owned `fast40` parent and the
-   approved external range. The
-   [address plan](../../reference/networking/address-plan.md#ovn-external-addresses)
+   cluster-wide `physical` uplink `fast40-uplink` on the IncusOS-owned
+   `fast40` parent and the approved external range. That network is the
+   exclusive owner of `fast40` on every member: no other network, profile
+   NIC, or instance NIC may attach to the parent (a raw macvlan there holds
+   its `rx_handler` and silently disqualifies the member as an OVN gateway
+   chassis); fleet checks this fail-closed before touching the uplink. The
+   [address plan](../reference/networking/address-plan.md#ovn-external-addresses)
    is the only source for that allocation and its capacity calculation.
-4. **An Incus identity for `agentcompute`** with rights to create
-   projects. Fleet `cluster/` concern.
-5. **A macOS host.** A dedicated Apple Silicon machine in the lab (a
-   Mac mini is enough) running `lume serve`, reachable from the server,
-   with SSH. Not a personal workstation: the consented Driver seed is a
-   security-relevant artifact and the backend must not vanish when a lid
-   closes. Apple limits a host to two concurrent macOS guests.
+4. **An Incus identity for `agentcompute`.** Creating projects is
+   root-equivalent in Incus 7.4 — a restricted certificate cannot be scoped
+   to projects that do not yet exist, and the authorization model treats
+   `can_create_projects` as host-root trust — so the service holds a
+   dedicated unrestricted identity by explicit exception ("Implementation
+   Outcome"). The durable shape is a fleet-managed pool of pre-restricted
+   `ac-NN` projects with a certificate restricted to them.
+5. **A macOS host.** An always-on Apple Silicon machine running
+   `lume serve`, reachable from the server over SSH. The lab's Mac Studio
+   serves. The containment boundary is a dedicated standard, non-admin,
+   hidden account that owns Lume, the seed, and every clone; the server
+   holds an SSH key for that account (source-pinned to the service's
+   tailnet address, no agent or X11 forwarding, options enforced by a
+   root-owned sshd `Match` block), and the tailnet policy restricts who
+   may reach the host's SSH at all. A forwarding-only key was tried and
+   rejected: stock Lume's HTTP API has no exec, file, or identity route,
+   so the backend needs the account's shell for guest SSH/scp, the
+   metadata sidecar, and pinning the seed's `machineIdentifier` on each
+   clone. The API binds loopback only; backend guests start with VNC
+   disabled (source-pinned Lume until a release carries it). Migration to
+   a dedicated Mac mini is one Lume directory and one key. Apple's
+   two-concurrent-macOS-guest limit is host-wide and shared with any
+   macOS VMs the operator runs in other accounts, which nothing can
+   enumerate; the server refuses a third of its own before calling Lume
+   and detects the cross-account case after `run` with a clear error.
 6. **Lab-built images**: the `router` container, one Linux desktop VM, one
    Windows desktop VM. Built from pinned recipes in the `agentcompute`
    repository until they earn a product home.
@@ -464,10 +494,13 @@ new volatile NIC state, so its MAC address, DHCP identity, lease, and assigned
 address can change. Callers must rediscover the instance and its addresses
 after restore.
 
-Failures before the staged copy completes leave the original stopped with its
-snapshots intact; inspect for a generated `restore-*` copy before retrying. If
-original deletion fails, the error identifies the retained staged copy. After
-original deletion, its snapshots are already consumed: a rename failure leaves
+A stop failure preserves the original and its snapshots; inspect its power
+state. A copy failure after a successful stop leaves the original stopped with
+its snapshots intact; inspect for a generated `restore-*` copy before retrying.
+Deletion removes the original's snapshots before deleting the original itself.
+If that final deletion fails, the original and staged copy can both remain,
+but the snapshots are already consumed; the error identifies the staged copy.
+After original deletion, a rename failure leaves
 the replacement under its generated name. A start or `Running`-wait failure
 returns an error with the replacement under the original agent-facing name;
 inspect its status before retrying.
@@ -516,7 +549,7 @@ networks and distinct forward listen addresses consume them. The
 representative `default` NAT, isolated `lan`, `wan` NAT, and one-forward
 topology consumes three addresses per sandbox: eight sandboxes consume 24 and
 leave 40 for additional allocations and pending cleanup. The
-[address plan](../../reference/networking/address-plan.md#ovn-external-addresses)
+[address plan](../reference/networking/address-plan.md#ovn-external-addresses)
 is authoritative.
 
 ## Delivery
@@ -665,11 +698,12 @@ fleet dry run was a no-op.
 - No isolation, no desktops, no topologies, no cleanup.
 - Not chosen.
 
-## Open Questions
+## Design Questions
 
-### Resolved
+### Resolved in review
 
-Resolved in review, kept here until the draft is promoted:
+These decisions describe the reviewed proposal; later amendments are recorded
+in Implementation Outcome rather than silently rewriting the proposal.
 
 - **The word `sandbox`** stays. Agents already think in it; the collision
   is with a host and a repository, neither of which an agent sees.
@@ -683,7 +717,7 @@ Resolved in review, kept here until the draft is promoted:
 - **Blocking operations** stay. Raise `MaxConcurrentExecutions` before
   considering an asynchronous pattern.
 - **OVN central** is the OpenTofu-owned `ovncentral01` VM on `nas01`; no Raft.
-  The [operations runbook](../../runbooks/ovn-central-and-certificates.md)
+  The [operations runbook](../runbooks/ovn-central-and-certificates.md)
   defines its deployment, renewal, and recovery. Whether it later serves Talos
   networks is a T10/T11 question, not this design's.
 - **Windows and macOS images are not published** to any registry; they
@@ -691,7 +725,7 @@ Resolved in review, kept here until the draft is promoted:
 - **`desktop.call` ergonomics**: pass-through first; typed conveniences
   only for tools agents demonstrably fumble.
 - **VLAN 40** is the durable OVN uplink VLAN (owner decision, 2026-09-12).
-  The [address plan](../../reference/networking/address-plan.md#ovn-external-addresses)
+  The [address plan](../reference/networking/address-plan.md#ovn-external-addresses)
   records the approved 64-address allocation and eight-sandbox planning
   target. Default-plus-forward consumes two external addresses per sandbox;
   adding an isolated `lan` and NAT-enabled `wan` brings that budget to three.
@@ -700,13 +734,174 @@ Resolved in review, kept here until the draft is promoted:
   needs more than this allocation; DHCP, named endpoints, and routes stay
   unchanged.
 
-### Still open
+### Resolved during implementation
 
-1. **Cua Driver token continuity across one-shot CLI calls.** Decided by
-   the desktop spike: snapshot in one call, act by token in the next. If
-   tokens do not survive, `desktop.call` drives a long-lived
-   `cua-driver serve` per instance over exec; the vocabulary is unchanged.
-2. **Cua Driver inside images.** How the daemon is kept alive in the
-   graphical session on each OS is image-recipe work learned in the
-   desktop slices. Pin the newest non-prerelease Driver per image; bump
-   deliberately.
+1. **Driver token continuity:** Linux and macOS retain the one-shot CLI
+   transport over guest exec. Windows needs a persistent Driver MCP session
+   over guest exec. Both retain the `desktop.call` vocabulary; see
+   [ADR-0007](../decisions/0007-use-cua-driver-over-guest-execution.md).
+2. **Driver process lifetime:** image recipes own the graphical-session
+   service or LaunchAgent, its pinned binary, and readiness qualification.
+   Guest OSes differ; this is not one universal daemon recipe.
+3. **Mac location:** the owner approved the existing Mac Studio under a
+   separate standard account, not the proposed dedicated Mac mini. Its
+   availability and two-guest capacity are shared with the owner's workloads.
+
+## Implementation Outcome
+
+The service is delivered as a Go CodeMode MCP server in the long-lived
+`agentcompute01` Incus VM, with Incus/OVN for Linux and Windows and Lume for
+macOS. Runtime and image state remain in their backends, not in MCP sessions.
+The root documentation set is authoritative for architecture, decisions, and
+operations; source repositories own code, images, and deployment inputs.
+ADRs 0006–0009 remain **proposed** until the owner accepts them. Implementation
+and successful qualification do not silently accept an ADR.
+The final deployment is v0.1.4 with the qualified live-desktop catalog.
+Phase 9b exercised the deployed HTTPS service, including an independent
+discovery-only router/Ubuntu-desktop workflow and a visually verified
+whole-desktop capture. The [runbook qualification record](../runbooks/agentcompute.md#phase-9b-qualification-2026-09-16)
+contains the measurements and release identities.
+
+### Security and authorization deviations
+
+- **Incus identity is unrestricted.** The intended `ac-*` project-creation
+  certificate could not work with Incus 7.4's authorization model. OpenFGA
+  warns that project creation is root-equivalent, and the scriptlet cannot
+  inspect the new project's name at creation time. The dedicated
+  `agentcompute01` identity therefore has cluster-root rights behind the
+  tailnet, bearer-authenticated MCP boundary. Guest code never receives that
+  identity. A pre-created restricted project pool with claim/release metadata
+  is deferred, not partially implemented. See the
+  [runbook safety boundary](../runbooks/agentcompute.md#safety-boundary).
+- **Private-image workflow triggers use a private repository.** The public
+  implementation repository cannot be the trust gate for self-hosted workers
+  carrying private Windows/macOS material. The organization's free plan does
+  not provide the restricted runner-group controls needed for that public
+  repository arrangement. Private triggers and protected runner access were
+  used instead. See [private image runners](../runbooks/private-image-runners.md).
+- **HTTPS uses Tailscale Serve's public ACME certificate**, not the proposed
+  internal PKI leaf. Clients use normal public trust and the fixed tailnet
+  hostname. Serve terminates HTTPS and forwards only to loopback; named bearer
+  authentication remains mandatory.
+
+### OVN ownership, PKI, and recovery
+
+- The default-project physical network `fast40-uplink` exclusively owns the
+  IncusOS `fast40` parent. Sandbox NICs attach to managed logical networks,
+  not raw macvlan on that same parent. Raw parent contention was a separate
+  failure from the unavailable-central network-creation failure.
+- The offline OVN CA is an owner-approved application-scoped trust domain
+  **outside ADR-0005's KMS-root hierarchy**. ADR-0005 itself is unchanged.
+  Revisit issuance when Vault PKI exists and migration has an operational
+  reason; do not imply that hierarchy is already deployed for OVN.
+- A silently re-minted CA left several Incus daemons reconnecting with stale
+  in-memory trust even though stored configuration named the new CA. Repeated
+  failed TLS handshakes filled the central VM's 20 GiB root filesystem.
+  Owner-approved recovery truncated only the identified logs and recycled
+  `lab01`, `lab02`, and `nas01` serially; `lab03` already held the new trust.
+  Central processes stayed up. [Fleet #20](https://github.com/GilmanLab/fleet/pull/20)
+  now makes CA creation explicit, checks reviewed fingerprints, and provides
+  an online-gated serial trust roll. [Root #34](https://github.com/GilmanLab/root/pull/34)
+  records evidence-first recovery. The complete incident and rationale are in
+  [ADR-0006](../decisions/0006-ovn-as-the-sandbox-network-fabric.md).
+- Address accounting remains explicit: default NAT plus forward consumes two
+  external addresses; adding a NAT-enabled WAN consumes a third. Isolated
+  `nat=false` LANs consume none. Count failed NAT network allocations until
+  deletion. The approved range remains `10.10.40.64–10.10.40.127`.
+  The service's `ac-svc-vlan40` network consumes one address from that same
+  range. Eight representative sandboxes therefore leave **39**, not the
+  proposal's 40, after infrastructure use.
+
+### Mac implementation amendments
+
+- The host is the owner's always-on Mac Studio, confined to the hidden
+  standard `agentcompute` account. Neither administrator rights, the owner's
+  home, nor a broad host-network permission is part of that account.
+- Cloning with a fresh Lume `machineIdentifier` could return the qualified
+  guest to Setup Assistant. Before first boot, the backend retains the seed's
+  identifier while keeping the clone's new MAC. Snapshot clones use the same
+  rule. Consent and activation are seed properties, not permission grants
+  performed by the server.
+- The server serializes starts and enforces the two-running-macOS-guest
+  limit before each Lume run mutation. It counts every running macOS VM in the
+  confined account and diagnoses host-wide capacity occupied elsewhere.
+- The runtime does not use the unavailable `lume ssh`. Guest exec and SFTP use system SSH through
+  Studio as `ProxyJump`, with distinct host/guest keys and both host keys
+  pinned. The guest pin uses the seed name, not a DHCP address.
+- Lume 0.5.3's wildcard VNC server cannot be disabled with `--display none`.
+  The owner rejected a blanket high-port PF block because of Continuity and
+  `rapportd`. A dynamic port watcher would still permit an initial exposure
+  window. Instead, [agentcompute #39](https://github.com/GilmanLab/agentcompute/pull/39)
+  pins the merged upstream no-VNC commit, builds as `agentcompute`, and
+  installs only in that account. Every backend run disables VNC, and startup
+  checks both CLI and daemon support. The global install, PF, and Internet
+  Sharing remain unchanged. This temporary source artifact is SHA-256 pinned
+  but **not bitwise reproducible after a clean rebuild**. Return to a release
+  pin once upstream publishes the feature. A human may explicitly enable VNC
+  for a bounded maintenance console; no automatic fallback does so.
+
+### Runtime and image contract details
+
+- Incus snapshot restore is **recreate and start**: stop the original, stage a
+  snapshot copy, delete the original and its snapshot tree, rename the copy,
+  preserve current agentcompute metadata, and start it. It is not in-place
+  rollback. Phase 9b observed the same name with changed UUID, MAC, and DHCP
+  address, restored file contents, and an empty snapshot list.
+- The illustrative NAT program omitted guest configuration needed after a
+  hot NIC attach. Live qualification explicitly brought up the router WAN,
+  acquired its DHCP lease, selected the WAN default route, and configured
+  the isolated client's default route/DNS through that router. A WAN packet
+  capture proved the client's connection source was the router WAN address;
+  merely checking NAT rules was not accepted as evidence.
+- Linux whole-desktop capture was black because Cua Driver's cosmetic
+  agent-cursor overlay froze X root-window reads before GNOME's first frame.
+  Starting it later could freeze a coloured frame instead. Window capture
+  remained live; VNC was affected too. Driver 0.28.2 reproduced the defect.
+  [Agentcompute #41](https://github.com/GilmanLab/agentcompute/pull/41) starts
+  the image's Driver with `--no-overlay`, retaining the reviewed 0.28.1 pin.
+  This removes synthetic session cursors, not input or the native cursor.
+  Image qualification now requires whole-desktop pixels to change after
+  launching Text Editor; a black-frame heuristic would miss a coloured freeze.
+  The fresh private bake from commit `cb7f8c6d80bf1e66ea75ce28f07510db9636c34e`
+  passed that live-pixel check. Its Ubuntu desktop OCI digest is
+  `sha256:b2a83d7d70de2239de0bb04e255c96079446afb97ebcd36434892acefa5f8b0e`;
+  [catalog promotion #44](https://github.com/GilmanLab/agentcompute/pull/44)
+  records the qualified image references. The generated catalog commit was
+  signed by the integrating operator to satisfy branch policy; no bypass was used.
+- Fleet release installation now converges the public configuration, catalog,
+  unit, and SSH pins in place, after artifact checks. It does not replace the
+  service VM, rerun cloud-init, overwrite private credentials, or re-enroll
+  Tailscale. Bootstrap/network/certificate changes retain the deliberate
+  replacement procedure.
+- Windows and macOS images remain local and do not have published image
+  attestations. Private Linux image bakes also omit the older hosted
+  `attest.yml` step: digest verification and boot qualification are not signed
+  build provenance. Binary/container release attestations exist, but their
+  build still occurs outside the reusable attesting job: **SLSA Level 3 is not
+  claimed**. These supply-chain gaps remain deferred.
+
+### Known residuals
+
+- `sandbox.list` can race expiry/deletion between listing sandbox names and
+  reading their instance counts. A missing-sandbox error is already converted
+  to an agent-facing error before the MCP listing loop; a local string-match
+  suppression would be brittle and could hide real failures. The race is
+  recorded, not papered over. Sequential lifecycle, expiry, and restart
+  acceptance remain separate checks.
+  It was observed during Phase 9b cleanup at `2026-09-16T04:03:43Z`:
+  `capability failed: sandbox "p9b-win" not found` while the reaper removed that
+  expired sandbox. This remains an explicit deferral, not a successful-list claim.
+- A missing executable/exit-127 case can surface as a generic capability error
+  from Incus and discard the enclosing program's result. Qualification hit
+  this with deliberately missing commands and an unavailable BusyBox applet;
+  valid command, routing, and desktop checks used real installed programs.
+  Error reporting was not broadened as an unrelated Phase 9b change.
+- Mac cold-clone readiness now checks the GUI session, kickstarts the existing
+  Driver LaunchAgent, and verifies the daemon's existing TCC grants before
+  returning. Phase 9b required no manual intervention or new permission grant.
+  Missing consent still requires a human; the server does not grant it.
+- The existing Mac seed was qualified manually. Legacy
+  `images/macos/provision.sh` and `verify.sh --clone` still depend on the
+  unavailable `lume ssh` and are not qualified rebuild automation. The runbook
+  uses deployed MCP create/readiness/exec/screenshot/delete to requalify clones.
+  Porting those legacy bootstrap scripts is deferred.

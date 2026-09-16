@@ -61,6 +61,21 @@ documentation, not this inventory.
   - `1x10GbE` and `1x5GbE` onboard networking
   - `2xUSB4`, HDMI, and OCuLink available
 
+### Apple Mac Studio
+
+- Quantity: `1`
+- Device name: `studio-1`
+- Role: owner's always-on Apple Silicon host for the Lume macOS backend
+- Hardware details:
+  - Apple M2 Max
+  - `64GB` memory
+- Backend boundary: Lume and its VM store run under the dedicated hidden,
+  standard `agentcompute` account, not the owner's account.
+- Console boundary: the account-local pinned Lume build supports disabled VNC;
+  backend starts require it. No broad high-port PF block is installed, so
+  Internet Sharing and the owner's Continuity services retain their policies.
+  See the [Mac operations runbook](../runbooks/agentcompute.md#operate-the-mac-backend).
+
 ### MikroTik CRS309-1G-8S+IN
 
 - Quantity: `2`

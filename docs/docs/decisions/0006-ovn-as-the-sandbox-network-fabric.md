@@ -22,6 +22,8 @@ claiming the provider parent. Which fabric should the durable service use?
 - Sandbox traffic cannot initiate connections to management or OOB.
 - Fleet owns infrastructure; agents own only disposable sandbox resources.
 - Management boot and OVN central must not depend on OVN itself.
+- Native `nat=false`, `network=none` isolation must use the same durable
+  control plane as NAT-enabled sandbox networks.
 - Failed creates and expired resources must converge through explicit,
   retryable deletion rather than undocumented service repairs.
 
@@ -43,18 +45,18 @@ to `nas01` and attached to its unmanaged VLAN 10 `mgmt` bridge rather than an
 OVN network. The pinned `ovn-central` package version `26.03.0-2` supplies
 northd and standalone NB/SB databases, without Raft. Per-component TLS gates
 prevent either database from starting without the complete certificate trio.
-Remote database connections use mutual TLS from a dedicated offline OVN CA,
-not the KMS root or the Incus cluster certificate. The CA uses EC P-256, has a
-ten-year validity and no path-length constraint. Central and each chassis have
-separate two-year leaves. Per-chassis keys allow one member's identity to
-rotate without distributing the same private key to every node. The TLS
-cutover occurred only after the cluster carried the CVE-2026-40243 fix.
+Remote database connections use mutual TLS from a dedicated offline OVN
+application CA, not the KMS root or the Incus cluster certificate. The CA uses
+EC P-256, has a ten-year validity and no path-length constraint. Central and
+each chassis have separate two-year leaves. Per-chassis keys allow one member's
+identity to rotate without distributing the same private key to every node.
+The TLS cutover occurred only after the cluster carried the CVE-2026-40243 fix.
 
 The owner approved this application-scoped trust domain on 2026-09-12,
-superseding the draft's requirement to use the ADR-0005 hierarchy.
-**OVN trust domain is application-scoped and offline; ADR-0005 governs the
-KMS root hierarchy and is unaffected.** Revisit the issuance model when Vault
-PKI exists and there is a reason to migrate. ADR-0005 is not amended.
+superseding the draft's requirement to use the ADR-0005 hierarchy. The
+dedicated offline OVN CA is outside ADR-0005's KMS-root hierarchy; ADR-0005 is
+not amended. Revisit the issuance model when Vault PKI exists and there is a
+reason to migrate.
 
 The CA key and every leaf key are escrowed under the `fleet` scope in
 `GilmanLab/secrets`, following ADR-0003's alternative KMS/PGP recipients and
@@ -78,11 +80,11 @@ after rotation; the central private key is never an OpenTofu input.
 Fleet's `cluster/` deployment owns chassis configuration on every member,
 using VLAN 30 tunnel addresses and central's VLAN 10 endpoint. Supported
 settings are mirrored in node seeds. The default-project physical uplink
-exclusively owns its provider parent. Before convergence, fleet checks
-member-specific networks, profiles, and instance NICs, including inherited
-and stopped-instance devices. A competing direct parent attachment or
-physical-uplink NIC aborts deployment with a named conflict; fleet never
-removes it silently.
+`fast40-uplink` exclusively owns the IncusOS `fast40` provider parent. Before
+convergence, fleet checks member-specific networks, profiles, and instance
+NICs, including inherited and stopped-instance devices. A competing direct
+parent attachment or physical-uplink NIC aborts deployment with a named
+conflict; fleet never removes it silently.
 
 The [address plan](../reference/networking/address-plan.md#ovn-external-addresses)
 is authoritative for the approved external allocation and its eight-sandbox
@@ -94,8 +96,8 @@ Reconsider a dedicated VLAN only if OVN needs more than the approved
 64-address block.
 The representative topology has NAT-enabled `default` and `wan` networks, an
 isolated `lan`, and one distinct forward listen address. It consumes three
-external addresses per sandbox: eight sandboxes consume 24 and leave 40 of
-the 64-address reservation.
+external addresses per sandbox. Eight sandboxes consume 24; the service's
+`ac-svc-vlan40` network consumes one more, leaving 39 of the 64-address reservation.
 
 New sandbox projects use project-owned OVN networks and managed-only NICs.
 The default network has NAT. An additional NAT-enabled network consumes one
@@ -105,6 +107,11 @@ consumes no external address, and has no direct path outside its sandbox. It
 becomes reachable only through `net.peer` or a router instance attached to
 another network. A `net.forward` request for an isolated network returns
 `AgentError`.
+Both the overlay control plane and the native isolation contract require
+central. Without central, Incus cannot create the project-owned logical switch
+whose `network=none` setting makes a `nat=false` network isolated. Replacing
+central would therefore require replacing the selected OVN fabric, not only
+the central VM.
 
 The `default_network_kind=bridge` fallback keeps whole sandboxes on
 member-local bridges; explicit bridge networks remain bare wires there. Incus
@@ -165,6 +172,25 @@ central stopped, `central-tls`, central running with the new CA, then fleet's
 OVN client/chassis converge. NB_Global, SB_Global, and two logical-switch UUIDs
 were preserved. The new `lab03` identity authenticated to both NB and SB; the
 old identity was rejected by both before an authenticated response.
+
+Phase 5 also exposed a stale in-memory trust failure after the OVN CA was
+silently re-minted. Stored Incus configuration already named the new CA, but
+the `lab01`, `lab02`, and `nas01` daemons continued reconnecting with the old
+CA. Their failed handshakes filled the central VM's 20 GiB root filesystem.
+After evidence capture and owner approval, recovery truncated only the three
+identified log files and recycled those three Incus daemons serially. `lab03`
+was left running because its daemon already held the new trust. All members
+returned `Online`, central processes retained their PIDs and start times, and
+the measured inbound reconnect rate fell from 1,039 per second to zero.
+
+[Fleet PR #20](https://github.com/GilmanLab/fleet/pull/20) prevents the same
+silent transition: the ceremony refuses to mint an absent CA unless the
+operator supplies `--mint-ca`, delivery paths require the reviewed CA
+fingerprint, an OVN converge reports changed in-memory trust, and the explicit
+trust-roll operation restarts selected daemons one at a time with an online
+gate. [Root PR #34](https://github.com/GilmanLab/root/pull/34) records the
+evidence-first, approval-gated recovery procedure in the canonical runbook.
+
 A cross-member fixture completed three of three pings on each tested path.
 Public OpenTofu cloud-init metadata reconciliation was still pending
 AWS authentication and is not part of that proof.
@@ -191,13 +217,14 @@ fixture residue across all four members and all projects in 3.03 seconds. The
 post-rotation and post-reboot fleet dry run proposed no changes in all 11
 operations.
 
-These checks complete the live technical confirmation recorded here. The record
-remains `proposed`; its status must not be changed without the owner's
-separate acceptance of the decision.
+These checks establish the OVN infrastructure and lifecycle evidence recorded
+here. They do not accept this decision or claim that Phase 9b validation is
+complete. The record remains `proposed`; only the owner may change its status
+to `accepted`.
 
 ## More Information
 
-- [Agentcompute design draft](../designs/drafts/agentcompute.md)
+- [Agentcompute design](../designs/agentcompute.md)
 - [Phase 3 qualification and parent recovery](https://github.com/GilmanLab/agentcompute/blob/spike/ovn-recreate-diagnosis/spikes/ovn/README.md): first post-fixture-deletion lab01-gateway cycle passed in 31.018 seconds, without reboot, central restart, or neighbor repair.
 - [Incus #3985](https://github.com/lxc/incus/issues/3985): unavailable NB creation leaves an `Errored` network; deletion after central recovery releases it.
 - [Incus #3986](https://github.com/lxc/incus/issues/3986): raw macvlan parent contention is separate from the central-outage failure.
