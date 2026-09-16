@@ -866,6 +866,9 @@ contains the measurements and release identities.
   suppression would be brittle and could hide real failures. The race is
   recorded, not papered over. Sequential lifecycle, expiry, and restart
   acceptance remain separate checks.
+  It was observed during Phase 9b cleanup at `2026-09-16T04:03:43Z`:
+  `capability failed: sandbox "p9b-win" not found` while the reaper removed that
+  expired sandbox. This remains an explicit deferral, not a successful-list claim.
 - A missing executable/exit-127 case can surface as a generic capability error
   from Incus and discard the enclosing program's result. Qualification hit
   this with deliberately missing commands and an unavailable BusyBox applet;
