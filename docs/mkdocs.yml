@@ -38,9 +38,14 @@ nav:
       - "ADR-0004: Manage RouterOS Devices with OpenTofu": decisions/0004-manage-routeros-devices-with-opentofu.md
       - "ADR-0005: Anchor Internal PKI on the KMS Root with Sibling Intermediates": decisions/0005-anchor-internal-pki-on-kms-root-with-sibling-intermediates.md
       - "ADR-0006: OVN as the Sandbox Network Fabric": decisions/0006-ovn-as-the-sandbox-network-fabric.md
+      - "ADR-0007: Cua Driver over guest execution": decisions/0007-use-cua-driver-over-guest-execution.md
+      - "ADR-0008: Lume on the owner's Mac Studio": decisions/0008-run-lume-in-a-confined-account-on-the-owners-mac-studio.md
+      - "ADR-0009: CodeMode MCP surface": decisions/0009-use-codemode-as-the-agent-facing-mcp-surface.md
+  - Architecture:
+      - Agentcompute: architecture/agentcompute.md
   - Designs:
       - Lab v2 core network: designs/lab-v2-core-network.md
-      - "Draft: agentcompute": designs/drafts/agentcompute.md
+      - Agentcompute: designs/agentcompute.md
   - Reference:
       - Device naming: reference/naming.md
       - Hardware inventory: reference/hardware-inventory.md
@@ -52,7 +57,7 @@ nav:
           - Tailscale policy: reference/networking/tailscale-policy.md
   - Runbooks:
       - Change the Tailscale policy: runbooks/tailscale-policy-change.md
-      - Deploy and operate agentcompute: runbooks/agentcompute-service.md
+      - Deploy and operate agentcompute: runbooks/agentcompute.md
       - Authorize agentcompute SSH to Studio: runbooks/agentcompute-studio-ssh.md
       - Commission a lab compute node: runbooks/commission-lab-node.md
       - Operate OVN central and certificates: runbooks/ovn-central-and-certificates.md

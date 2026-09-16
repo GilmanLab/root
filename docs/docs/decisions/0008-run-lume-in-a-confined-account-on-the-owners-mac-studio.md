@@ -66,11 +66,21 @@ regardless of name. It refuses a third. This check is required because Lume
 limit only in its service log. A separate account can still consume a host-wide
 slot, so a run that remains stopped is diagnosed against new Lume log output.
 
-The backend implementation and host arrangement have qualification evidence,
-but the permanent agentcompute service configuration was restored without a
-`lume` section after that qualification. The Studio VNC packet-filter boundary
-also remains a rollout gate. This decision does not claim that the durable
-service is serving Mac guests or that Phase 9b is complete.
+Lume 0.5.3 starts a wildcard VNC listener even for `--display none`. The owner
+rejected a blanket high-port PF rule because it could disrupt LAN Continuity
+and `rapportd`. Upstream [cua#3209](https://github.com/trycua/cua/pull/3209)
+merged an explicit disabled-VNC policy, but it was not in release 0.5.3 at
+rollout. The approved temporary exception is an exact source commit pinned in
+`pins/lume.yaml`, with `source_build: true` and the built binary's SHA-256.
+It installs only for `agentcompute`; the system-wide Lume remains unchanged.
+
+Every backend run requests disabled VNC and no display. Startup fails closed
+if either the account-local CLI or the running daemon lacks that policy.
+Verification samples account-owned TCP listeners from request through Running.
+No PF rule is installed, so this change does not alter Internet Sharing or the
+owner's Continuity services. Once a release includes the feature, replace the
+source pin with that release. The 0.5.3 release pin is retained as a rollback
+reference, **not** an automatic fallback that may serve backend guests with VNC.
 
 ### Consequences
 
@@ -88,9 +98,9 @@ service is serving Mac guests or that Phase 9b is complete.
 - Bad, because the seed contains an operator's one-time Accessibility and Screen
   Recording consent and must remain private, stopped, and recoverable on this
   host.
-- Bad, because Lume's per-VM VNC listener uses an ephemeral host port and binds
-  broadly. Workers must not be served until the reviewed host packet-filter
-  boundary is installed and verified.
+- Bad, because a temporary source build adds build/signing provenance and an
+  account-local deployment step until upstream publishes disabled VNC in a
+  release. Both CLI and daemon must be upgraded together.
 - Bad, because moving the backend later requires moving the confined account's
   Lume store, reissuing the host key, and re-establishing host policy.
 
@@ -101,9 +111,9 @@ Compliance is observable when all of the following remain true:
 - `agentcompute` is a hidden standard account with no administrator or sudo
   access, the owner home denies traversal, and `lume serve` listens only on
   `127.0.0.1:7777`.
-- The durable service configuration enables Lume only after the source-pinned
-  SSH policy, separate host and guest keys, known-host pins, and Studio VNC
-  packet-filter boundary are installed and verified.
+- The durable service configuration enables Lume only after source-pinned SSH,
+  separate host and guest keys, known-host pins, and disabled-VNC enforcement
+  are verified. No account-owned per-VM VNC listener appears during startup.
 - Generated guest SSH configuration uses Studio as `ProxyJump`; guest exec and
   SFTP do not invoke `lume ssh` and do not use an SSH agent.
 - A fresh clone receives the seed's `machineIdentifier` while stopped and
@@ -147,6 +157,6 @@ Compliance is observable when all of the following remain true:
 
 ## More Information
 
-- [Agentcompute design draft](../designs/drafts/agentcompute.md)
-- [Deploy and operate agentcompute](../runbooks/agentcompute-service.md)
+- [Agentcompute design](../designs/agentcompute.md)
+- [Deploy and operate agentcompute](../runbooks/agentcompute.md)
 - [ADR-0007: Use Cua Driver over Guest Execution for Desktop Automation](0007-use-cua-driver-over-guest-execution.md)

@@ -44,6 +44,45 @@ tailnet.
 - After enrollment, follow
   [Authorize agentcompute SSH to Studio](agentcompute-studio-ssh.md) to pin
   Studio access to the service's verified tailnet IPv4.
+- On macOS, point the OpenTofu provider at the administration client's actual
+  configuration: `export INCUS_CONF="$HOME/Library/Application Support/incus"`.
+  Incus 7.3 uses that directory, while provider 1.2.0 defaults to
+  `$HOME/.config/incus`. A missing pin caused by that mismatch is not a reason
+  to enable certificate acceptance.
+
+## Configure an agent client
+
+Use a Streamable HTTP MCP connection, not an SSE-only URL or local stdio
+server:
+
+| Setting | Value |
+| --- | --- |
+| Server name | `agentcompute` |
+| Transport | Streamable HTTP |
+| URL | `https://agentcompute01.tailda715.ts.net/` |
+| HTTP header | `Authorization: Bearer <omp token>` |
+| Token source | SOPS `auth_tokens.omp` in `services/agentcompute/credentials.sops.yaml` |
+| TLS | Default public trust; never disable verification |
+
+Resolve the token through the client's secret or environment support. Do not
+commit its value to client configuration, pass it in a command argument, or
+paste it into an agent prompt. The authenticated initialization recipe below
+keeps it on curl's standard input.
+
+The client discovers exactly three MCP tools: `search_api`, `describe_api`,
+and `execute`. Start with a resource query such as `{"query":"sandbox"}`;
+describe exact returned names before using them in `def main():`. Search is
+not free-form planning: if a multi-resource sentence returns no matches, use
+one resource or exact capability name. A minimal discovery-driven health
+check describes `sandbox.list` and executes:
+
+```python
+def main():
+    return sandbox.list()
+```
+
+Use `sandbox.get` or `instance.list` for inventory details. Creating resources
+is not necessary for every client health check.
 
 ## Safety boundary
 
@@ -137,13 +176,14 @@ jq -e 'keys == ["omp"] and (.omp | type == "string" and length > 0)' \
   "$AGENTCOMPUTE_CREDENTIALS/auth-tokens.json" >/dev/null
 ```
 
-Nothing private enters cloud-init, OpenTofu input, or OpenTofu state. The public
-Incus client certificate, pinned server certificate, image catalog, and
-non-secret runtime configuration do enter cloud-init. The three private source
-files are delivered after the VM exists as `root:root` mode `0600` files in a
-mode `0700` directory. The unit uses four `LoadCredential=` entries: the Incus
-client certificate and key, bearer-token file, and Studio SSH key. Treat the
-runtime credential mount as unit-private; do not infer its in-unit access from
+Nothing private enters cloud-init, OpenTofu input, or OpenTofu state. Public
+certificates, image catalog, SSH host-key pins, and runtime configuration do.
+The three base private inputs are delivered after provisioning as `root:root`
+mode `0600` files in a mode `0700` directory. Enabling Lume adds a fourth
+private input, `mac-guest.key`, delivered separately from the qualified
+Studio account. The unit loads the Incus client certificate/key, bearer-token
+file, Studio SSH key, and (when enabled) Mac guest key with `LoadCredential=`.
+Treat the runtime credential mount as unit-private; do not infer its access from
 ownership or mode observed outside the service namespace.
 
 ## Enroll the Incus identity
@@ -483,6 +523,135 @@ Two findings remain relevant to operations:
    finding, not an HTTPS delivery failure; full-desktop capture is not qualified
    by this deployment.
 
+## Operate the Mac backend
+
+The host is the owner's `studio-1` Mac Studio, not a dedicated appliance.
+Use only the hidden standard `agentcompute` account, its Lume store, and its
+loopback daemon. Do not grant it administrator access or access to the owner's
+home. The stopped seed is `ac-seed-macos-tahoe-desktop`; it is private and must
+not be published. Two running macOS guests is the host-wide limit.
+
+### Install and activate the no-VNC build
+
+Lume 0.5.3 has no VNC-disable option. The temporary source build is pinned in
+[`agentcompute/pins/lume.yaml`](https://github.com/GilmanLab/agentcompute/blob/master/pins/lume.yaml).
+It records upstream commit `ab957bdb7566f7e137b00654cc01167d9e42af38`,
+the actual signed Mach-O SHA-256, toolchain, dependency lock, and release
+fallback. `--version` still prints `0.5.3`; that is **not** artifact verification.
+The measured clean build is not bitwise reproducible. A checksum mismatch
+requires a reviewed re-pin, not skipping the installer check.
+
+From the owner account, stage only the public build inputs outside the
+protected home, then build as `agentcompute`:
+
+```bash
+LUME_STAGE="$(mktemp -d)"
+mkdir -p "$LUME_STAGE/images/macos" "$LUME_STAGE/pins"
+cp "$AGENTCOMPUTE_DIR/images/macos/build-lume.sh" \
+  "$AGENTCOMPUTE_DIR/images/macos/lib.sh" "$LUME_STAGE/images/macos/"
+cp "$AGENTCOMPUTE_DIR/pins/lume.yaml" "$LUME_STAGE/pins/"
+chmod -R a+rX "$LUME_STAGE"
+sudo -u agentcompute -H "$LUME_STAGE/images/macos/build-lume.sh"
+rm -rf "$LUME_STAGE"
+```
+
+The installer refuses root and writes only beneath `/Users/agentcompute`.
+The launcher is `/Users/agentcompute/bin/lume`; the signed executable is
+`/Users/agentcompute/.local/share/lume/lume.app/Contents/MacOS/lume`.
+Leave `/usr/local/bin/lume` and its global app bundle untouched.
+
+With every backend worker stopped and the seed stopped, repoint only the
+existing account daemon. Preserve its `UserName`, `HOME`, log paths, and
+KeepAlive settings. Back up the plist first. Replace the whole argument array;
+do not insert another executable as an extra argument:
+
+```bash
+plist=/Library/LaunchDaemons/io.gilman.agentcompute.lume-serve.plist
+sudo plutil -replace ProgramArguments -json \
+  '["/Users/agentcompute/bin/lume","serve","--port","7777"]' "$plist"
+sudo launchctl bootout system/io.gilman.agentcompute.lume-serve
+sudo launchctl bootstrap system "$plist"
+sudo lsof -nP -a -u agentcompute -iTCP -sTCP:LISTEN
+```
+
+Require only `127.0.0.1:7777` for the lifecycle API. Probe a unique,
+nonexistent, colon-free name with a deliberately conflicting policy:
+
+```bash
+curl --silent --show-error --write-out '\nHTTP %{http_code}\n' \
+  --json '{"noDisplay":false,"vnc":"disabled"}' \
+  "http://127.0.0.1:7777/lume/vms/ac-vnc-policy-probe-$(uuidgen)/run"
+```
+
+Require HTTP `400` and `VNC is disabled for this run`. The pinned daemon
+validates this before any VM operation. Old 0.5.3 ignores the policy and returns
+`202`; that is a failed gate, not permission to run a worker.
+
+No PF configuration is installed. A blanket high-port block was rejected
+because it could disrupt LAN Continuity and `rapportd`; dynamic port watching
+would leave a pre-discovery exposure window. Preserve Internet Sharing and
+Apple's live PF anchors. Sample `lsof` continuously from a real backend run
+request through Running: no account-owned per-VM VNC listener may appear, and
+Lume inventory must report `vncUrl: null`.
+
+### Deliver permanent runtime configuration
+
+Fleet's `lume_host` is Studio's verified tailnet IPv4, `100.122.142.76`.
+The fleet module supplies `studio_known_hosts` and `mac_guest_known_hosts`;
+the latter pins the qualified seed's SSH key by seed-name `HostKeyAlias`,
+not a reusable DHCP address. Verify pins through the already trusted host/seed,
+never accept a fresh key merely because `ssh-keyscan` returned it.
+
+Stage the qualified seed's guest key from Studio in the owner-only credential
+directory. It is separate from the service-to-Studio SSH key:
+
+```bash
+sudo cat /Users/agentcompute/.ssh/guest_ed25519 \
+  >"$AGENTCOMPUTE_CREDENTIALS/mac-guest.key"
+chmod 0600 "$AGENTCOMPUTE_CREDENTIALS/mac-guest.key"
+cd "$FLEET_DIR/incus/agentcompute"
+just deliver-lume-key "$AGENTCOMPUTE_CREDENTIALS/mac-guest.key"
+```
+
+Review and apply the fleet plan with `lume_host` enabled and the release's
+catalog, including `macos/tahoe/desktop`. Install the verified compatible
+release to converge the public runtime bundle and load the new credential.
+Require a clean plan, successful authenticated initialization, Mac create,
+`sw_vers`, `desktop.screenshot`, and delete through deployed HTTPS. A temporary
+systemd override is not permanent backend rollout.
+
+### Manual console and guest re-consent
+
+`desktop.screenshot` is the normal observation path. There is no automatic VNC
+fallback. If a human needs a console, stop the exact guest, then **start it by
+hand with VNC enabled**, for example as the confined account:
+
+```bash
+sudo -u agentcompute -H /Users/agentcompute/bin/lume run \
+  <exact-stopped-guest-name> --no-display --vnc enabled
+```
+
+This deliberately opens Lume's wildcard VNC listener for the maintenance
+session. Treat its URL/password as a secret; do not leave it running unattended
+or expose it on an untrusted LAN. Stop it afterward and return normal workers
+to the backend's disabled-VNC start path.
+
+For lost desktop permissions, have the operator open the **guest's** System
+Settings → Privacy & Security. Re-enable CuaDriver under Accessibility and
+Screen Recording; add `/Applications/CuaDriver.app` to Screen Recording if
+absent. Let the operator authenticate and approve each permission. Do not
+modify TCC databases, grant owner-host permissions, or automate consent.
+Restart the guest's `com.trycua.cua_driver_daemon` LaunchAgent, then recheck
+Driver readiness and a real screenshot. Requalify a disposable clone before
+returning the stopped seed to service. A cold clone that needs a LaunchAgent
+kickstart is a known qualification finding, not evidence of missing TCC consent.
+
+Return to an account-local release pin once an upstream Lume release includes
+[cua#3209](https://github.com/trycua/cua/pull/3209). Retire the source-build
+procedure then, while retaining disabled-VNC enforcement. Falling back to the
+old global 0.5.3 binary requires disabling the Mac backend; it is not an
+equivalent console-safe release.
+
 ## Routine operations
 
 ### Inspect and restart
@@ -503,18 +672,56 @@ reconciles the pinned image catalog, rediscovers persisted sandboxes, and runs
 an immediate reaper scan before the next 30-second interval. Do not start a
 second process to preserve sessions during the restart.
 
+### Check TTL cleanup
+
+Discover `sandbox.create`, `sandbox.get`, `instance.create`, and
+`sandbox.list`; create a uniquely named one-minute sandbox with a small
+running guest. Record the returned `expires_at`. Poll from fresh MCP sessions
+until it disappears, then check the backend:
+
+```bash
+incus project list nas01: --format=json
+```
+
+The corresponding `ac-<name>` project must be absent within two minutes after
+expiry, not merely hidden from the MCP list. For Mac sandboxes, also inspect
+the confined account's Lume inventory and sandbox metadata. A restart must
+still rediscover unexpired sandboxes and reap expired ones. Do not infer
+cleanup from a successful HTTP response alone.
+
+### Recover a stuck sandbox
+
+1. Describe and call `sandbox.get` and `instance.list`. Capture the sandbox
+   name, expiry, guest state, and operation error, without bearer tokens or
+   screenshot URLs.
+2. Check `journalctl -u agentcompute.service` and the matching Incus operation
+   or account-local Lume log. A slow clone/boot is not itself a stuck delete.
+3. Use `sandbox.delete` first; it owns ordered resource cleanup. If it fails,
+   retry after resolving the reported backend problem. Do not create a second
+   project with the same name or delete shared OVN resources.
+4. Before direct backend cleanup, verify the exact `ac-` project and
+   `user.agentcompute.*` ownership/expiry metadata. Stop or delete only its
+   instances, forwards, and networks, then its project. On Studio, operate
+   only on the named backend clone and metadata; never the stopped seed or
+   another user's VM.
+5. Recheck both MCP and backend inventory. A transient not-found error during
+   concurrent expiry is different from residual backend resources.
+
 ### Upgrade the release
 
 Update `service_version` and `service_sha256` together in
 `release.auto.tfvars`. Verify the new release with the procedure above, review
 and apply the saved OpenTofu plan, then run `just install-release` with the
-verified asset. A release-pin plan must not replace the VM. The script resolves
-its module directory, reads `release_installer` from applied state, and replaces
-the VM-side installer before it stages the asset. It therefore needs the
-initialized state backend and `lab-admin` AWS access, but no reboot or VM
-replacement. Do not update only the symlink or download from the VM. Keep the
-previous versioned binary until the new endpoint passes the complete
-verification procedure.
+verified asset. A release-pin plan must not replace the VM. The script reads
+`release_installer` from applied state, replaces the VM-side installer, and
+stages the asset. After digest and embedded-version verification, it installs
+the public runtime bundle (config, catalog, SSH pins, and unit) and binary,
+then restarts an already-running service. It never overwrites credentials,
+network configuration, certificates, or Tailscale state. It needs initialized
+state and `lab-admin` AWS access, but no reboot or VM replacement. Network and
+bootstrap changes still require a deliberate replacement; changing cloud-init
+metadata alone does not converge the live VM. Keep the previous versioned
+binary until the new endpoint passes full verification.
 
 ### Rotate credentials
 

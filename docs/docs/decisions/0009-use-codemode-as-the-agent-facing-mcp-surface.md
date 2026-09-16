@@ -130,6 +130,6 @@ Compliance is observable when all of the following remain true:
 
 ## More Information
 
-- [Agentcompute design draft](../designs/drafts/agentcompute.md)
-- [Deploy and operate agentcompute](../runbooks/agentcompute-service.md)
+- [Agentcompute design](../designs/agentcompute.md)
+- [Deploy and operate agentcompute](../runbooks/agentcompute.md)
 - [CodeMode documentation](https://meigma.github.io/codemode/)

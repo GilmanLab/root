@@ -224,7 +224,7 @@ to `accepted`.
 
 ## More Information
 
-- [Agentcompute design draft](../designs/drafts/agentcompute.md)
+- [Agentcompute design](../designs/agentcompute.md)
 - [Phase 3 qualification and parent recovery](https://github.com/GilmanLab/agentcompute/blob/spike/ovn-recreate-diagnosis/spikes/ovn/README.md): first post-fixture-deletion lab01-gateway cycle passed in 31.018 seconds, without reboot, central restart, or neighbor repair.
 - [Incus #3985](https://github.com/lxc/incus/issues/3985): unavailable NB creation leaves an `Errored` network; deletion after central recovery releases it.
 - [Incus #3986](https://github.com/lxc/incus/issues/3986): raw macvlan parent contention is separate from the central-outage failure.
