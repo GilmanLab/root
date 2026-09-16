@@ -245,11 +245,12 @@ incus exec --project default nas01:agentcompute01 -- \
   jq -e '.status == "done" and .errors == []' >/dev/null
 ```
 
-Cloud-init is not a convergence mechanism. Except for a release pin, whose
-installer is refreshed from applied state by `just install-release`, a changed
-rendered configuration requires deliberate VM replacement followed by release
-installation, credential delivery, and tailnet enrollment. Do not rerun the old
-bootstrap on an existing VM.
+Cloud-init is not a convergence mechanism. After a reviewed plan is applied,
+`just install-release` converges the public runtime bundle—configuration,
+catalog, unit, and SSH host pins—alongside the verified release. Bootstrap,
+network, and certificate changes still require deliberate VM replacement,
+release installation, credential delivery, and tailnet enrollment. Do not
+rerun the old bootstrap on an existing VM.
 
 ## Verify and install the pinned release
 
@@ -301,10 +302,11 @@ esac
 The workstation installer first refreshes the VM-side installer from the
 `release_installer` output in applied state. It resolves its module directory
 and requires initialized state-backend access. The VM-side installer repeats
-the pinned digest and version checks, installs a versioned file under
-`/usr/local/lib/agentcompute`, atomically changes
-`/usr/local/bin/agentcompute`, and restarts the service only if it is already
-running. A rejected asset does not replace the current binary.
+the pinned digest and version checks, converges the public runtime bundle,
+installs a versioned file under `/usr/local/lib/agentcompute`, atomically
+changes `/usr/local/bin/agentcompute`, and restarts the service only if it is
+already running. It does not overwrite private credentials. A rejected asset
+does not replace the current binary or runtime bundle.
 
 GitHub artifact and OCI attestations and the OCI Cosign signature are release
 evidence, not deployed-service acceptance. Do not claim SLSA Build Level 3:

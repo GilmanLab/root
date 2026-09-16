@@ -472,10 +472,13 @@ new volatile NIC state, so its MAC address, DHCP identity, lease, and assigned
 address can change. Callers must rediscover the instance and its addresses
 after restore.
 
-Failures before the staged copy completes leave the original stopped with its
-snapshots intact; inspect for a generated `restore-*` copy before retrying. If
-original deletion fails, the error identifies the retained staged copy. After
-original deletion, its snapshots are already consumed: a rename failure leaves
+A stop failure preserves the original and its snapshots; inspect its power
+state. A copy failure after a successful stop leaves the original stopped with
+its snapshots intact; inspect for a generated `restore-*` copy before retrying.
+Deletion removes the original's snapshots before deleting the original itself.
+If that final deletion fails, the original and staged copy can both remain,
+but the snapshots are already consumed; the error identifies the staged copy.
+After original deletion, a rename failure leaves
 the replacement under its generated name. A start or `Running`-wait failure
 returns an error with the replacement under the original agent-facing name;
 inspect its status before retrying.
@@ -832,6 +835,12 @@ and successful qualification do not silently accept an ADR.
   This removes synthetic session cursors, not input or the native cursor.
   Image qualification now requires whole-desktop pixels to change after
   launching Text Editor; a black-frame heuristic would miss a coloured freeze.
+  The fresh private bake from commit `cb7f8c6d80bf1e66ea75ce28f07510db9636c34e`
+  passed that live-pixel check. Its Ubuntu desktop OCI digest is
+  `sha256:b2a83d7d70de2239de0bb04e255c96079446afb97ebcd36434892acefa5f8b0e`;
+  [catalog promotion #44](https://github.com/GilmanLab/agentcompute/pull/44)
+  records the qualified image references. The generated catalog commit was
+  signed by the integrating operator to satisfy branch policy; no bypass was used.
 - Fleet release installation now converges the public configuration, catalog,
   unit, and SSH pins in place, after artifact checks. It does not replace the
   service VM, rerun cloud-init, overwrite private credentials, or re-enroll
