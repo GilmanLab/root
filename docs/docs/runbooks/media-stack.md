@@ -156,6 +156,15 @@ just sync-compose
 - **Stack down after a reboot:** check `systemctl status docker` in the VM.
   A failed `ExecStartPre` means a volume did not mount; inspect
   `incus config device show nas01:media01`.
+- **qBittorrent "File error alert ... file_mmap ... No such device":** the
+  Disk IO type was reset to memory-mapped files, which virtiofs rejects. Set it
+  back to POSIX, restart qBittorrent, then resume the errored torrents:
+
+  ```bash
+  incus exec nas01:media01 -- docker exec qbittorrent curl -s \
+    --data 'json={"disk_io_type":2}' http://127.0.0.1:8080/api/v2/app/setPreferences
+  incus exec nas01:media01 -- docker restart qbittorrent
+  ```
 
 ## Hardware transcoding
 
