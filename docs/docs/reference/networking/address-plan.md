@@ -40,6 +40,7 @@ traffic retains its source addresses.
 | `10` | Management | `10.10.10.0/24` | `10.10.10.1` | IncusOS management, network-device management, and `nas01` management |
 | `30` | Storage | `10.10.30.0/24` | None (not routed) | Incus node storage network on the compute-facing `sw-core01` links |
 | `40` | Sandbox/workload | `10.10.40.0/24` | `10.10.40.1` | `sandbox01`, Incus instances attached over the cluster fast links, and other explicitly attached workload endpoints |
+| `50` | Services | `10.10.50.0/24` | `10.10.50.1` | Long-lived service VMs on members that carry `fast50` (today `nas01`); see [ADR-0008](../../decisions/0008-give-service-vms-a-dedicated-services-vlan.md) |
 | `70` | OOB | `10.10.70.0/24` | `10.10.70.1` | MS-02 AMT, `pikvm01`, `kvm01`, and management-switch administration |
 
 VLAN 20 and `10.10.20.0/24` are retired. The lab does not retain a PXE or
@@ -68,6 +69,7 @@ by the `GilmanLab/fleet` `cluster/` project and mirrored in each node's seed.
 | `gw01` `glab.lol` mirror | `10.10.10.54` | Local service address |
 | `ovncentral01` OVN central | `10.10.10.15` | Static VM interface on `nas01`'s unmanaged `mgmt` bridge |
 | `agentcompute01` MCP service | `10.10.10.16` | Static `/32` on a routed Incus NIC through `lab01`'s `_vmgmt` interface; host gateway `169.254.0.1` |
+| `media01` media stack | `10.10.50.20` | Static VM interface; macvlan on `nas01`'s IncusOS `fast50` interface |
 
 ### Hosts
 
@@ -89,8 +91,9 @@ configuration.
 
 Infrastructure endpoints do not depend on DHCP: gateway and managed-switch
 interface addresses and the local DNS mirror address are static interface
-configuration; the OVN central address is static VM network configuration;
-IncusOS node management addresses are static in each node's seed (bound to the
+configuration; the OVN central and `media01` addresses are static VM network
+configuration; IncusOS node management addresses are static in each node's
+seed (bound to the
 management NIC's hardware MAC in `GilmanLab/fleet`); storage-network addresses
 are static IncusOS runtime configuration (converged by the fleet `cluster/`
 project and mirrored in the seeds); and lab-node AMT addresses are static in
@@ -170,7 +173,7 @@ for deployment and cutover checks.
 | `gw01` chassis port | VyOS interface | Mode | Network |
 | --- | --- | --- | --- |
 | `SFP+ 1` | `eth0` | Routed | Transit `10.0.0.2/30` to `rtr01` |
-| `SFP+ 2` | `eth1` | 802.1Q trunk | VLANs 10 and 40 to `sw-core01` |
+| `SFP+ 2` | `eth1` | 802.1Q trunk | VLANs 10, 40, and 50 to `sw-core01`; VLAN 50 is routed on `eth1.50` without a bridge |
 | `Port 1` | `eth3` | 802.1Q trunk | VLANs 10 and 70 to `sw-mgmt01` |
 | `Port 2` | `eth2` | Untagged access | VLAN 40 to `sandbox01` |
 | `Port 3` | `eth4` | Untagged access | VLAN 70 to `pikvm01` |
@@ -199,22 +202,26 @@ the `nas01` 5GbE NIC therefore negotiate no faster than 2.5Gbps on this switch.
 
 ### `sw-core01`
 
-Port 8 is the 802.1Q trunk to `gw01` and carries VLANs 10 and 40. VLAN 10
+Port 8 is the 802.1Q trunk to `gw01` and carries VLANs 10, 40, and 50. VLAN 10
 provides the switch management path. Ports 1 through 6 form three 802.3ad
 LAGs, one per MS-02 SFP+ pair: `bond-lab01` (ports 1–2), `bond-lab02` (ports
 3–4), and `bond-lab03` (ports 5–6). Port 7 connects the `nas01` 10GbE
 interface. VLANs 30 and 40 are tagged on the three LAGs and port 7: VLAN 30
 is the node storage network, and VLAN 40 carries Incus instance traffic so
-workloads stay off the management plane. These links are not required for
-IncusOS management boot. The host-side counterpart, converged by the
-`GilmanLab/fleet` `cluster/` project, is the `vlan_tags` allow-list plus an
-IncusOS-declared VLAN interface per carried VLAN (`fast30`, `fast40`).
-Instances must attach to the IncusOS-owned interface (for example macvlan
-with `parent=fast40`), never with an Incus-created `vlan=` sub-interface on
-`fast`: the visible `fast` device is an IncusOS-internal VLAN-filtering
-bridge, and only IncusOS-declared VLANs receive bridge self-port membership,
-so other tagged sub-interfaces pass no traffic. Additional instance VLANs
-join these links when their first consumer arrives.
+workloads stay off the management plane. VLAN 50 (services) is tagged only on
+port 7. These links are not required for IncusOS management boot. The
+host-side counterpart, converged by the `GilmanLab/fleet` `cluster/` project,
+is the `vlan_tags` allow-list plus an IncusOS-declared VLAN interface per
+carried VLAN (`fast30`, `fast40`, and `fast50` on `nas01`). Instances must
+attach to an IncusOS-owned interface, never with an Incus-created `vlan=`
+sub-interface on `fast`: the visible `fast` device is an IncusOS-internal
+VLAN-filtering bridge, and only IncusOS-declared VLANs receive bridge
+self-port membership, so other tagged sub-interfaces pass no traffic. OVN
+owns `fast40` as the `fast40-uplink` parent; never attach a macvlan to it,
+because OVS then cannot add the parent and that member's OVN gateway fails
+([lxc/incus#3986](https://github.com/lxc/incus/issues/3986)). Service VMs use
+macvlan with `parent=fast50`. Additional instance VLANs join these links when
+their first consumer arrives.
 
 ## DHCP and DNS ownership
 

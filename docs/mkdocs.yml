@@ -38,6 +38,8 @@ nav:
       - "ADR-0004: Manage RouterOS Devices with OpenTofu": decisions/0004-manage-routeros-devices-with-opentofu.md
       - "ADR-0005: Anchor Internal PKI on the KMS Root with Sibling Intermediates": decisions/0005-anchor-internal-pki-on-kms-root-with-sibling-intermediates.md
       - "ADR-0006: OVN as the Sandbox Network Fabric": decisions/0006-ovn-as-the-sandbox-network-fabric.md
+      - "ADR-0007: Expose the nas01 HDDs as a Clustered Bulk Pool": decisions/0007-expose-nas01-hdds-as-a-clustered-bulk-pool.md
+      - "ADR-0008: Give Service VMs a Dedicated Services VLAN": decisions/0008-give-service-vms-a-dedicated-services-vlan.md
   - Designs:
       - Lab v2 core network: designs/lab-v2-core-network.md
       - "Draft: agentcompute": designs/drafts/agentcompute.md
@@ -61,6 +63,7 @@ nav:
       - Manage the sw-mgmt01 configuration: runbooks/sw-mgmt01-configuration.md
       - Deploy the VyOS gateway configuration: runbooks/vyos-gateway-deployment.md
       - Deploy private image runners: runbooks/private-image-runners.md
+      - Deploy and operate the media stack: runbooks/media-stack.md
 
 plugins:
   - search
