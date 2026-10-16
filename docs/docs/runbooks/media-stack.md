@@ -5,7 +5,8 @@ description: Deploy media01 on nas01, deliver the ProtonVPN key, wire the apps, 
 
 # Deploy and Operate the Media Stack
 
-`media01` runs Jellyfin, Sonarr, Radarr, Prowlarr, and qBittorrent under
+`media01` runs Jellyfin, Sonarr, Radarr, Gamarr, Prowlarr, FlareSolverr, and
+qBittorrent under
 Docker Compose on `nas01`. qBittorrent shares gluetun's network namespace, so
 its only egress is the ProtonVPN WireGuard tunnel. The OpenTofu root is
 `GilmanLab/fleet` `incus/media/`; its README lists the resources and volumes.
@@ -15,6 +16,7 @@ its only egress is the ProtonVPN WireGuard tunnel. The OpenTofu root is
 | Jellyfin | `http://10.10.50.20:8096` |
 | Sonarr | `http://10.10.50.20:8989` |
 | Radarr | `http://10.10.50.20:7878` |
+| Gamarr | `http://10.10.50.20:6767` |
 | Prowlarr | `http://10.10.50.20:9696` |
 | qBittorrent | `http://10.10.50.20:8080` |
 
@@ -97,9 +99,9 @@ All containers see the library volume at `/data`:
 
 | Path | Purpose |
 | --- | --- |
-| `/data/torrents/{tv,movies}` | qBittorrent category save paths |
+| `/data/torrents/{tv,movies,games}` | qBittorrent category save paths |
 | `/data/torrents/incomplete` | qBittorrent incomplete downloads |
-| `/data/media/{tv,movies}` | Sonarr and Radarr root folders; Jellyfin libraries (read-only) |
+| `/data/media/{tv,movies,games}` | Sonarr, Radarr, and Gamarr root folders; Jellyfin TV and movie libraries (read-only) |
 
 1. Sonarr and Radarr: **Settings → Media Management**, add root folder
    `/data/media/tv` or `/data/media/movies`. Leave **Use Hardlinks instead of
@@ -116,6 +118,13 @@ All containers see the library volume at `/data`:
    indexer that reports "blocked by CloudFlare Protection"; untagged indexers
    never use FlareSolverr.
 6. Jellyfin: add libraries on `/data/media/tv` and `/data/media/movies`.
+7. Gamarr: root folder `/data/media/games`; **Settings → Download Clients →
+   qBittorrent**, host `gluetun`, port `8080`, category `games` (qBittorrent
+   category `games` → `/data/torrents/games`). Prowlarr has no Gamarr app
+   type, so it never syncs indexers here. Add each game-capable Prowlarr
+   indexer to Gamarr as **Torznab**: URL `http://prowlarr:9696/<indexer id>/`,
+   API path `/api`, the Prowlarr API key, categories 1000 (console) and 4000
+   (PC). Indexers added to Prowlarr later must be added to Gamarr by hand.
 
 ## Verify
 
