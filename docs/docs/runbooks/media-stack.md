@@ -21,6 +21,7 @@ lists the resources and volumes.
 | Prowlarr | `http://10.10.50.20:9696` |
 | qBittorrent | `http://10.10.50.20:8080` |
 | SABnzbd | `http://10.10.50.20:8085` |
+| Library share (SMB, read-only) | `smb://10.10.50.20/media` |
 
 The address and VLAN are canonical in the
 [address plan](../reference/networking/address-plan.md). Home clients reach
@@ -79,11 +80,28 @@ just plan     # expect the VM and, on first deploy, both volumes
 just apply
 incus exec nas01:media01 -- cloud-init status --wait
 just deliver-vpn ~/code/glab/secrets/services/media/vpn.sops.yaml
+just deliver-smb ~/code/glab/secrets/services/media/smb.sops.yaml
 ```
 
 The stack stays down until `deliver-vpn` installs `/etc/media/vpn.env`.
 Docker waits for `/data` and `/srv/appdata` to be mounted before it starts
 any container.
+
+## Copy files from the library share
+
+The `media` share exposes `/data/media` (`games`, `movies`, `tv`) read-only
+over SMB for the `media` account. Its password is in `GilmanLab/secrets`
+`services/media/smb.sops.yaml`; copy it to the clipboard with:
+
+```bash
+AWS_PROFILE=lab-admin sops decrypt --extract '["smb"]["password"]' \
+  ~/code/glab/secrets/services/media/smb.sops.yaml | pbcopy
+```
+
+In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/media`,
+choose **Registered User**, name `media`, paste the password, and save it in
+the keychain. To change the password, edit the secret and rerun
+`just deliver-smb`.
 
 ## Wire the apps
 
