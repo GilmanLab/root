@@ -142,8 +142,9 @@ All containers see the library volume at `/data`:
    **Settings → Profiles → Delay Profiles**, protocol **Prefer Usenet**.
 10. Prowlarr: **Indexers → Add Indexer**, add NZBgeek and NZBFinder with the
     API key from each site's account page. Do not tag them `flaresolverr`.
-    Prowlarr syncs them to Sonarr and Radarr; add them to Gamarr as Newznab
-    the same way step 7 adds Torznab indexers.
+    Prowlarr syncs them to Sonarr and Radarr. Add NZBgeek to Gamarr as Newznab
+    the same way step 7 adds Torznab indexers. NZBFinder has no Console (1000)
+    or PC (4000) categories, so Gamarr rejects it.
 
 ## Verify
 
