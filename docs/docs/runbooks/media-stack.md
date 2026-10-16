@@ -5,11 +5,12 @@ description: Deploy media01 on nas01, deliver the ProtonVPN key, wire the apps, 
 
 # Deploy and Operate the Media Stack
 
-`media01` runs Jellyfin, Sonarr, Radarr, Gamarr, Prowlarr, FlareSolverr, and
-qBittorrent under
-Docker Compose on `nas01`. qBittorrent shares gluetun's network namespace, so
-its only egress is the ProtonVPN WireGuard tunnel. The OpenTofu root is
-`GilmanLab/fleet` `incus/media/`; its README lists the resources and volumes.
+`media01` runs Jellyfin, Sonarr, Radarr, Gamarr, Prowlarr, FlareSolverr,
+qBittorrent, and SABnzbd under Docker Compose on `nas01`. qBittorrent shares
+gluetun's network namespace, so its only egress is the ProtonVPN WireGuard
+tunnel. SABnzbd uses the clear net: Usenet provider traffic is TLS and nothing
+is uploaded. The OpenTofu root is `GilmanLab/fleet` `incus/media/`; its README
+lists the resources and volumes.
 
 | App | URL |
 | --- | --- |
@@ -19,6 +20,7 @@ its only egress is the ProtonVPN WireGuard tunnel. The OpenTofu root is
 | Gamarr | `http://10.10.50.20:6767` |
 | Prowlarr | `http://10.10.50.20:9696` |
 | qBittorrent | `http://10.10.50.20:8080` |
+| SABnzbd | `http://10.10.50.20:8085` |
 
 The address and VLAN are canonical in the
 [address plan](../reference/networking/address-plan.md). Home clients reach
@@ -101,6 +103,7 @@ All containers see the library volume at `/data`:
 | --- | --- |
 | `/data/torrents/{tv,movies,games}` | qBittorrent category save paths |
 | `/data/torrents/incomplete` | qBittorrent incomplete downloads |
+| `/data/usenet/incomplete`, `/data/usenet/complete/<category>` | SABnzbd downloads |
 | `/data/media/{tv,movies,games}` | Sonarr, Radarr, and Gamarr root folders; Jellyfin TV and movie libraries (read-only) |
 
 1. Sonarr and Radarr: **Settings → Media Management**, add root folder
@@ -117,7 +120,10 @@ All containers see the library volume at `/data`:
    `http://flaresolverr:8191/`, tag `flaresolverr`. Add that tag to every
    indexer that reports "blocked by CloudFlare Protection"; untagged indexers
    never use FlareSolverr.
-6. Jellyfin: add libraries on `/data/media/tv` and `/data/media/movies`.
+6. Jellyfin: add libraries on `/data/media/tv` and `/data/media/movies`, then
+   restart it (`docker restart jellyfin`). Jellyfin starts watching library
+   folders only at startup, and the first scan skips an empty folder, so
+   imports into a library created after startup do not appear until a scan.
 7. Gamarr: root folder `/data/media/games`; **Settings → Download Clients →
    qBittorrent**, host `gluetun`, port `8080`, category `games` (qBittorrent
    category `games` → `/data/torrents/games`). Prowlarr has no Gamarr app
@@ -125,6 +131,19 @@ All containers see the library volume at `/data`:
    indexer to Gamarr as **Torznab**: URL `http://prowlarr:9696/<indexer id>/`,
    API path `/api`, the Prowlarr API key, categories 1000 (console) and 4000
    (PC). Indexers added to Prowlarr later must be added to Gamarr by hand.
+8. SABnzbd: complete the setup wizard with the Usenet provider's server,
+   port `563`, SSL on, and its credentials. Download paths are seeded. In
+   **Config → Categories**, set the folder of `tv` and `movies` to their own
+   names and add `games` with folder `games`; empty folders put every job
+   directly in `/data/usenet/complete`.
+9. Sonarr, Radarr, and Gamarr: **Settings → Download Clients → + → SABnzbd**,
+   host `sabnzbd`, port `8080`, the API key from **SABnzbd → Config →
+   General**, category `tv`, `movies`, or `games`. Prefer Usenet in
+   **Settings → Profiles → Delay Profiles**, protocol **Prefer Usenet**.
+10. Prowlarr: **Indexers → Add Indexer**, add NZBgeek and NZBFinder with the
+    API key from each site's account page. Do not tag them `flaresolverr`.
+    Prowlarr syncs them to Sonarr and Radarr; add them to Gamarr as Newznab
+    the same way step 7 adds Torznab indexers.
 
 ## Verify
 
