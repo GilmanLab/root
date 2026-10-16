@@ -111,7 +111,11 @@ All containers see the library volume at `/data`:
 4. Prowlarr: **Settings → Apps**, add Sonarr (`http://sonarr:8989`) and Radarr
    (`http://radarr:7878`) with their API keys and Prowlarr server
    `http://prowlarr:9696`. Add indexers in Prowlarr only; it syncs them.
-5. Jellyfin: add libraries on `/data/media/tv` and `/data/media/movies`.
+5. Prowlarr: **Settings → Indexers → + → FlareSolverr**, host
+   `http://flaresolverr:8191/`, tag `flaresolverr`. Add that tag to every
+   indexer that reports "blocked by CloudFlare Protection"; untagged indexers
+   never use FlareSolverr.
+6. Jellyfin: add libraries on `/data/media/tv` and `/data/media/movies`.
 
 ## Verify
 
@@ -122,9 +126,24 @@ incus exec nas01:media01 -- docker exec gluetun wget -qO- https://ipinfo.io/ip
 incus exec nas01:media01 -- docker logs gluetun 2>&1 | grep -i 'port forwarded'
 # Kill switch: with gluetun stopped, qBittorrent has no network at all.
 incus exec nas01:media01 -- docker stop gluetun
-incus exec nas01:media01 -- docker exec qbittorrent wget -qO- -T5 https://ipinfo.io/ip  # must fail
+incus exec nas01:media01 -- docker exec qbittorrent curl -s -m5 https://ipinfo.io/ip  # must fail
 incus exec nas01:media01 -- docker compose --project-directory /opt/media up -d
 ```
+
+## Change the stack
+
+Cloud-init writes `/opt/media/compose.yaml` only on first boot. To add a
+service or bump an image without rebuilding the VM, edit `images` or
+`templates/compose.yaml.tftpl`, then:
+
+```bash
+just plan     # expect an in-place update of cloud-init.user-data only
+just apply
+just sync-compose
+```
+
+`sync-compose` pushes the applied compose file and runs
+`docker compose up -d --remove-orphans`; only changed containers restart.
 
 ## Recovery
 
