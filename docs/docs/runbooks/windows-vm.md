@@ -14,6 +14,7 @@ reach it through `gw01`. The OpenTofu root is `GilmanLab/fleet`
 | --- | --- |
 | Remote Desktop | `10.10.50.30` |
 | SSH (PowerShell, key-only) | `ssh -i ~/.ssh/win01 josh@10.10.50.30` |
+| Agent desktop control (Windows-MCP) | `http://10.10.50.30:8000/mcp`, bearer token `win01.windows_mcp_auth_key` |
 | Administrator | `josh`, password in `GilmanLab/secrets` `services/windows/win01.sops.yaml` |
 
 ## Preconditions
@@ -93,6 +94,44 @@ variable; password and keyboard-interactive logins are disabled. To rotate
 the key, write the new public key to
 `C:\ProgramData\ssh\administrators_authorized_keys` and update the variable
 so a rebuilt VM gets it.
+
+## Agent desktop control
+
+[Windows-MCP](https://github.com/CursorTouch/Windows-MCP) 0.8.8 gives MCP
+agents screenshots, the UI tree, input, and PowerShell on `win01`. It runs in
+`josh`'s interactive session as the `windows-mcp-server` logon task and serves
+streamable HTTP on port 8000.
+
+| Item | Value |
+| --- | --- |
+| Install | `uv tool install --python 3.14 windows-mcp==0.8.8` (newer Pythons lack a PyYAML wheel and fail without a compiler) |
+| Config | `C:\Users\josh\.windows-mcp\config.toml`, UTF-8 without BOM (a BOM fails with `Invalid statement (at line 1, column 1)`) |
+| Auth | Bearer token `win01.windows_mcp_auth_key` in `services/windows/win01.sops.yaml` |
+| Access | `ip_allowlist` and the `win01-windows-mcp` firewall rule: `10.10.0.0/16`, `192.168.1.0/24`, `192.168.2.0/24`, `100.64.0.0/10` |
+| Telemetry | Off: user environment `ANONYMIZED_TELEMETRY=false` |
+| Logs | `C:\Users\josh\.windows-mcp\server.log` and `server.error.log` |
+
+The MCP client entry reads the token at connect time:
+
+```json
+"win01": {
+  "type": "http",
+  "url": "http://10.10.50.30:8000/mcp",
+  "headers": {
+    "Authorization": "!printf 'Bearer %s' \"$(AWS_PROFILE=lab-admin sops -d --extract '[\"win01\"][\"windows_mcp_auth_key\"]' ~/code/glab/secrets/services/windows/win01.sops.yaml)\""
+  }
+}
+```
+
+The token grants administrator-level control through the `PowerShell` and
+`Registry` tools. Transport is plain HTTP: the token crosses the tailnet
+(encrypted) and VLAN 50 in clear text.
+
+The server only runs while `josh` has an interactive session, and UI tools
+need that session unlocked. After a reboot it starts at the next logon;
+closing the Remote Desktop window locks the session and screenshots fail
+until someone signs in again. Restart it with
+`Start-ScheduledTask windows-mcp-server` over SSH.
 
 ## Activate
 
