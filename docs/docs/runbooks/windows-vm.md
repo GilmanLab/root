@@ -80,9 +80,11 @@ just remove-install-media
 2. In the Windows App (Microsoft Remote Desktop) on macOS, add PC
    `10.10.50.30`, user `josh`, and paste the password.
 
-The media library (`\\10.10.50.20\media`, read-only) is mapped as drive `M:`
-for `josh`, reconnected at every logon. The `media` account's password from
-the media stack runbook is saved in Windows Credential Manager (target
+The media library (`\\10.10.50.20\media`) is mapped as drive `M:` and the
+download area (`\\10.10.50.20\torrents`) as `T:`, both read-only and
+reconnected at every logon for `josh`. Both use the `media` account, whose
+password from the media stack runbook is saved in Windows Credential Manager
+(target
 `10.10.50.20`). After a password change, rerun
 `cmdkey /add:10.10.50.20 /user:media /pass:<new>` in a desktop session; a
 key-authenticated SSH session cannot write to Credential Manager.
