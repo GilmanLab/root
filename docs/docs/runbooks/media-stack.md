@@ -145,10 +145,13 @@ All containers see the library volume at `/data`:
 7. Gamarr: root folder `/data/media/games`; **Settings → Download Clients →
    qBittorrent**, host `gluetun`, port `8080`, category `games` (qBittorrent
    category `games` → `/data/torrents/games`). Prowlarr has no Gamarr app
-   type, so it never syncs indexers here. Add each game-capable Prowlarr
-   indexer to Gamarr as **Torznab**: URL `http://prowlarr:9696/<indexer id>/`,
-   API path `/api`, the Prowlarr API key, categories 1000 (console) and 4000
-   (PC). Indexers added to Prowlarr later must be added to Gamarr by hand.
+   type, so `gamarr-indexer-sync.timer` on `media01` mirrors every enabled
+   Prowlarr indexer with console (1xxx) or PC (4xxx) categories into Gamarr
+   hourly, as Torznab/Newznab entries named `<indexer> (Prowlarr)`. Add
+   indexers in Prowlarr only. To sync immediately or preview, run
+   `just sync-gamarr-indexers` (`--dry-run`) from `GilmanLab/fleet`
+   `incus/media/`. The job leaves non-Prowlarr entries alone and keeps the
+   toggles, priority, and seed settings you change on its entries.
 8. SABnzbd: complete the setup wizard with the Usenet provider's server,
    port `563`, SSL on, and its credentials. Download paths are seeded. In
    **Config → Categories**, set the folder of `tv` and `movies` to their own
