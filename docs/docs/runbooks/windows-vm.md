@@ -99,8 +99,9 @@ so a rebuilt VM gets it.
 
 [Windows-MCP](https://github.com/CursorTouch/Windows-MCP) 0.8.8 gives MCP
 agents screenshots, the UI tree, input, and PowerShell on `win01`. It runs in
-`josh`'s interactive session as the `windows-mcp-server` logon task and serves
-streamable HTTP on port 8000.
+`josh`'s interactive session as the `windows-mcp-server` logon task, under a
+headless console host, and serves streamable HTTP on port 8000. The
+first-logon script sets all of this up.
 
 | Item | Value |
 | --- | --- |
@@ -110,6 +111,8 @@ streamable HTTP on port 8000.
 | Access | `ip_allowlist` and the `win01-windows-mcp` firewall rule: `10.10.0.0/16`, `192.168.1.0/24`, `192.168.2.0/24`, `100.64.0.0/10` |
 | Telemetry | Off: user environment `ANONYMIZED_TELEMETRY=false` |
 | Logs | `C:\Users\josh\.windows-mcp\server.log` and `server.error.log` |
+| Sign-in | Sysinternals Autologon signs `josh` in at boot; the password is an LSA secret, not a registry value |
+| RDP disconnect | Task `win01-rdp-to-console` (SYSTEM) runs `tscon` to return the session to the console, unlocked |
 
 The MCP client entry reads the token at connect time:
 
@@ -127,11 +130,13 @@ The token grants administrator-level control through the `PowerShell` and
 `Registry` tools. Transport is plain HTTP: the token crosses the tailnet
 (encrypted) and VLAN 50 in clear text.
 
-The server only runs while `josh` has an interactive session, and UI tools
-need that session unlocked. After a reboot it starts at the next logon;
-closing the Remote Desktop window locks the session and screenshots fail
-until someone signs in again. Restart it with
-`Start-ScheduledTask windows-mcp-server` over SSH.
+UI tools need an unlocked interactive session. Autologon provides one at
+every boot, and closing a Remote Desktop window returns the session to the
+console instead of leaving it locked. Signing out (rather than closing the
+window) ends the session; the server then stops until the next sign-in or
+reboot. Restart it with `Start-ScheduledTask windows-mcp-server` over SSH.
+Rotating the `josh` password requires running Autologon again with the new
+password (`C:\ProgramData\win01\Autologon64.exe /accepteula josh WIN01 <password>`).
 
 ## Activate
 
