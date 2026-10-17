@@ -23,6 +23,7 @@ lists the resources and volumes.
 | SABnzbd | `http://10.10.50.20:8085` |
 | Library share (SMB, read-only) | `smb://10.10.50.20/media` |
 | Downloads share (SMB, read-only) | `smb://10.10.50.20/torrents` |
+| Games share (SMB, writable) | `smb://10.10.50.20/games` |
 
 The address and VLAN are canonical in the
 [address plan](../reference/networking/address-plan.md). Home clients reach
@@ -90,12 +91,14 @@ any container.
 
 ## Copy files from the SMB shares
 
-Two shares, both read-only for the `media` account:
+Three shares for the `media` account. Only `games` is writable, so a client
+running untrusted software can damage the games folder but never movies or TV:
 
 | Share | Path | Contents |
 | --- | --- | --- |
 | `media` | `/data/media` | The imported library: `games`, `movies`, `tv` |
 | `torrents` | `/data/torrents` | qBittorrent downloads, including releases no app imported. Read-only so nothing can alter a file that is still seeding. |
+| `games` | `/data/media/games` | Writable: put rebuilt game files (for example NSPs extracted by a repack installer) back into the library. New files are `media`-owned, mode `0664`, so Gamarr can manage them. |
 
 The password is in `GilmanLab/secrets` `services/media/smb.sops.yaml`; copy it
 to the clipboard with:
@@ -106,7 +109,7 @@ AWS_PROFILE=lab-admin sops decrypt --extract '["smb"]["password"]' \
 ```
 
 In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/media`
-or `smb://10.10.50.20/torrents`,
+`smb://10.10.50.20/torrents`, or `smb://10.10.50.20/games`,
 choose **Registered User**, name `media`, paste the password, and save it in
 the keychain. To change the password, edit the secret and rerun
 `just deliver-smb`.
