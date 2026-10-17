@@ -81,8 +81,9 @@ just remove-install-media
    `10.10.50.30`, user `josh`, and paste the password.
 
 The media library (`\\10.10.50.20\media`) is mapped as drive `M:` and the
-download area (`\\10.10.50.20\torrents`) as `T:`, both read-only and
-reconnected at every logon for `josh`. Both use the `media` account, whose
+download area (`\\10.10.50.20\torrents`) as `T:`, both read-only, and the
+writable games folder (`\\10.10.50.20\games`) as `G:`. All three reconnect at
+every logon for `josh` and use the `media` account, whose
 password from the media stack runbook is saved in Windows Credential Manager
 (target
 `10.10.50.20`). After a password change, rerun
