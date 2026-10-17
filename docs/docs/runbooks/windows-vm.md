@@ -13,6 +13,7 @@ reach it through `gw01`. The OpenTofu root is `GilmanLab/fleet`
 | Access | Value |
 | --- | --- |
 | Remote Desktop | `10.10.50.30` |
+| SSH (PowerShell, key-only) | `ssh -i ~/.ssh/win01 josh@10.10.50.30` |
 | Administrator | `josh`, password in `GilmanLab/secrets` `services/windows/win01.sops.yaml` |
 
 ## Preconditions
@@ -80,6 +81,18 @@ just remove-install-media
 
 The media library is available read-only at `\\10.10.50.20\media` with the
 `media` account from the media stack runbook.
+
+For commands, SSH in with the operator key; the session is PowerShell:
+
+```bash
+ssh -i ~/.ssh/win01 -o IdentitiesOnly=yes josh@10.10.50.30
+```
+
+The server accepts only the key in the `incus/windows` `ssh_authorized_key`
+variable; password and keyboard-interactive logins are disabled. To rotate
+the key, write the new public key to
+`C:\ProgramData\ssh\administrators_authorized_keys` and update the variable
+so a rebuilt VM gets it.
 
 ## Activate
 
