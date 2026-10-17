@@ -40,7 +40,7 @@ traffic retains its source addresses.
 | `10` | Management | `10.10.10.0/24` | `10.10.10.1` | IncusOS management, network-device management, and `nas01` management |
 | `30` | Storage | `10.10.30.0/24` | None (not routed) | Incus node storage network on the compute-facing `sw-core01` links |
 | `40` | Sandbox/workload | `10.10.40.0/24` | `10.10.40.1` | `sandbox01`, Incus instances attached over the cluster fast links, and other explicitly attached workload endpoints |
-| `50` | Services | `10.10.50.0/24` | `10.10.50.1` | Long-lived service VMs on members that carry `fast50` (today `nas01`); see [ADR-0008](../../decisions/0008-give-service-vms-a-dedicated-services-vlan.md) |
+| `50` | Services | `10.10.50.0/24` | `10.10.50.1` | Long-lived service VMs on members that carry `fast50` (today `nas01` and `lab02`); see [ADR-0008](../../decisions/0008-give-service-vms-a-dedicated-services-vlan.md) |
 | `70` | OOB | `10.10.70.0/24` | `10.10.70.1` | MS-02 AMT, `pikvm01`, `kvm01`, and management-switch administration |
 
 VLAN 20 and `10.10.20.0/24` are retired. The lab does not retain a PXE or
@@ -70,6 +70,7 @@ by the `GilmanLab/fleet` `cluster/` project and mirrored in each node's seed.
 | `ovncentral01` OVN central | `10.10.10.15` | Static VM interface on `nas01`'s unmanaged `mgmt` bridge |
 | `agentcompute01` MCP service | `10.10.10.16` | Static `/32` on a routed Incus NIC through `lab01`'s `_vmgmt` interface; host gateway `169.254.0.1` |
 | `media01` media stack | `10.10.50.20` | Static VM interface; macvlan on `nas01`'s IncusOS `fast50` interface |
+| `win01` Windows desktop | `10.10.50.30` | Static guest-configured address; macvlan on `lab02`'s IncusOS `fast50` interface |
 
 ### Hosts
 
@@ -209,10 +210,11 @@ LAGs, one per MS-02 SFP+ pair: `bond-lab01` (ports 1–2), `bond-lab02` (ports
 interface. VLANs 30 and 40 are tagged on the three LAGs and port 7: VLAN 30
 is the node storage network, and VLAN 40 carries Incus instance traffic so
 workloads stay off the management plane. VLAN 50 (services) is tagged only on
-port 7. These links are not required for IncusOS management boot. The
-host-side counterpart, converged by the `GilmanLab/fleet` `cluster/` project,
-is the `vlan_tags` allow-list plus an IncusOS-declared VLAN interface per
-carried VLAN (`fast30`, `fast40`, and `fast50` on `nas01`). Instances must
+port 7 and `bond-lab02`. These links are not required for IncusOS management
+boot. The host-side counterpart, converged by the `GilmanLab/fleet` `cluster/`
+project, is the `vlan_tags` allow-list plus an IncusOS-declared VLAN interface
+per carried VLAN (`fast30`, `fast40`, and `fast50` on `nas01` and `lab02`).
+Instances must
 attach to an IncusOS-owned interface, never with an Incus-created `vlan=`
 sub-interface on `fast`: the visible `fast` device is an IncusOS-internal
 VLAN-filtering bridge, and only IncusOS-declared VLANs receive bridge
