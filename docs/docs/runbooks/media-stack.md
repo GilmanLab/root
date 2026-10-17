@@ -108,7 +108,7 @@ AWS_PROFILE=lab-admin sops decrypt --extract '["smb"]["password"]' \
   ~/code/glab/secrets/services/media/smb.sops.yaml | pbcopy
 ```
 
-In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/media`
+In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/media`,
 `smb://10.10.50.20/torrents`, or `smb://10.10.50.20/games`,
 choose **Registered User**, name `media`, paste the password, and save it in
 the keychain. To change the password, edit the secret and rerun
