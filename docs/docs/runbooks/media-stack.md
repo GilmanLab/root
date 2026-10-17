@@ -22,6 +22,7 @@ lists the resources and volumes.
 | qBittorrent | `http://10.10.50.20:8080` |
 | SABnzbd | `http://10.10.50.20:8085` |
 | Library share (SMB, read-only) | `smb://10.10.50.20/media` |
+| Downloads share (SMB, read-only) | `smb://10.10.50.20/torrents` |
 
 The address and VLAN are canonical in the
 [address plan](../reference/networking/address-plan.md). Home clients reach
@@ -87,18 +88,25 @@ The stack stays down until `deliver-vpn` installs `/etc/media/vpn.env`.
 Docker waits for `/data` and `/srv/appdata` to be mounted before it starts
 any container.
 
-## Copy files from the library share
+## Copy files from the SMB shares
 
-The `media` share exposes `/data/media` (`games`, `movies`, `tv`) read-only
-over SMB for the `media` account. Its password is in `GilmanLab/secrets`
-`services/media/smb.sops.yaml`; copy it to the clipboard with:
+Two shares, both read-only for the `media` account:
+
+| Share | Path | Contents |
+| --- | --- | --- |
+| `media` | `/data/media` | The imported library: `games`, `movies`, `tv` |
+| `torrents` | `/data/torrents` | qBittorrent downloads, including releases no app imported. Read-only so nothing can alter a file that is still seeding. |
+
+The password is in `GilmanLab/secrets` `services/media/smb.sops.yaml`; copy it
+to the clipboard with:
 
 ```bash
 AWS_PROFILE=lab-admin sops decrypt --extract '["smb"]["password"]' \
   ~/code/glab/secrets/services/media/smb.sops.yaml | pbcopy
 ```
 
-In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/media`,
+In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/media`
+or `smb://10.10.50.20/torrents`,
 choose **Registered User**, name `media`, paste the password, and save it in
 the keychain. To change the password, edit the secret and rerun
 `just deliver-smb`.
