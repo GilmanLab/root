@@ -130,7 +130,7 @@ All containers see the library volume at `/data`:
 
 | Path | Purpose |
 | --- | --- |
-| `/data/torrents/{tv,movies,games}` | qBittorrent category save paths |
+| `/data/torrents/{tv,movies,games,prowlarr}` | qBittorrent category save paths |
 | `/data/torrents/incomplete` | qBittorrent incomplete downloads |
 | `/data/usenet/incomplete`, `/data/usenet/complete/<category>` | SABnzbd downloads |
 | `/data/media/{tv,movies,games}` | Sonarr, Radarr, and Gamarr root folders; Jellyfin TV and movie libraries (read-only) |
@@ -177,6 +177,12 @@ All containers see the library volume at `/data`:
     Prowlarr syncs them to Sonarr and Radarr. Add NZBgeek to Gamarr as Newznab
     the same way step 7 adds Torznab indexers. NZBFinder has no Console (1000)
     or PC (4000) categories, so Gamarr rejects it.
+11. Prowlarr: **Settings → Download Clients**, add qBittorrent (host `gluetun`,
+    port `8080`, the qBittorrent Web UI login) and SABnzbd (host `sabnzbd`,
+    port `8080`, its API key), both with category `prowlarr`. In qBittorrent
+    create category `prowlarr` → `/data/torrents/prowlarr`; in SABnzbd add
+    category `prowlarr` with folder `prowlarr`. Grabs made from Prowlarr's own
+    search are not tracked or imported by any app; they stay in that folder.
 
 ## Verify
 
