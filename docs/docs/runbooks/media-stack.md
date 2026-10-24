@@ -198,8 +198,16 @@ Jellyfin to remove it.
 | Schedule | `CRON_SCHEDULE` `17 * * * *`, running `/srv/appdata/ytdl-sub/cron` (`ytdl-sub sub`) |
 | Output | `/data/media/youtube/Kids YouTube/Season <year>/`, H.264 + AAC up to 1080p, with NFO, poster, and thumbnail |
 | Jellyfin library | **Kids YouTube**, type Shows, path `/data/media/youtube`, NFO metadata only (no internet metadata or image fetchers) |
-| Kids profile | Jellyfin user **Kids**, no password, access to **Kids YouTube** only, no deletion or downloads |
+| Kids profile | Jellyfin user **Kids**, no password, libraries **Kids YouTube** and **Shows**, **allowed tags** `kids-approved` only, no deletion or downloads |
 | Egress | Clear net, not the VPN: YouTube's bot checks hit VPN exits far more often |
+
+The Kids profile sees only series tagged `kids-approved`; a new show in the TV
+library stays hidden until it is tagged. To approve a series, open it in
+Jellyfin as an administrator, **⋮ → Edit metadata → Tags**, add
+`kids-approved`, and lock the **Tags** field so a full metadata replace cannot
+drop it. Do not allow the plain `kids` tag: TMDB adds it as a keyword to many
+shows on its own. The **Kids YouTube** series carries the tag too, so its new
+episodes appear without any step.
 
 Run a sync now, or check what a run would do:
 
