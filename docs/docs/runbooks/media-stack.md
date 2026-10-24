@@ -6,7 +6,7 @@ description: Deploy media01 on nas01, deliver the ProtonVPN key, wire the apps, 
 # Deploy and Operate the Media Stack
 
 `media01` runs Jellyfin, Sonarr, Radarr, Gamarr, Prowlarr, FlareSolverr,
-qBittorrent, and SABnzbd under Docker Compose on `nas01`. qBittorrent shares
+qBittorrent, SABnzbd, and ytdl-sub under Docker Compose on `nas01`. qBittorrent shares
 gluetun's network namespace, so its only egress is the ProtonVPN WireGuard
 tunnel. SABnzbd uses the clear net: Usenet provider traffic is TLS and nothing
 is uploaded. The OpenTofu root is `GilmanLab/fleet` `incus/media/`; its README
@@ -183,6 +183,35 @@ All containers see the library volume at `/data`:
     create category `prowlarr` → `/data/torrents/prowlarr`; in SABnzbd add
     category `prowlarr` with folder `prowlarr`. Grabs made from Prowlarr's own
     search are not tracked or imported by any app; they stay in that folder.
+
+## Kids YouTube
+
+ytdl-sub downloads a curated, unlisted YouTube playlist into the Jellyfin
+**Kids YouTube** library. Adding a video to that playlist is the approval: the
+next hourly run (minute 17) downloads it, and Jellyfin picks it up within a
+minute. Removing a video from the playlist keeps its file; delete it in
+Jellyfin to remove it.
+
+| Item | Value |
+| --- | --- |
+| Subscription | `/srv/appdata/ytdl-sub/subscriptions.yaml`, seeded once by bootstrap from `GilmanLab/fleet` `incus/media/templates/ytdl-sub/`. The playlist is unlisted; keep its URL out of this public site. |
+| Schedule | `CRON_SCHEDULE` `17 * * * *`, running `/srv/appdata/ytdl-sub/cron` (`ytdl-sub sub`) |
+| Output | `/data/media/youtube/Kids YouTube/Season <year>/`, H.264 + AAC up to 1080p, with NFO, poster, and thumbnail |
+| Jellyfin library | **Kids YouTube**, type Shows, path `/data/media/youtube`, NFO metadata only (no internet metadata or image fetchers) |
+| Kids profile | Jellyfin user **Kids**, no password, access to **Kids YouTube** only, no deletion or downloads |
+| Egress | Clear net, not the VPN: YouTube's bot checks hit VPN exits far more often |
+
+Run a sync now, or check what a run would do:
+
+```bash
+incus exec nas01:media01 -- docker exec -u 2000:2000 -w /config ytdl-sub ytdl-sub sub
+incus exec nas01:media01 -- docker exec -u 2000:2000 -w /config ytdl-sub ytdl-sub --dry-run sub
+```
+
+Scheduled runs log to `/srv/appdata/ytdl-sub/.cron.log` and `docker logs ytdl-sub`.
+If YouTube starts answering "Sign in to confirm you're not a bot", the run
+fails until the image's yt-dlp is updated (bump the `ytdl_sub` image) or a
+cookie file is added under `ytdl_options.cookiefile`.
 
 ## Verify
 
