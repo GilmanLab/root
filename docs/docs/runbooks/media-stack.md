@@ -209,14 +209,23 @@ drop it. Do not allow the plain `kids` tag: TMDB adds it as a keyword to many
 shows on its own. The **Kids YouTube** series carries the tag too, so its new
 episodes appear without any step.
 
-Run a sync now, or check what a run would do:
+Check progress, or start a sync now instead of waiting for minute 17. Both run
+from `GilmanLab/fleet` `incus/media/`:
 
 ```bash
-incus exec nas01:media01 -- docker exec -u 2000:2000 -w /config ytdl-sub ytdl-sub sub
+just youtube-status   # playlist vs downloaded, current run and file, last result, errors
+just youtube-sync     # start a run now in the background; refuses if one is running
+```
+
+`youtube-status` counts a video as downloaded once it is in ytdl-sub's download
+archive. To check what a run would do without downloading:
+
+```bash
 incus exec nas01:media01 -- docker exec -u 2000:2000 -w /config ytdl-sub ytdl-sub --dry-run sub
 ```
 
-Scheduled runs log to `/srv/appdata/ytdl-sub/.cron.log` and `docker logs ytdl-sub`.
+Scheduled and `youtube-sync` runs log to `/srv/appdata/ytdl-sub/.cron.log` and
+`docker logs ytdl-sub`.
 If YouTube starts answering "Sign in to confirm you're not a bot", the run
 fails until the image's yt-dlp is updated (bump the `ytdl_sub` image) or a
 cookie file is added under `ytdl_options.cookiefile`.
