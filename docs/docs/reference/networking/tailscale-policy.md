@@ -44,7 +44,7 @@ and trailing commas. Section syntax is documented in Tailscale's
 | `tag:subnet-router` | Devices that advertise lab and home subnet routes into the tailnet | `autogroup:admin` |
 | `tag:sandbox` | Sandbox hosts that accept advertised lab subnet routes | `autogroup:admin` |
 | `tag:agentcompute` | Durable agentcompute HTTPS service | `autogroup:admin` |
-| `tag:dntls` | `dntls` hosts; no tag-specific access rules, so only the `autogroup:admin` → `*:*` rule reaches them | `autogroup:admin` |
+| `tag:dntls` | `dntls` hosts, isolated to each other, Studio, and the MacBook | `autogroup:admin` |
 
 A tagged device is owned by its tag, not by the user who registered it. Removing
 a tag from the policy while a device still carries it leaves that device without
@@ -92,6 +92,24 @@ Policy tests allow the two service flows and deny service-to-Studio VNC,
 service-to-other-host SSH, and sandbox-to-Studio SSH. OpenSSH separately
 source-pins the service key; see the
 [Studio authorization runbook](../../runbooks/agentcompute-studio-ssh.md).
+
+`tag:dntls` hosts reach each other, Studio, and the MacBook on any port, and
+nothing else in the tailnet:
+
+| Source | Destination | Protocol | Port |
+| --- | --- | --- | --- |
+| `tag:dntls` | `tag:dntls` | Any | Any |
+| `tag:dntls` | `studio-1` (`100.122.142.76`), `studio-1-v6` (`fd7a:115c:a1e0::be39:8e4c`) | Any | Any |
+| `tag:dntls` | `macbook-pro` (`100.123.79.63`), `macbook-pro-v6` (`fd7a:115c:a1e0::e701:4f3f`) | Any | Any |
+
+Like `studio-1`, the `macbook-pro` aliases name a user-owned device; do not
+retag the MacBook. The `-v6` aliases admit each device's tailnet IPv6 address;
+MagicDNS names resolve to IPv4 only. Policy tests allow peer, Studio, and
+MacBook ports over both address families and deny an address adjacent to the
+MacBook, the other tags, the Incus cluster API, and routed lab and home hosts.
+Because routed lab addresses are denied, dntls hosts cannot use the split-DNS
+resolver `10.10.10.1` for `glab.lol` and `lab.gilman.io`. Admin-owned devices
+still reach dntls hosts through `autogroup:admin` → `*:*`.
 
 ## Credentials
 
