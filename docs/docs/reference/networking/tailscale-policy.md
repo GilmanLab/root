@@ -44,6 +44,7 @@ and trailing commas. Section syntax is documented in Tailscale's
 | `tag:subnet-router` | Devices that advertise lab and home subnet routes into the tailnet | `autogroup:admin` |
 | `tag:sandbox` | Sandbox hosts that accept advertised lab subnet routes | `autogroup:admin` |
 | `tag:agentcompute` | Durable agentcompute HTTPS service | `autogroup:admin` |
+| `tag:dntls` | `dntls` hosts; no tag-specific access rules, so only the `autogroup:admin` → `*:*` rule reaches them | `autogroup:admin` |
 
 A tagged device is owned by its tag, not by the user who registered it. Removing
 a tag from the policy while a device still carries it leaves that device without
