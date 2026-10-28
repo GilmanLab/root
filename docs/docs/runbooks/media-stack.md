@@ -21,8 +21,8 @@ lists the resources and volumes.
 | Prowlarr | `http://10.10.50.20:9696` |
 | qBittorrent | `http://10.10.50.20:8080` |
 | SABnzbd | `http://10.10.50.20:8085` |
-| Data share (SMB, read-only) | `smb://10.10.50.20/data` |
-| Games share (SMB, writable) | `smb://10.10.50.20/games` |
+| Data share (SMB; writable as `josh`, read-only as `media`) | `smb://10.10.50.20/data` |
+| Games share (SMB, writable as `media`) | `smb://10.10.50.20/games` |
 
 The address and VLAN are canonical in the
 [address plan](../reference/networking/address-plan.md). Home clients reach
@@ -90,26 +90,35 @@ any container.
 
 ## Copy files from the SMB shares
 
-Two shares for the `media` account. Only `games` is writable, so a client
-running untrusted software can damage the games folder but never movies or TV:
+Two shares and two logins. `media` is the login for clients that run
+untrusted software, such as win01: it can read everything but write only to
+`games`, so such a client can damage the games folder but never movies or TV.
+`josh` is the login for trusted desktops and can write anywhere in `data`.
 
-| Share | Path | Contents |
-| --- | --- | --- |
-| `data` | `/data` | Everything: the library (`media/games`, `media/movies`, `media/tv`, `media/youtube`), qBittorrent downloads under `torrents` (including releases no app imported), and Usenet downloads under `usenet`. Read-only, so nothing can alter a file that is still seeding. New folders appear without a share change. |
-| `games` | `/data/media/games` | Writable: put rebuilt game files (for example NSPs extracted by a repack installer) back into the library. New files are `media`-owned, mode `0664`, so Gamarr can manage them. |
+| Share | Path | Contents | `media` | `josh` |
+| --- | --- | --- | --- | --- |
+| `data` | `/data` | Everything: the library (`media/games`, `media/movies`, `media/tv`, `media/youtube`), qBittorrent downloads under `torrents` (including releases no app imported), and Usenet downloads under `usenet`. New folders appear without a share change. | Read | Read/write |
+| `games` | `/data/media/games` | Rebuilt game files (for example NSPs extracted by a repack installer) going back into the library. | Read/write | No access |
 
-The password is in `GilmanLab/secrets` `services/media/smb.sops.yaml`; copy it
-to the clipboard with:
+Files written through either share are owned by `media:media` with mode `0664`
+(directories `0775`), so Sonarr, Radarr, Gamarr, and Jellyfin can manage them.
+Writing as `josh` reaches files qBittorrent is still seeding: changing or
+deleting one under `torrents` breaks that torrent, and a library file under
+`media` may be a hardlink of one. Delete library items in the owning app
+(Sonarr, Radarr, Gamarr) rather than in Finder when you can.
+
+The passwords are in `GilmanLab/secrets` `services/media/smb.sops.yaml`
+(`password` for `media`, `josh_password` for `josh`); copy one to the clipboard
+with:
 
 ```bash
-AWS_PROFILE=lab-admin sops decrypt --extract '["smb"]["password"]' \
+AWS_PROFILE=lab-admin sops decrypt --extract '["smb"]["josh_password"]' \
   ~/code/glab/secrets/services/media/smb.sops.yaml | pbcopy
 ```
 
-In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/data`
-or `smb://10.10.50.20/games`,
-choose **Registered User**, name `media`, paste the password, and save it in
-the keychain. To change the password, edit the secret and rerun
+In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/data`,
+choose **Registered User**, name `josh`, paste the password, and save it in
+the keychain. To change a password, edit the secret and rerun
 `just deliver-smb`.
 
 ## Wire the apps
