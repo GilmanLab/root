@@ -21,8 +21,7 @@ lists the resources and volumes.
 | Prowlarr | `http://10.10.50.20:9696` |
 | qBittorrent | `http://10.10.50.20:8080` |
 | SABnzbd | `http://10.10.50.20:8085` |
-| Library share (SMB, read-only) | `smb://10.10.50.20/media` |
-| Downloads share (SMB, read-only) | `smb://10.10.50.20/torrents` |
+| Data share (SMB, read-only) | `smb://10.10.50.20/data` |
 | Games share (SMB, writable) | `smb://10.10.50.20/games` |
 
 The address and VLAN are canonical in the
@@ -91,13 +90,12 @@ any container.
 
 ## Copy files from the SMB shares
 
-Three shares for the `media` account. Only `games` is writable, so a client
+Two shares for the `media` account. Only `games` is writable, so a client
 running untrusted software can damage the games folder but never movies or TV:
 
 | Share | Path | Contents |
 | --- | --- | --- |
-| `media` | `/data/media` | The imported library: `games`, `movies`, `tv` |
-| `torrents` | `/data/torrents` | qBittorrent downloads, including releases no app imported. Read-only so nothing can alter a file that is still seeding. |
+| `data` | `/data` | Everything: the library (`media/games`, `media/movies`, `media/tv`, `media/youtube`), qBittorrent downloads under `torrents` (including releases no app imported), and Usenet downloads under `usenet`. Read-only, so nothing can alter a file that is still seeding. New folders appear without a share change. |
 | `games` | `/data/media/games` | Writable: put rebuilt game files (for example NSPs extracted by a repack installer) back into the library. New files are `media`-owned, mode `0664`, so Gamarr can manage them. |
 
 The password is in `GilmanLab/secrets` `services/media/smb.sops.yaml`; copy it
@@ -108,8 +106,8 @@ AWS_PROFILE=lab-admin sops decrypt --extract '["smb"]["password"]' \
   ~/code/glab/secrets/services/media/smb.sops.yaml | pbcopy
 ```
 
-In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/media`,
-`smb://10.10.50.20/torrents`, or `smb://10.10.50.20/games`,
+In Finder, **Go → Connect to Server** (`⌘K`), enter `smb://10.10.50.20/data`
+or `smb://10.10.50.20/games`,
 choose **Registered User**, name `media`, paste the password, and save it in
 the keychain. To change the password, edit the secret and rerun
 `just deliver-smb`.
