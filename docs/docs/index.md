@@ -60,3 +60,6 @@ and runbook lives here.
 - [Deploy the VyOS gateway configuration](runbooks/vyos-gateway-deployment.md)
   covers validation, inspection, guarded deployment, verification, and
   console recovery for `gw01`.
+- [Deploy and operate Calagopus](runbooks/calagopus.md) covers deploying
+  `calagopus01`, installing panel extensions, creating modded Minecraft
+  servers, and recovery.
