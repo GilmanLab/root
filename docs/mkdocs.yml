@@ -65,6 +65,7 @@ nav:
       - Deploy private image runners: runbooks/private-image-runners.md
       - Deploy and operate the media stack: runbooks/media-stack.md
       - Deploy and use the Windows VM: runbooks/windows-vm.md
+      - Deploy and operate Calagopus: runbooks/calagopus.md
 
 plugins:
   - search
