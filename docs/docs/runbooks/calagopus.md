@@ -18,6 +18,7 @@ and image pins.
 | Panel | `http://10.10.50.40:8000` |
 | SFTP | `10.10.50.40:2022`, panel username and password |
 | Game servers | `10.10.50.40:25565`–`25600` (panel allocations) |
+| Agent SSH (key-only, passwordless `sudo`) | `ssh -i <key> agent@10.10.50.40`; public key in `incus/calagopus` `agent_ssh_authorized_key`, host key `SHA256:KCgI72gaW94nYPeI0a36P/xCPVbTu5AgctEjirxE1l4` |
 | Administrator | `admin.username` / `admin.password` in `GilmanLab/secrets` `services/calagopus/panel.sops.yaml` |
 
 ## Preconditions
@@ -137,6 +138,28 @@ start failing.
   the new version; read the Calagopus release notes first.
 - **Backups**: server backups land in `/var/lib/calagopus-wings/backups` on the
   data volume. They do not leave `lab01`.
+
+## Rotate the agent SSH key
+
+The `agent` account is the only SSH login. It accepts only the key in
+`agent_ssh_authorized_key` and has passwordless `sudo`, which includes Docker
+and therefore every game server and the panel. The private key lives with the
+operator and the Windows agents it was handed to; it is not escrowed.
+
+1. Generate a replacement:
+   `ssh-keygen -t ed25519 -N "" -C "windows-agents->calagopus01" -f ~/.ssh/calagopus01-agents`.
+2. Set `agent_ssh_authorized_key` to the new public key, then `just plan` and
+   `just apply`. Cloud-init applies it only to a newly created VM.
+3. Replace it on the running VM:
+
+   ```bash
+   incus file push --uid 0 --gid 0 --mode 0600 ~/.ssh/calagopus01-agents.pub \
+     nas01:calagopus01/home/agent/.ssh/authorized_keys
+   incus exec nas01:calagopus01 -- chown agent:agent /home/agent/.ssh/authorized_keys
+   ```
+
+4. Confirm `ssh -i ~/.ssh/calagopus01-agents -o IdentitiesOnly=yes agent@10.10.50.40 sudo -n true`
+   succeeds and the old key is refused, then hand the new private key over.
 
 ## Recovery
 

@@ -71,7 +71,7 @@ by the `GilmanLab/fleet` `cluster/` project and mirrored in each node's seed.
 | `agentcompute01` MCP service | `10.10.10.16` | Static `/32` on a routed Incus NIC through `lab01`'s `_vmgmt` interface; host gateway `169.254.0.1` |
 | `media01` media stack | `10.10.50.20` | Static VM interface; macvlan on `nas01`'s IncusOS `fast50` interface |
 | `win01` Windows desktop | `10.10.50.30` | Static guest-configured address; macvlan on `lab02`'s IncusOS `fast50` interface |
-| `calagopus01` game server panel | `10.10.50.40` | Static VM interface; macvlan on `lab01`'s IncusOS `fast50` interface. Panel `8000`, SFTP `2022`, game allocations `25565`–`25600` |
+| `calagopus01` game server panel | `10.10.50.40` | Static VM interface; macvlan on `lab01`'s IncusOS `fast50` interface. SSH `22`, panel `8000`, SFTP `2022`, game allocations `25565`–`25600` |
 
 ### Hosts
 
