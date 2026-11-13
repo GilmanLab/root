@@ -6,7 +6,8 @@ description: Change, verify, roll back, or emergency-edit the tailnet policy fil
 # Change the Tailscale policy
 
 Use this runbook to change the tailnet policy file: tags, auto-approved routes,
-access rules, or Tailscale SSH access. Field-level facts live in the
+node attributes, access rules, or Tailscale SSH access. Field-level facts live
+in the
 [Tailscale policy reference](../reference/networking/tailscale-policy.md).
 
 ## Preconditions
