@@ -6,8 +6,8 @@ description: Tailnet identity, policy file location, tags, and the credentials t
 # Tailscale policy
 
 The tailnet policy file is the canonical definition of tag ownership,
-auto-approved subnet routes, network access rules, and Tailscale SSH access. It
-is applied by CI, not by hand;
+auto-approved subnet routes, node attributes, network access rules, and
+Tailscale SSH access. It is applied by CI, not by hand;
 [ADR-0002](../../decisions/0002-manage-tailscale-policy-with-gitops.md) records
 why. To change it, follow the
 [policy change runbook](../../runbooks/tailscale-policy-change.md).
@@ -113,6 +113,18 @@ and routed lab and home hosts. Because routed lab addresses are denied, dntls
 hosts cannot use the split-DNS resolver `10.10.10.1` for `glab.lol` and
 `lab.gilman.io`. Admin-owned devices still reach dntls hosts through
 `autogroup:admin` → `*:*`.
+
+## Node attributes
+
+| Target | Attribute | Effect |
+| --- | --- | --- |
+| `studio-1` (`100.122.142.76`) | `funnel` | Studio may run [Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel) |
+
+The attribute targets the `studio-1` host alias, so only Studio can start a
+funnel; Studio stays user-owned and untagged. The attribute permits Funnel but
+exposes nothing by itself: a service becomes publicly reachable only while
+`tailscale funnel` is serving it on Studio. Funnel also needs tailnet HTTPS
+certificates, which are enabled.
 
 ## Credentials
 
