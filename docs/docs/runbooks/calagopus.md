@@ -20,6 +20,7 @@ and image pins.
 | Game servers | `10.10.50.40:25565`–`25600` (panel allocations) |
 | Agent SSH (key-only, passwordless `sudo`) | `ssh -i <key> agent@10.10.50.40`; public key in `incus/calagopus` `agent_ssh_authorized_key`, host key `SHA256:KCgI72gaW94nYPeI0a36P/xCPVbTu5AgctEjirxE1l4` |
 | Administrator | `admin.username` / `admin.password` in `GilmanLab/secrets` `services/calagopus/panel.sops.yaml` |
+| Internet players | playit.gg tunnels, defined in the playit.gg account; agent key `playit.secret_key` in `panel.sops.yaml` |
 
 ## Preconditions
 
@@ -64,8 +65,9 @@ If `just apply` fails with `The requested image couldn't be found`, the pinned
 `images:` fingerprint has expired. Pin the current
 `images:ubuntu/26.04/cloud` VM fingerprint in `variables.tf` and plan again.
 
-`deliver-secrets` writes `/etc/calagopus/panel.env` and starts the stack. The
-panel answers on port 8000 within about a minute.
+`deliver-secrets` writes `/etc/calagopus/panel.env` and
+`/etc/calagopus/playit.secret`, then starts the stack. The panel answers on
+port 8000 within about a minute.
 
 ## Finish the first-run wizard
 
@@ -127,6 +129,30 @@ start failing.
 - **Admin → Nodes → lab01** shows the node online.
 - A server's console streams output in the browser, and a Minecraft client
   connects to its allocation.
+
+## Open a server to internet players
+
+Players outside the house connect through [playit.gg](https://playit.gg). The
+`playit` compose service runs the playit agent with host networking. It dials
+out to playit, so neither gw01 nor rtr01 has an inbound rule, and the home IP
+stays private. playit relays the traffic, which can add some latency.
+
+1. Turn the whitelist on before the server is public. In the server console:
+   `whitelist add <name>` for each player, then `whitelist on`. Operators join
+   without being listed.
+2. In the playit.gg account, open the `calagopus01` agent and **Add Tunnel**:
+   type **Minecraft Java**, local address `10.10.50.40`, local port the
+   server's allocation port. Tunnel creation needs a verified email. The agent
+   key is read-only and cannot create tunnels through the API.
+3. Give players the tunnel's address (`<name>.joinmc.link` or the shown
+   `host:port`). Confirm a join from outside the house.
+
+One tunnel serves one server. Delete the tunnel in the playit.gg account to
+close a server again. `docker logs calagopus-playit-1` on the VM shows whether
+the agent is connected.
+
+The agent key comes from the playit.gg Docker setup wizard. To replace it, set
+`playit.secret_key` in `panel.sops.yaml` and run `just deliver-secrets`.
 
 ## Day-2 operations
 
