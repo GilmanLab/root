@@ -181,6 +181,21 @@ All containers see the library volume at `/data`:
     create category `prowlarr` → `/data/torrents/prowlarr`; in SABnzbd add
     category `prowlarr` with folder `prowlarr`. Grabs made from Prowlarr's own
     search are not tracked or imported by any app; they stay in that folder.
+12. Sonarr, Radarr, and Gamarr: **Settings → Media Management → Recycling
+    Bin** `/data/.recycle/<app>` (`sonarr`, `radarr`, `gamarr`), cleanup 7
+    days. Deleted and replaced files land there instead of being erased; the
+    folder is on the same filesystem, so the move is instant.
+13. Sonarr: **Settings → Custom Formats**, add `Not English` (Language
+    conditions for German, French, Spanish, Spanish (Latino), Italian,
+    Portuguese, Portuguese (Brazil), Russian, Polish, Dutch, Chinese, Korean,
+    Hindi, Arabic, and Turkish) and `Bahamut raws` (Release Title `\bBaha\b`).
+    Score both `-10000` in every quality profile; the profile minimum of `0`
+    then rejects them. Keep the two formats separate: a format matches only
+    when at least one condition of each condition type matches, so mixing
+    Language and Release Title conditions in one format makes it require both.
+    Releases with no language tag count as the series' original language, so
+    an "everything except English" condition would also reject untagged English
+    releases of shows that originated in Japan.
 
 ## Kids YouTube
 
@@ -276,6 +291,28 @@ just sync-compose
     --data 'json={"disk_io_type":2}' http://127.0.0.1:8080/api/v2/app/setPreferences
   incus exec nas01:media01 -- docker restart qbittorrent
   ```
+- **Files deleted by mistake:** Sonarr, Radarr, and Gamarr deletions sit in
+  `/data/.recycle/<app>` for 7 days. Anything else, including SMB deletions,
+  is in the daily ZFS snapshots of the `media` volume (kept 7 days,
+  `snapshots.schedule` on the volume in `incus/media/main.tf`). List them, then
+  copy files back from a temporary clone instead of restoring the whole
+  volume, which would roll back every download and import since:
+
+  ```bash
+  incus storage volume snapshot list nas01:bulk media
+  incus storage volume copy nas01:bulk/media/daily-YYYY-MM-DD nas01:bulk/media-restore --target nas01
+  incus storage volume attach nas01:bulk media-restore media01 restore /mnt/restore
+  # copy what you need from /mnt/restore inside media01, then:
+  incus storage volume detach nas01:bulk media-restore media01
+  incus storage volume delete nas01:bulk media-restore
+  ```
+
+- **Sonarr manual import through the API:** never pass `seriesId` to
+  `GET /api/v3/manualimport` together with `folder`. With `seriesId`, Sonarr
+  ignores `folder` and returns the series' existing library files; importing
+  that list deletes them. Use `folder` plus `downloadId` only, and check that
+  every returned path is under the download folder before posting the
+  `ManualImport` command.
 
 ## Hardware transcoding
 
