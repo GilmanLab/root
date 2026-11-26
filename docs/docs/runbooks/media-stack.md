@@ -185,17 +185,25 @@ All containers see the library volume at `/data`:
     Bin** `/data/.recycle/<app>` (`sonarr`, `radarr`, `gamarr`), cleanup 7
     days. Deleted and replaced files land there instead of being erased; the
     folder is on the same filesystem, so the move is instant.
-13. Sonarr: **Settings → Custom Formats**, add `Not English` (Language
-    conditions for German, French, Spanish, Spanish (Latino), Italian,
-    Portuguese, Portuguese (Brazil), Russian, Polish, Dutch, Chinese, Korean,
-    Hindi, Arabic, and Turkish) and `Bahamut raws` (Release Title `\bBaha\b`).
-    Score both `-10000` in every quality profile; the profile minimum of `0`
-    then rejects them. Keep the two formats separate: a format matches only
-    when at least one condition of each condition type matches, so mixing
+13. Sonarr: **Settings → Custom Formats**, add three formats and score each
+    `-10000` in every quality profile; the profile minimum of `0` then rejects
+    them:
+    - `Not English`: one Language condition per language Sonarr knows, except
+      English, Japanese, Unknown, and Original (44 languages, Greek
+      included).
+    - `Bahamut raws`: Release Title `\bBaha\b`.
+    - `Beyblade sub-series S01 numbering`: Release Title
+      `\bBeyblade[ ._-]?Burst[ ._-]?(Rise|Turbo|Evolution|Surge|Quad[ ._-]?Drive|Quad[ ._-]?Strike|Gachi|God|Cho[ ._-]?Z|GT|Super[ ._-]?King|Sparking|Dynamite|DB)[ ._-]+S0?1E\d`.
+      Releases of later Beyblade Burst seasons number themselves from S01;
+      Sonarr matches them by ID to TVDB season 1 otherwise.
+
+    Keep formats with different condition types separate: a format matches
+    only when at least one condition of each condition type matches, so mixing
     Language and Release Title conditions in one format makes it require both.
-    Releases with no language tag count as the series' original language, so
-    an "everything except English" condition would also reject untagged English
-    releases of shows that originated in Japan.
+    Japanese stays allowed because releases with no language tag count as the
+    series' original language: excluding it, or using "everything except
+    English", would also reject untagged English releases of shows that
+    originated in Japan.
 
 ## Kids YouTube
 
